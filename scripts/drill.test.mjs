@@ -37,7 +37,7 @@ function questions(count, levels = [1]) {
     return {
       level,
       topic: `topic${level}`,
-      question: `Synthetic question ${index + 1}`,
+      question: `Synthetic question ${level}-${index + 1}`,
       grounding: [`src/file${index + 1}.js:${index + 1}`],
       reference: `Synthetic reference for question ${index + 1}. It cites src/file${index + 1}.js:${index + 1}.`,
       followups: ['What changes if this assumption fails?'],
@@ -72,6 +72,15 @@ test('add rejects bad grounding and assigns sequential ids', () => {
   assert.deepEqual(bank.questions.map((question) => question.id), ['q001', 'q002', 'q003']);
 });
 
+test('add skips duplicate question text', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  const question = questions(1)[0];
+  add(testHome, 'demo', [question]);
+  const result = add(testHome, 'demo', [{ ...question, question: `  ${question.question}  ` }]);
+  assert.deepEqual(result, { added: 0, skipped: 1, total: 1 });
+});
+
 test('next never includes reference', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
@@ -92,16 +101,37 @@ test('spacing intervals follow wrong, partial, correct, correct, correct', () =>
   assert.equal(spacingInterval([{ grade: 'correct' }, { grade: 'correct' }, { grade: 'partial' }]), 8);
 });
 
-test('due counting uses sessions, not days', () => {
-  const testHome = home();
+test('due counting follows the corrected session math', () => {
+  let testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', questions(1));
+  run(testHome, ['record', 'demo', 'q001', '--grade', 'wrong', '--answer', 'x', '--gap', 'g'], '2026-09-04T12:00:00Z');
+  let status = run(testHome, ['status', 'demo'], '2026-09-05T12:00:00Z');
+  assert.equal(status.due, 1);
+
+  testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   add(testHome, 'demo', questions(2));
-  run(testHome, ['record', 'demo', 'q001', '--grade', 'wrong', '--answer', 'x', '--gap', 'g'], '2026-01-01T12:00:00Z');
-  let status = run(testHome, ['status', 'demo'], '2026-01-20T12:00:00Z');
-  assert.equal(status.due, 1); // Only the never-attempted question is due; calendar distance is ignored.
-  run(testHome, ['record', 'demo', 'q002', '--grade', 'correct', '--answer', 'x', '--gap', ''], '2026-01-02T12:00:00Z');
-  status = run(testHome, ['status', 'demo'], '2026-02-01T12:00:00Z');
-  assert.equal(status.due, 1); // The new recorded session makes q001 due.
+  run(testHome, ['record', 'demo', 'q001', '--grade', 'partial', '--answer', 'x', '--gap', 'g'], '2026-09-03T12:00:00Z');
+  run(testHome, ['record', 'demo', 'q002', '--grade', 'correct', '--answer', 'x', '--gap', ''], '2026-09-04T12:00:00Z');
+  status = run(testHome, ['status', 'demo'], '2026-09-05T12:00:00Z');
+  assert.equal(status.due, 1);
+
+  testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', questions(1));
+  run(testHome, ['record', 'demo', 'q001', '--grade', 'correct', '--answer', 'x', '--gap', ''], '2026-09-04T12:00:00Z');
+  status = run(testHome, ['status', 'demo'], '2026-09-05T12:00:00Z');
+  assert.equal(status.due, 0);
+
+  testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', questions(4));
+  for (const [id, date] of [['q001', '2026-09-01T12:00:00Z'], ['q002', '2026-09-02T12:00:00Z'], ['q003', '2026-09-03T12:00:00Z'], ['q004', '2026-09-04T12:00:00Z']]) {
+    run(testHome, ['record', 'demo', id, '--grade', 'correct', '--answer', 'x', '--gap', ''], date);
+  }
+  status = run(testHome, ['status', 'demo'], '2026-09-05T12:00:00Z');
+  assert.equal(status.due, 1);
 });
 
 test('mock ignores scores and returns the requested distribution', () => {

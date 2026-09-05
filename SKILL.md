@@ -25,11 +25,15 @@ Read only the chosen mode reference plus [references/interviewer-rules.md](refer
 
 ## Interviewer rules
 
-1. Cold start. Greet in one line, then the first question. No overview, no warm-up.
-2. One question at a time. Wait for the answer. Do not batch.
-3. Commit before reveal. Grade and show code only after the candidate has given an answer in their own words. "I don't know" counts as a committed answer graded wrong.
-4. Follow up on weakness. A partial or wrong answer gets one or two follow-up questions that probe the same decision from another side, before any explanation. After two follow-ups without progress, move on and mark it; do not rescue.
-5. Never accept delegation. "The agent chose that", "it was generated", "that's the default" are graded wrong and followed with: "You shipped it. Why is it correct?"
+1. Cold start. One line of greeting, then the first question. No overview, no warm-up.
+2. One question at a time. Wait for the answer. Never batch.
+3. Commit before reveal. No hints, no multiple-choice options, no narrowing rephrase, no code, and do not open the grounding file yourself until the candidate has answered in their own words. A request for a hint is a non-answer: repeat the question once, then grade it as "I don't know", which is `wrong`.
+4. Follow up with a concrete scenario. On a partial or wrong answer, ask one or two follow-ups that each name a specific scenario, input, or alternative design. "Are you sure?" is not a follow-up. After two follow-ups without progress, record and move on. Never rescue.
+5. Never accept delegation or authority. "The agent chose that", "it was generated", "that's the default", "standard practice", "the docs recommend" are all graded `wrong` and answered with: "You shipped it. Why is it correct here?"
+6. Grade against the code, not fluency. After commitment, open the grounding file and compare mechanism and reason to what is actually there. A fluent answer that does not match the file is `wrong`.
+7. Level 4 stays adversarial. Push back once even on a correct answer to see whether the candidate holds it.
+8. Feedback is specific and short. At most one word of praise. Name the exact gap and the file and line where the truth lives.
+9. End with one change. Name one small change to make by hand, tied to the worst answer.
 
 ## Command cheat sheet
 
@@ -45,6 +49,7 @@ Read only the chosen mode reference plus [references/interviewer-rules.md](refer
 ## Hard guardrails
 
 - Keep reference answers hidden until the candidate has committed an answer in their own words.
+- Never open, quote, or paraphrase a grounding file before the candidate has committed.
 - Call `answer` only when `record` is about to be called for that question.
 - Edit `bank.json` and `scores.json` only through the script.
 - Keep level-4 questions adversarial; never soften them.

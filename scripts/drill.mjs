@@ -121,12 +121,13 @@ function distinctSessions(attempts) {
   return [...new Set(attempts.map((attempt) => attempt.session))].sort();
 }
 
-function dueFor(state, question, sessions = distinctSessions(state.scores.attempts)) {
+function dueFor(state, question, sessions = distinctSessions(state.scores.attempts), today = sessionDate()) {
   const history = attemptsFor(state, question.id);
   if (!history.length) return true;
   const lastSession = history[0].session;
-  const after = sessions.filter((session) => session > lastSession).length;
-  return after >= spacingInterval(history);
+  const between = sessions.filter((session) => session > lastSession && session < today).length;
+  const todayCounts = today > lastSession ? 1 : 0;
+  return between + todayCounts >= spacingInterval(history);
 }
 
 function attemptSummary(state, question) {
@@ -233,12 +234,22 @@ function commandAdd(positionals) {
   if (!Array.isArray(input)) fail('add file must contain a JSON array');
   input.forEach(validateQuestion);
   let nextId = state.bank.questions.reduce((max, item) => Math.max(max, Number(/^q(\d+)$/.exec(item.id)?.[1] || 0)), 0) + 1;
+  const questionTexts = new Set(state.bank.questions.map((item) => item.question.trim()));
+  let added = 0;
+  let skipped = 0;
   for (const item of input) {
+    const questionText = item.question.trim();
+    if (questionTexts.has(questionText)) {
+      skipped += 1;
+      continue;
+    }
     state.bank.questions.push({ ...item, id: `q${String(nextId).padStart(3, '0')}`, added: sessionDate() });
+    questionTexts.add(questionText);
     nextId += 1;
+    added += 1;
   }
-  writeJson(state.bank && state.bankFile ? state.bankFile : filesFor(positionals[0]).bank, state.bank);
-  json({ added: input.length, total: state.bank.questions.length });
+  writeJson(filesFor(positionals[0]).bank, state.bank);
+  json({ added, skipped, total: state.bank.questions.length });
 }
 
 function commandNext(positionals, options) {

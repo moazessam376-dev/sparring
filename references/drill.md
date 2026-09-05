@@ -7,3 +7,5 @@
 5. If time remains, start the code-reading block from the worst answer's grounding file; follow [read.md](read.md).
 
 Grade `correct` only when both mechanism and reason are right and the candidate could reproduce the decision. Grade `partial` when the mechanism is right but the reason is missing, or the reason is right but the mechanism is vague. Grade `wrong` for neither, delegation, or a confident wrong claim.
+
+Accuracy counts `correct` as 1, `partial` as 0.5, and `wrong` as 0.
