@@ -1,11 +1,11 @@
-# Build a question bank
+# Build a card bank
 
-1. Run `drill.mjs init <project> --repo <path>`; repeat runs must preserve existing questions and scores.
+1. Run `drill.mjs init <project> --repo <path>`; repeat runs must preserve existing cards and scores.
 2. Survey the repository structure yourself, or use a cheap read-only sub-agent if the host supports one. Identify six to ten decision-dense areas. For a Supabase app, inspect RLS policies, migrations, auth and role resolution, storage rules, edge functions, the client data layer, payments, and secrets handling.
-3. For each area write four to eight questions across the levels. Target forty to sixty questions, roughly 25 percent level 1, 35 percent level 2, 25 percent level 3, and 15 percent level 4. Open every grounding file and line before writing its question. Make level-3 bug reports plausible and location-based. Make level 4 questions attack the design or adopt a sceptical senior stance.
-4. Write questions to a temporary JSON array without `id` or `added`, then run `drill.mjs add <project> <file.json>`. Let the script assign ids and validate the input.
-5. Run `drill.mjs status <project>` and show the level distribution. Keep all reference answers hidden.
-6. When status reports fewer than ten never-attempted questions, generate ten to fifteen more in the weakest topics and add them.
+3. For each area write four to eight concept cards across the levels. Target forty to sixty cards, roughly 25 percent level 1, 35 percent level 2, 25 percent level 3, and 15 percent level 4. Open every grounding file and line before writing its rubric. Make level-3 bug reports plausible and location-based. Make level 4 cards attack the design or adopt a sceptical senior stance.
+4. Write cards to a temporary JSON array without `id`, `added`, or `sched`, then run `drill.mjs add <project> <file.json>`. Each card names a `concept`, gives an answer-free `ask`, lists a one-to-six item `rubric`, includes `grounding`, `contexts`, and `source`. Let the script assign ids and validate the input.
+5. Run `drill.mjs status <project>` and show the level distribution. Keep every rubric and grounding entry hidden during a drill.
+6. When status reports fewer than ten new cards, generate ten to fifteen more in the weakest topics and add them.
 
 ## Example stems
 
