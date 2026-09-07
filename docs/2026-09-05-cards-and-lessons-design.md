@@ -1,10 +1,10 @@
 # Concept cards, Anki-style scheduling, and foundations lessons
 
-Date: 2026-09-05. Owner: Moaz Essam. Supersedes the question-and-session model in the first version of the drill.
+Date: 2026-09-05. Owner: the owner. Supersedes the question-and-session model in the first version of the drill.
 
 ## Why
 
-The first drill session showed two things. The owner's floor on the fundamentals behind his own app is near zero (database roles, RLS, policies, PostgREST, JWT claims, `auth.uid()` all self-rated "no"; migrations "roughly"). And fixed questions can be pattern-matched once seen. So the unit of learning becomes a concept card with a hidden rubric, asked in fresh wording and a fresh context every time, scheduled by days with an ease factor the way Anki does. Lessons feed cards; drills consume cards; lessons come before drills on any topic where the floor is missing.
+The first drill session showed that the floor on the fundamentals behind the app was measured and found low. Fixed questions can also be pattern-matched once seen. So the unit of learning becomes a concept card with a hidden rubric, asked in fresh wording and a fresh context every time, scheduled by days with an ease factor the way Anki does. Lessons feed cards; drills consume cards; lessons come before drills on any topic where the floor is missing.
 
 ## Part 1: the script (`scripts/drill.mjs`)
 
@@ -14,7 +14,7 @@ The first drill session showed two things. The owner's floor on the fundamentals
 {
   "version": 2,
   "project": "raptor",
-  "repo": "/Users/moazessam/Projects/Gym-App",
+  "repo": "/path/to/repo",
   "cards": [
     {
       "id": "c001",
@@ -109,7 +109,7 @@ Design tokens and typography as in `assets/lesson.css`. Dark, one amber accent, 
 
 ### The Raptor foundations series: a request's journey
 
-Written in this order, each grounded in the Gym-App repo. Numbering continues from 0002 because 0001 is the definer lesson.
+Written in this order, each grounded in the owner's app. Numbering continues from 0002 because 0001 is the definer lesson.
 
 - **0002 The path.** App to PostgREST to Postgres and back. Introduces the Supabase client, the anon key and why it is safe to ship, PostgREST as the HTTP layer that turns a URL into SQL, REST table calls versus `rpc`. Code: `src/lib/supabase.ts`, one table query, one `rpc` call.
 - **0003 Who is asking.** The JWT: issued by Supabase Auth at sign-in, sent as a header, signed so it cannot be edited, decoded by anyone, verified by the server. Claims. `decode` versus `verify`. Code: `src/lib/jwt.ts`, the access-token hook in `supabase/migrations/0004_access_token_hook.sql`.

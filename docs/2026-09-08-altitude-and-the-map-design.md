@@ -53,4 +53,4 @@ One page per project, the main road. Requirements:
 
 1. Script and references for altitude, shapes, `remove`, tests.
 2. `templates/map.html` and the format rules.
-3. The first map, for the owner's Raptor project, in the private workspace; refine pass on the converted cards with altitude assigned.
+3. The first map, for the owner's project, in the private workspace; refine pass on the converted cards with altitude assigned.
