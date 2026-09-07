@@ -33,4 +33,4 @@ node scripts/drill.mjs status demo
 
 For an existing v1 bank, run `node scripts/drill.mjs migrate <project>` once. It creates `.v1.json` backups; the migration is not run automatically.
 
-The remaining commands are `init`, `migrate`, `add`, `next`, `answer`, `record`, `refine`, `update`, `gaps`, `mock`, `status`, and `note`.
+The remaining commands are `init`, `migrate`, `add`, `next`, `answer`, `record`, `remove`, `refine`, `update`, `gaps`, `mock`, `status`, and `note`.

@@ -9,3 +9,4 @@
 7. Level 4 stays adversarial. Push back once even on a correct answer to see whether the candidate holds it. Rationale: senior interviews test whether a correct position survives scrutiny.
 8. Feedback is specific and short. At most one word of praise. Name the exact gap and the file and line where the truth lives. Rationale: precise feedback creates a repair target without turning the interview into a lecture.
 9. End with one change. Name one small change to make by hand, tied to the worst answer. Rationale: a hand-made change converts recognition into demonstrated ownership.
+11. At map and boundary altitude, reward a committed best guess with a verification plan over silence; grade the guess. Rationale: strategic decisions are often made with incomplete information, so the interview tests judgment and a way to reduce uncertainty rather than punishing a candidate for not having perfect recall.

@@ -31,12 +31,14 @@ function runFail(testHome, args, message = 'bank is v1; run migrate') {
   assert.fail('command unexpectedly succeeded');
 }
 
-function cards(count, levels = [1], contexts = ['raptor', 'library', 'hospital']) {
+function cards(count, levels = [1], contexts = ['raptor', 'library', 'hospital'], altitudes = ['mechanism']) {
   return Array.from({ length: count }, (_, index) => {
     const level = Array.isArray(levels) ? levels[index % levels.length] : levels(index);
+    const altitude = Array.isArray(altitudes) ? altitudes[index % altitudes.length] : altitudes(index);
     return {
       level,
       topic: `topic${level}`,
+      altitude,
       concept: `Synthetic concept ${level}-${index + 1}`,
       ask: `Explain synthetic concept ${level}-${index + 1} in the suggested context.`,
       rubric: [`The answer names the mechanism for concept ${index + 1}.`, 'The answer explains why the mechanism is correct.'],
@@ -85,6 +87,21 @@ test('add validates contexts, skips duplicate concepts, and assigns card ids', (
   assert.deepEqual(bank.cards[0].sched, { interval: 0, ease: 2.5, due: '2026-09-05', reps: 0, lapses: 0, lastGrade: null });
 });
 
+test('add requires a valid altitude on every card', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  const missing = { ...cards(1)[0] };
+  delete missing.altitude;
+  const missingFile = path.join(testHome, 'missing-altitude.json');
+  fs.writeFileSync(missingFile, JSON.stringify([missing, cards(1)[0]]));
+  runFail(testHome, ['add', 'demo', missingFile], 'card 1 altitude must be one of map, boundary, mechanism, line');
+  const invalid = { ...cards(1)[0], altitude: 'summit' };
+  const invalidFile = path.join(testHome, 'invalid-altitude.json');
+  fs.writeFileSync(invalidFile, JSON.stringify([invalid]));
+  runFail(testHome, ['add', 'demo', invalidFile], 'card 1 altitude must be one of map, boundary, mechanism, line');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'bank.json'))).cards, []);
+});
+
 test('v1 commands fail, while status warns and migrate converts with backups', () => {
   const testHome = home();
   const dir = path.join(testHome, 'demo');
@@ -126,12 +143,33 @@ test('v1 commands fail, while status warns and migrate converts with backups', (
   assert.deepEqual(v2Bank.cards[0].contexts, ['raptor', 'generic', 'other-domain']);
   assert.equal(v2Bank.cards[0].sched.interval, 3);
   assert.equal(v2Bank.cards[0].needsRewrite, true);
+  assert.equal(v2Bank.cards[0].altitude, 'mechanism');
   assert.equal(v2Scores.attempts[0].cardId, 'q001');
   assert.equal(v2Scores.attempts[0].question, 'Why does the server verify the token?');
   assert.equal(v2Scores.attempts[0].context, 'raptor');
   const before = fs.readFileSync(path.join(dir, 'bank.json'), 'utf8');
-  assert.deepEqual(run(testHome, ['migrate', 'demo']), { project: 'demo', migrated: false, alreadyV2: true, unchanged: true, cards: 1 });
+  assert.deepEqual(run(testHome, ['migrate', 'demo']), { project: 'demo', migrated: false, alreadyV2: true, unchanged: true, cards: 1, upgraded: 0 });
   assert.equal(fs.readFileSync(path.join(dir, 'bank.json'), 'utf8'), before);
+});
+
+test('migrate upgrades missing v2 altitudes and is idempotent', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(3, [1, 2, 3], ['raptor'], ['map', 'boundary', 'line']));
+  const bankFile = path.join(testHome, 'demo', 'bank.json');
+  const bank = JSON.parse(fs.readFileSync(bankFile));
+  delete bank.cards[0].altitude;
+  delete bank.cards[1].altitude;
+  fs.writeFileSync(bankFile, JSON.stringify(bank));
+  const upgraded = run(testHome, ['migrate', 'demo']);
+  assert.equal(upgraded.upgraded, 2);
+  assert.equal(upgraded.unchanged, false);
+  const upgradedBank = JSON.parse(fs.readFileSync(bankFile));
+  assert.deepEqual(upgradedBank.cards.map((card) => card.altitude), ['mechanism', 'mechanism', 'line']);
+  const before = fs.readFileSync(bankFile, 'utf8');
+  const second = run(testHome, ['migrate', 'demo']);
+  assert.deepEqual(second, { project: 'demo', migrated: false, alreadyV2: true, unchanged: true, cards: 3, upgraded: 0 });
+  assert.equal(fs.readFileSync(bankFile, 'utf8'), before);
 });
 
 test('schedule transitions follow the v2 table and card states', () => {
@@ -179,6 +217,45 @@ test('next hides rubric and grounding, orders overdue cards, caps new cards, and
   assert.equal(rotated.cards[0].suggestedContext, 'hospital');
 });
 
+test('remove retires cards without deleting attempts or listing them', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(3));
+  record(testHome, 'c001', 'wrong', '2026-09-01T12:00:00Z');
+  assert.deepEqual(run(testHome, ['remove', 'demo', 'c001']), { removed: true, id: 'c001', alreadyRetired: false });
+  assert.deepEqual(run(testHome, ['remove', 'demo', 'c001']), { removed: true, id: 'c001', alreadyRetired: true });
+  const next = run(testHome, ['next', 'demo', '--n', '3', '--new', '3']);
+  assert.equal(next.cards.some((card) => card.id === 'c001'), false);
+  const mock = run(testHome, ['mock', 'demo', '--n', '3']);
+  assert.equal(mock.cards.some((card) => card.id === 'c001'), false);
+  const scores = JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'scores.json')));
+  assert.equal(scores.attempts.length, 1);
+  assert.equal(scores.attempts[0].cardId, 'c001');
+  const bank = JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'bank.json')));
+  assert.equal(bank.cards[0].retired, true);
+  const status = run(testHome, ['status', 'demo']);
+  assert.equal(status.bankSize, 2);
+  assert.equal(status.retired, 1);
+  assert.equal(status.altitudes.find((item) => item.altitude === 'mechanism').cards, 2);
+});
+
+test('next weights new cards by altitude and filters due and new cards', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(40, [1], ['raptor'], ['map', 'boundary', 'mechanism', 'line']).map((card, index) => ({
+    ...card,
+    concept: `Altitude concept ${index + 1}`,
+  })));
+  const weighted = run(testHome, ['next', 'demo', '--n', '10', '--new', '10']);
+  assert.deepEqual(['map', 'boundary', 'mechanism', 'line'].map((altitude) => weighted.cards.filter((card) => card.altitude === altitude).length), [3, 3, 3, 1]);
+  record(testHome, 'c004', 'wrong', '2026-09-01T12:00:00Z');
+  const lineOnly = run(testHome, ['next', 'demo', '--n', '5', '--new', '4', '--altitude', 'line']);
+  assert.equal(lineOnly.cards.length, 5);
+  assert.equal(lineOnly.cards.every((card) => card.altitude === 'line'), true);
+  assert.equal(lineOnly.cards[0].id, 'c004');
+  assert.equal(lineOnly.cards[0].state, 'learning');
+});
+
 test('record stores v2 attempt fields and answer returns only recent wording plus hidden material', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
@@ -216,6 +293,7 @@ test('refine returns legacy cards and update preserves scheduling', () => {
   assert.deepEqual(run(testHome, ['update', 'demo', 'c001', '--file', updateFile]), { updated: true, id: 'c001' });
   const card = JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'bank.json'))).cards[0];
   assert.equal(card.concept, 'Tenant fence');
+  assert.equal(card.altitude, 'mechanism');
   assert.equal(card.needsRewrite, false);
   assert.deepEqual(card.sched, before);
 });
@@ -250,7 +328,7 @@ test('mock ignores scheduling and returns a level-distributed card set without a
 test('status reports v2 states and the defensible verdict', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
-  add(testHome, 'demo', [...cards(3, [1, 2, 3]), ...cards(1, [4])].map((card, index) => ({ ...card, concept: `status-${index}` })));
+  add(testHome, 'demo', [...cards(3, [1, 2, 3], ['raptor', 'library', 'hospital'], ['mechanism', 'map', 'boundary']), ...cards(1, [4], ['raptor', 'library', 'hospital'], ['line'])].map((card, index) => ({ ...card, concept: `status-${index}` })));
   record(testHome, 'c001', 'correct', '2026-09-01T12:00:00Z');
   record(testHome, 'c001', 'correct', '2026-09-02T12:00:00Z');
   record(testHome, 'c001', 'correct', '2026-09-03T12:00:00Z');
@@ -275,4 +353,37 @@ test('status reports v2 states and the defensible verdict', () => {
   assert.equal(status.defensible.newCards < status.bankSize * 0.2, true);
   assert.equal(status.next7Days.length, 7);
   assert.equal(Array.isArray(status.weakestTopics), true);
+});
+
+test('status reports altitude counts and the map-boundary defensible condition', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', [
+    ...cards(8, [1, 2, 3], ['raptor'], ['mechanism']),
+    ...cards(2, [4], ['raptor'], ['map', 'boundary']),
+  ].map((card, index) => ({ ...card, concept: `altitude-status-${index}` })));
+  const bankFile = path.join(testHome, 'demo', 'bank.json');
+  const scoresFile = path.join(testHome, 'demo', 'scores.json');
+  const bank = JSON.parse(fs.readFileSync(bankFile));
+  const readySchedule = { interval: 3, ease: 2.5, due: '2026-09-08', reps: 2, lapses: 0, lastGrade: 'correct' };
+  for (const card of bank.cards) card.sched = { ...readySchedule };
+  bank.cards[9].sched = { interval: 1, ease: 2.5, due: '2026-09-05', reps: 1, lapses: 0, lastGrade: 'partial' };
+  fs.writeFileSync(bankFile, JSON.stringify(bank));
+  fs.writeFileSync(scoresFile, JSON.stringify({ attempts: [{ id: 'c009', cardId: 'c009', date: NOW, session: '2026-09-05', grade: 'correct', answer: 'a', gap: '', mode: 'drill', question: 'Fresh map question', context: 'raptor' }] }));
+  let status = run(testHome, ['status', 'demo']);
+  assert.deepEqual(status.altitudes.map((item) => ({ altitude: item.altitude, cards: item.cards, new: item.new, due: item.due })), [
+    { altitude: 'map', cards: 1, new: 0, due: 0 },
+    { altitude: 'boundary', cards: 1, new: 0, due: 1 },
+    { altitude: 'mechanism', cards: 8, new: 0, due: 0 },
+    { altitude: 'line', cards: 0, new: 0, due: 0 },
+  ]);
+  assert.equal(status.altitudes[0].accuracy, 1);
+  assert.equal(status.defensible.mapBoundaryReadyRatio, 0.5);
+  assert.equal(status.defensible.fails.some((reason) => reason.includes('map and boundary')), true);
+  bank.cards[9].sched = { ...readySchedule };
+  fs.writeFileSync(bankFile, JSON.stringify(bank));
+  status = run(testHome, ['status', 'demo']);
+  assert.equal(status.defensible.mapBoundaryReadyRatio, 1);
+  assert.equal(status.defensible.verdict, true);
+  assert.equal(status.defensible.fails.some((reason) => reason.includes('map and boundary')), false);
 });

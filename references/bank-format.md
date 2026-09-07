@@ -1,72 +1,80 @@
-# Bank format
+# Bank format v2
 
-Keep `bank.json` as an object with a project name, absolute repository path, generation date, and question array:
+`bank.json` is an object with a project name, absolute repository path, generation date, and concept cards. The repository path in documentation examples is illustrative; use the real path for the initialized project.
 
 ```json
 {
+  "version": 2,
   "project": "raptor",
-  "repo": "/Users/moazessam/Projects/Gym-App",
+  "repo": "/path/to/repo",
   "generated": "2026-09-05",
-  "questions": [
+  "cards": [
     {
-      "id": "q001",
+      "id": "c001",
       "level": 2,
       "topic": "rls",
-      "question": "Why does this policy use the owner join instead of a client-side check?",
-      "grounding": ["supabase/migrations/0012_plans.sql:40-58"],
-      "reference": "The policy checks the database-side owner relationship, so an untrusted client cannot bypass it. The grounding migration defines the policy and its join.",
-      "followups": ["What can a malicious client change?", "Which request path exercises this policy?"],
-      "added": "2026-09-05"
+      "altitude": "boundary",
+      "concept": "Tenant fence inside a privileged function",
+      "ask": "Ask where the tenant fence lives for the coach analytics RPC and why a policy would not do it.",
+      "rubric": [
+        "The function runs with elevated privileges, so caller policies do not apply inside",
+        "The function body compares the requested coach to the authenticated caller",
+        "A role check answers what kind of caller this is, not which tenant owns the data"
+      ],
+      "grounding": ["supabase/migrations/0031_coach_analytics.sql:113"],
+      "contexts": ["raptor", "library", "hospital"],
+      "source": { "type": "lesson", "ref": "0001-security-definer-tenant-fence" },
+      "added": "2026-09-05",
+      "needsRewrite": false,
+      "retired": false,
+      "sched": { "interval": 0, "ease": 2.5, "due": "2026-09-05", "reps": 0, "lapses": 0, "lastGrade": null }
     }
   ]
 }
 ```
 
-Each question has an `id`, integer `level` from 1 through 4, lowercase free-form `topic`, non-empty `question`, one or more relative `grounding` entries in `path:line` or `path:start-end` form, a two-to-six-sentence `reference`, zero to three `followups`, and an `added` date. `repo` is the absolute repository path; `generated` and `added` use `YYYY-MM-DD`.
+Card fields:
 
-Levels mean:
+- `id` is assigned by `add` and is stable for attempts and scheduling.
+- `level` is an integer from 1 through 4: what it does, why this choice, what breaks, and adversarial review.
+- `topic` is a non-empty lowercase tag.
+- `altitude` is required on cards passed to `add` and is one of `map`, `boundary`, `mechanism`, or `line`:
+  - `map`: how pieces fit, what talks to what, and where a kind of change belongs.
+  - `boundary`: trust, tenancy, money, consistency, and the constraints every feature must satisfy.
+  - `mechanism`: how one piece works internally, without relying on line numbers.
+  - `line`: a specific load-bearing statement whose absence would cause a security or correctness bug.
+- `concept` names the idea. `ask` is an answer-free hint used to generate a fresh question. `rubric` is the hidden one-to-six item checklist for grading.
+- `grounding` contains relative `path:line` or `path:start-end` references matching `^[^:]+:\d+(-\d+)?$`. It may be empty for transfer-only cards.
+- `contexts` is a non-empty, duplicate-free subset of `raptor`, `wiretrace`, `crosstalk`, `library`, `hospital`, `isp-support`, `ecommerce`, `school`, and `generic`.
+- `source` contains non-empty `type` and `ref`, such as a lesson reference.
+- `added` is a `YYYY-MM-DD` date assigned by `add`.
+- `needsRewrite` marks a card converted from v1 whose concept, ask, or rubric still needs refinement.
+- `retired` is optional and defaults to false. `remove` sets it to true without deleting attempts; retired cards are omitted from `next`, `mock`, `refine`, and status counts, while direct id operations remain available.
+- `sched` is owned by the script and should not be supplied to `add`: `{interval, ease, due, reps, lapses, lastGrade}`. New cards start with interval 0, ease 2.5, due today, zero reps and lapses, and no grade.
 
-- Level 1: what does this do?
-- Level 2: why this and not the alternative?
-- Level 3: what breaks if it changes, or here is a bug report; find it.
-- Level 4: take an adversarial attacker or sceptical reviewer stance.
+The input to `add` is an array of cards without `id`, `added`, or `sched`. Every card must include `altitude`; validation rejects the whole input if any card is invalid. `update --file` requires `level`, `topic`, `concept`, `ask`, `rubric`, and `contexts`; `altitude` is optional, and when omitted the existing altitude is preserved.
 
-Keep `scores.json` as:
+## scores.json v2
 
 ```json
 {
   "attempts": [
-    {"id": "q001", "date": "2026-09-05T14:10:00Z", "session": "2026-09-05", "grade": "partial", "answer": "one-line summary of what the candidate said", "gap": "what was missing", "mode": "drill"}
+    {
+      "id": "c001",
+      "cardId": "c001",
+      "date": "2026-09-05T14:10:00Z",
+      "session": "2026-09-05",
+      "grade": "partial",
+      "answer": "one-line summary of what the candidate said",
+      "gap": "what was missing",
+      "mode": "drill",
+      "question": "A fresh wording for the card",
+      "context": "raptor"
+    }
   ]
 }
 ```
 
-`grade` is `correct`, `partial`, or `wrong`. `mode` is `drill` or `mock`.
+`grade` is `correct`, `partial`, or `wrong`. `mode` is `drill`, `mock`, or `transfer`. Attempts retain `id` for v1 compatibility and use `cardId` for v2 card lookup. The script owns scheduling and keeps attempts when a card is retired.
 
-## Complete examples by level
-
-These are synthetic examples.
-
-### Level 1
-
-```json
-{"id":"q101","level":1,"topic":"parser","question":"What does the token cursor do after consuming a string literal?","grounding":["src/parser.js:42-57"],"reference":"The cursor advances past the closing quote and returns the decoded literal. The advance and return are implemented in src/parser.js:42-57.","followups":["What happens at end of input?"],"added":"2026-09-05"}
-```
-
-### Level 2
-
-```json
-{"id":"q102","level":2,"topic":"auth","question":"Why does the command state validate the session before loading the workspace?","grounding":["src/state-machine.js:18-31"],"reference":"Validation runs first so an expired session cannot cause protected workspace data to load. The transition order in src/state-machine.js:18-31 makes that boundary explicit.","followups":["What alternative ordering did you reject?"],"added":"2026-09-05"}
-```
-
-### Level 3
-
-```json
-{"id":"q103","level":3,"topic":"storage","question":"A user can read another tenant's export when they guess its URL. Find the failure and explain what changes if the object path is made tenant-prefixed.","grounding":["src/storage-policy.sql:60-78"],"reference":"The policy authorizes the bucket but does not bind the object key to the requesting tenant. A tenant-prefixed key gives the policy a value to compare, but the database-side check in src/storage-policy.sql:60-78 must still enforce it.","followups":["Can a client safely supply the tenant id?","Which existing objects need migration?"],"added":"2026-09-05"}
-```
-
-### Level 4
-
-```json
-{"id":"q104","level":4,"topic":"reliability","question":"Act as an attacker: why should I trust this retry loop not to duplicate a payment when the provider times out after accepting the charge?","grounding":["src/payments.js:90-121"],"reference":"The loop is unsafe unless the provider request carries a stable idempotency key and the response is reconciled before retrying. src/payments.js:90-121 shows the timeout path and must prove both properties.","followups":["What evidence would distinguish an accepted charge from a lost response?","What is the failure mode during process restart?"],"added":"2026-09-05"}
-```
+`migrate <project>` converts a v1 question bank once and creates `.v1.json` backups. Converted cards use `altitude: "mechanism"`. If a bank is already v2, migrate upgrades cards that are missing `altitude` to `mechanism`; a later run reports `upgraded: 0` and does not rewrite the bank.

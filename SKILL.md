@@ -9,7 +9,7 @@ The user builds software with agents and must be able to defend every decision i
 
 ## State
 
-Use `$INTERVIEW_DRILL_HOME`, defaulting to `~/.interview-drill`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `needsRewrite`, and `sched`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
+Use `$INTERVIEW_DRILL_HOME`, defaulting to `~/.interview-drill`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `altitude`, `needsRewrite`, optional `retired`, and `sched`. Altitude is `map`, `boundary`, `mechanism`, or `line`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
 
 ## Select a mode
 
@@ -39,6 +39,7 @@ Read only the chosen mode reference plus [references/interviewer-rules.md](refer
 10. Generate, do not read.
 Every question is written fresh from the card's `ask` and
 `suggestedContext`. Never reuse a wording listed in `answer`'s recent attempts.
+11. At map and boundary altitude, reward a committed best guess with a verification plan over silence; grade the guess.
 
 ## Command cheat sheet
 
@@ -48,6 +49,7 @@ Every question is written fresh from the card's `ask` and
 `node <skill dir>/scripts/drill.mjs next <project> --n 12` — return a due/new card queue without answers.
 `node <skill dir>/scripts/drill.mjs answer <project> <id>` — fetch one rubric after commitment.
 `node <skill dir>/scripts/drill.mjs record <project> <id> --grade <g> --answer "..." --gap "..." --question "..." --context <ctx>` — record an attempt.
+`node <skill dir>/scripts/drill.mjs remove <project> <id>` — retire a card while keeping its attempts.
 `node <skill dir>/scripts/drill.mjs refine <project>` / `update <project> <id> --file <json>` — rewrite converted cards.
 `node <skill dir>/scripts/drill.mjs gaps <project>` — group recent wrong and partial cards.
 `node <skill dir>/scripts/drill.mjs note <project> "..."` — append a session note.

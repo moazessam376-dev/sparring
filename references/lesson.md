@@ -2,6 +2,8 @@
 
 Use lesson mode when the user asks to be taught, names a concept, or has a gap that needs a foundation before drilling.
 
+For any new project, write the map lesson first, before any deep lesson. Write a deep lesson only when a map node is unclear to the learner or a drill gap points at that node.
+
 1. Run `drill.mjs gaps <project>` and use its grouped wrong and partial cards. If the user named a concept, use that concept instead.
 2. Check the learner's floor in `NOTES.md` and `learning-records/` inside the project's `teach/` workspace. Do not assume a concept is known because it appeared in a previous chat.
 3. Pick the lowest-level missing concept first. Prefer the prerequisite that makes the current gap intelligible.

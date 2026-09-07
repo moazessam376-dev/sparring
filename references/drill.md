@@ -10,3 +10,13 @@
 Grade `correct` only when both mechanism and reason are right and the candidate could reproduce the decision. Grade `partial` when one is right but incomplete. Grade `wrong` for neither, delegation, or a confident wrong claim.
 
 Accuracy counts `correct` as 1, `partial` as 0.5, and `wrong` as 0. Scheduling is day-based: wrong lapses the card, partial grows it conservatively, and correct grows it by ease.
+
+## Map and boundary cards
+
+For `map` and `boundary` cards, rotate these strategic question shapes across sessions while still following the level-based protocol above:
+
+1. **Where would this go.** “You are adding `<feature>` to `<project>`. Which modules and tables change, which constraints does it touch, and what must be true before you ship?” Grade the answer on the right areas and constraints, not on naming exact files.
+2. **Brief a new engineer.** “A capable engineer joins tomorrow and gets five minutes from you on `<project>` or `<area>`. Go.” Grade whether the map and its constraints come out in a useful order without dropping into detail.
+3. **Make the call.** Give incomplete information and a decision to make now. “I don’t know” is not accepted; “my best guess is X, and I would verify it by Y” is graded on both the committed guess and the verification plan.
+
+Write each question fresh from the card’s `ask` and suggested context. The rubric remains hidden until commitment. For map and boundary cards, a committed best guess plus a concrete verification plan earns a grade against the guess; silence is not a better answer. Grade map answers for navigation and boundaries, and boundary answers for the constraints, enforcement points, and failure cost they identify.

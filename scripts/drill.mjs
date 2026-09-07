@@ -9,6 +9,8 @@ const HOME = process.env.INTERVIEW_DRILL_HOME || path.join(os.homedir(), '.inter
 const GRADES = ['correct', 'partial', 'wrong'];
 const MODES = ['drill', 'mock', 'transfer'];
 const CONTEXTS = ['raptor', 'wiretrace', 'crosstalk', 'library', 'hospital', 'isp-support', 'ecommerce', 'school', 'generic'];
+const ALTITUDES = ['map', 'boundary', 'mechanism', 'line'];
+const ALTITUDE_WEIGHTS = [3, 3, 3, 1];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function clock() {
@@ -190,6 +192,10 @@ function getCard(state, id) {
   return card;
 }
 
+function activeCards(state) {
+  return state.bank.cards.filter((card) => card.retired !== true);
+}
+
 function positiveInteger(value, name) {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 1) fail(`${name} must be a positive integer`);
@@ -227,6 +233,10 @@ function validateTopic(value, label) {
   if (typeof value !== 'string' || !value.trim() || value !== value.toLowerCase()) fail(`${label} topic must be a lowercase tag`);
 }
 
+function validateAltitude(value, label) {
+  if (typeof value !== 'string' || !ALTITUDES.includes(value)) fail(`${label} altitude must be one of ${ALTITUDES.join(', ')}`);
+}
+
 function validateRubric(value, label) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 6 || value.some((item) => typeof item !== 'string' || !item.trim())) {
     fail(`${label} rubric must contain one to six strings`);
@@ -252,10 +262,11 @@ function validateSource(value, label) {
   }
 }
 
-function validateCardContent(item, index, { requireGrounding = true, requireSource = true } = {}) {
+function validateCardContent(item, index, { requireGrounding = true, requireSource = true, requireAltitude = true } = {}) {
   const label = `card ${index + 1}`;
   if (!item || typeof item !== 'object' || Array.isArray(item)) fail(`${label} must be an object`);
   if (!Number.isInteger(item.level) || item.level < 1 || item.level > 4) fail(`${label} level must be an integer from 1 to 4`);
+  if (requireAltitude || 'altitude' in item) validateAltitude(item.altitude, label);
   validateTopic(item.topic, label);
   if (typeof item.concept !== 'string' || !item.concept.trim()) fail(`${label} concept must be non-empty`);
   if (typeof item.ask !== 'string' || !item.ask.trim()) fail(`${label} ask must be non-empty`);
@@ -264,6 +275,7 @@ function validateCardContent(item, index, { requireGrounding = true, requireSour
   validateContexts(item.contexts, label);
   if (requireSource || 'source' in item) validateSource(item.source, label);
   if ('needsRewrite' in item && typeof item.needsRewrite !== 'boolean') fail(`${label} needsRewrite must be boolean`);
+  if ('retired' in item && typeof item.retired !== 'boolean') fail(`${label} retired must be boolean`);
 }
 
 function validateNewCard(item, index) {
@@ -297,6 +309,45 @@ function chooseNew(cards, count) {
   return result;
 }
 
+function weightedCounts(count, capacities) {
+  const total = Math.min(count, capacities.reduce((sum, capacity) => sum + capacity, 0));
+  const counts = capacities.map(() => 0);
+  let remaining = total;
+  while (remaining > 0) {
+    const available = capacities
+      .map((capacity, index) => (counts[index] < capacity ? index : null))
+      .filter((index) => index !== null);
+    if (!available.length) break;
+    const weightTotal = available.reduce((sum, index) => sum + ALTITUDE_WEIGHTS[index], 0);
+    const exact = new Map(available.map((index) => [index, (ALTITUDE_WEIGHTS[index] / weightTotal) * remaining]));
+    let assigned = 0;
+    for (const index of available) {
+      const amount = Math.min(capacities[index] - counts[index], Math.floor(exact.get(index)));
+      counts[index] += amount;
+      assigned += amount;
+    }
+    remaining -= assigned;
+    if (!remaining) break;
+    const ranked = [...available].sort((a, b) => (exact.get(b) - Math.floor(exact.get(b))) - (exact.get(a) - Math.floor(exact.get(a))) || a - b);
+    let redistributed = false;
+    for (const index of ranked) {
+      if (counts[index] >= capacities[index]) continue;
+      counts[index] += 1;
+      remaining -= 1;
+      redistributed = true;
+      if (!remaining) break;
+    }
+    if (!redistributed) break;
+  }
+  return counts;
+}
+
+function chooseWeightedNew(cards, count) {
+  const buckets = ALTITUDES.map((altitude) => cards.filter((card) => card.altitude === altitude));
+  const counts = weightedCounts(count, buckets.map((bucket) => bucket.length));
+  return buckets.flatMap((bucket, index) => chooseNew(bucket, counts[index]));
+}
+
 function suggestedContext(card, state) {
   const history = attemptsFor(state, card.id);
   const used = new Set(history.slice(0, 2).map((attempt) => attempt.context).filter(Boolean));
@@ -312,6 +363,7 @@ function publicCard(card, state, today, includeAttempts = true) {
     id: card.id,
     level: card.level,
     topic: card.topic,
+    altitude: card.altitude,
     concept: card.concept,
     ask: card.ask,
     contexts: [...card.contexts],
@@ -377,7 +429,15 @@ function commandMigrate(positionals) {
   const project = projectName(positionals[0]);
   const state = loadRawProject(project);
   if (isV2Bank(state.bank)) {
-    json({ project, migrated: false, alreadyV2: true, unchanged: true, cards: state.bank.cards.length });
+    let upgraded = 0;
+    for (const card of state.bank.cards) {
+      if (card.altitude === undefined) {
+        card.altitude = 'mechanism';
+        upgraded += 1;
+      }
+    }
+    if (upgraded) writeJson(filesFor(project).bank, state.bank);
+    json({ project, migrated: false, alreadyV2: true, unchanged: upgraded === 0, cards: state.bank.cards.length, upgraded });
     return;
   }
   if (!Array.isArray(state.bank.questions)) fail('project state has an invalid questions array');
@@ -408,6 +468,7 @@ function commandMigrate(positionals) {
       source: { type: 'drill', ref: 'v1' },
       added: question.added || today,
       needsRewrite: true,
+      altitude: 'mechanism',
       sched: replaySchedule(attempts, today),
     };
   });
@@ -474,8 +535,10 @@ function commandNext(positionals, options) {
   const level = options.level === undefined ? null : positiveInteger(options.level, '--level');
   if (level !== null && level > 4) fail('--level must be from 1 to 4');
   const topic = options.topic === undefined ? null : options.topic;
+  const altitude = options.altitude === undefined ? null : options.altitude;
+  if (altitude !== null) validateAltitude(altitude, '--altitude');
   const today = sessionDate();
-  const cards = state.bank.cards.filter((card) => (level === null || card.level === level) && (topic === null || card.topic === topic));
+  const cards = activeCards(state).filter((card) => (level === null || card.level === level) && (topic === null || card.topic === topic) && (altitude === null || card.altitude === altitude));
   const due = cards.filter((card) => !isNewSchedule(card.sched) && card.sched.due <= today);
   due.sort((a, b) => {
     const dueDays = daysBetween(today, b.sched.due) - daysBetween(today, a.sched.due);
@@ -483,7 +546,8 @@ function commandNext(positionals, options) {
   });
   const selected = due.slice(0, n);
   const newCards = cards.filter((card) => isNewSchedule(card.sched));
-  selected.push(...chooseNew(newCards, Math.min(n - selected.length, newLimit)));
+  const newCount = Math.min(Math.max(n - selected.length, 0), newLimit);
+  selected.push(...(altitude === null ? chooseWeightedNew(newCards, newCount) : chooseNew(newCards, newCount)));
   json({ session: today, cards: selected.map((card) => publicCard(card, state, today)) });
 }
 
@@ -532,7 +596,7 @@ function commandRecord(positionals, options) {
 function commandRefine(positionals, options) {
   const state = loadProject(positionals[0]);
   const n = options.n === undefined ? 10 : positiveInteger(options.n, '--n');
-  json({ cards: state.bank.cards.filter((card) => card.needsRewrite === true).slice(0, n) });
+  json({ cards: activeCards(state).filter((card) => card.needsRewrite === true).slice(0, n) });
 }
 
 function commandUpdate(positionals, options) {
@@ -542,13 +606,14 @@ function commandUpdate(positionals, options) {
   const replacement = readJson(path.resolve(options.file));
   if (!replacement || typeof replacement !== 'object' || Array.isArray(replacement)) fail('update file must contain a JSON object');
   for (const field of ['level', 'topic', 'concept', 'ask', 'rubric', 'contexts']) if (!(field in replacement)) fail(`update file must contain ${field}`);
-  validateCardContent(replacement, 0, { requireGrounding: false, requireSource: false });
+  validateCardContent(replacement, 0, { requireGrounding: false, requireSource: false, requireAltitude: false });
   card.level = replacement.level;
   card.topic = replacement.topic;
   card.concept = replacement.concept;
   card.ask = replacement.ask;
   card.rubric = replacement.rubric;
   card.contexts = replacement.contexts;
+  if ('altitude' in replacement) card.altitude = replacement.altitude;
   card.needsRewrite = false;
   writeJson(filesFor(positionals[0]).bank, state.bank);
   json({ updated: true, id: card.id });
@@ -591,10 +656,21 @@ function commandNote(positionals) {
   json({ noted: true, session });
 }
 
+function commandRemove(positionals) {
+  const state = loadProject(positionals[0]);
+  const card = getCard(state, positionals[1]);
+  const alreadyRetired = card.retired === true;
+  if (!alreadyRetired) {
+    card.retired = true;
+    writeJson(filesFor(positionals[0]).bank, state.bank);
+  }
+  json({ removed: true, id: card.id, alreadyRetired });
+}
+
 function commandMock(positionals, options) {
   const state = loadProject(positionals[0]);
   const n = options.n === undefined ? 15 : positiveInteger(options.n, '--n');
-  const available = shuffle(state.bank.cards);
+  const available = shuffle(activeCards(state));
   const target = Math.min(n, available.length);
   const counts = scaledDistribution(target);
   const selected = [];
@@ -621,22 +697,27 @@ function recentAttempts(state, today, days) {
 }
 
 function defensible(state, today) {
-  const lowCards = state.bank.cards.filter((card) => card.level <= 3);
+  const cards = activeCards(state);
+  const lowCards = cards.filter((card) => card.level <= 3);
   const ready = lowCards.filter((card) => card.sched.lastGrade === 'correct' && card.sched.interval >= 3).length;
   const readyRatio = lowCards.length ? ready / lowCards.length : 0;
   const level4Start = addDays(today, -6);
-  const level4Correct = state.bank.cards.some((card) => {
+  const level4Correct = cards.some((card) => {
     if (card.level !== 4 || card.sched.lastGrade !== 'correct') return false;
     const latest = attemptsFor(state, card.id)[0];
     return latest && latest.grade === 'correct' && attemptDay(latest, today) >= level4Start && attemptDay(latest, today) <= today;
   });
-  const newCards = state.bank.cards.filter((card) => isNewSchedule(card.sched)).length;
-  const newRatio = state.bank.cards.length ? newCards / state.bank.cards.length : 1;
+  const mapBoundaryCards = cards.filter((card) => card.altitude === 'map' || card.altitude === 'boundary');
+  const mapBoundaryReady = mapBoundaryCards.filter((card) => card.sched.lastGrade === 'correct' && card.sched.interval >= 3).length;
+  const mapBoundaryReadyRatio = mapBoundaryCards.length ? mapBoundaryReady / mapBoundaryCards.length : 0;
+  const newCards = cards.filter((card) => isNewSchedule(card.sched)).length;
+  const newRatio = cards.length ? newCards / cards.length : 1;
   const fails = [];
   if (readyRatio < 0.9) fails.push('fewer than 90 percent of level-1-to-3 cards are correct with interval at least 3');
   if (!level4Correct) fails.push('no correct level-4 card in the last 7 days');
   if (newRatio >= 0.2) fails.push('new cards are not under 20 percent of the bank');
-  return { verdict: fails.length === 0, fails, level1to3Ready: ready, level1to3Total: lowCards.length, level1to3ReadyRatio: readyRatio, level4RecentCorrect: level4Correct, newCards, newRatio };
+  if (mapBoundaryReadyRatio < 0.9) fails.push('fewer than 90 percent of map and boundary cards are correct with interval at least 3');
+  return { verdict: fails.length === 0, fails, level1to3Ready: ready, level1to3Total: lowCards.length, level1to3ReadyRatio: readyRatio, mapBoundaryReady, mapBoundaryTotal: mapBoundaryCards.length, mapBoundaryReadyRatio, level4RecentCorrect: level4Correct, newCards, newRatio };
 }
 
 function statusV1(state) {
@@ -662,35 +743,54 @@ function commandStatus(positionals) {
     return;
   }
   const today = sessionDate();
+  const cards = activeCards(state);
+  const retired = state.bank.cards.filter((card) => card.retired === true).length;
   const states = { new: 0, learning: 0, mature: 0 };
-  for (const card of state.bank.cards) states[scheduleState(card.sched)] += 1;
-  const dueCards = state.bank.cards.filter((card) => card.sched.due <= today);
-  const dueToday = state.bank.cards.filter((card) => card.sched.due === today).length;
-  const overdue = state.bank.cards.filter((card) => card.sched.due < today).length;
+  for (const card of cards) states[scheduleState(card.sched)] += 1;
+  const dueCards = cards.filter((card) => card.sched.due <= today);
+  const dueToday = cards.filter((card) => card.sched.due === today).length;
+  const overdue = cards.filter((card) => card.sched.due < today).length;
   const levelDistribution = {};
-  for (let level = 1; level <= 4; level += 1) levelDistribution[level] = state.bank.cards.filter((card) => card.level === level).length;
-  const neverAttempted = state.bank.cards.filter((card) => attemptsFor(state, card.id).length === 0).length;
-  const topicMap = new Map(state.bank.cards.map((card) => [card.topic, []]));
-  for (const attempt of recentAttempts(state, today, 30)) {
-    const card = state.bank.cards.find((item) => item.id === attemptCardId(attempt));
-    if (card) topicMap.get(card.topic).push(attempt);
+  for (let level = 1; level <= 4; level += 1) levelDistribution[level] = cards.filter((card) => card.level === level).length;
+  const neverAttempted = cards.filter((card) => attemptsFor(state, card.id).length === 0).length;
+  const recent = recentAttempts(state, today, 30);
+  const cardsById = new Map(cards.map((card) => [card.id, card]));
+  const topicMap = new Map(cards.map((card) => [card.topic, []]));
+  const altitudeMap = new Map(ALTITUDES.map((altitude) => [altitude, []]));
+  for (const attempt of recent) {
+    const card = cardsById.get(attemptCardId(attempt));
+    if (card) {
+      topicMap.get(card.topic).push(attempt);
+      altitudeMap.get(card.altitude)?.push(attempt);
+    }
   }
   const topicAccuracy = [...topicMap.entries()]
     .map(([topic, attempts]) => ({ topic, attempts: attempts.length, accuracy: accuracy(attempts) }))
     .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0) || a.attempts - b.attempts || a.topic.localeCompare(b.topic));
   const lapsesLeaders = state.bank.cards
-    .filter((card) => card.sched.lapses > 0)
+    .filter((card) => card.retired !== true && card.sched.lapses > 0)
     .sort((a, b) => b.sched.lapses - a.sched.lapses || a.level - b.level || a.id.localeCompare(b.id))
     .slice(0, 3)
     .map((card) => ({ id: card.id, concept: card.concept, topic: card.topic, lapses: card.sched.lapses }));
   const next7Days = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(today, index);
-    return { date, count: state.bank.cards.filter((card) => card.sched.due === date).length };
+    return { date, count: cards.filter((card) => card.sched.due === date).length };
+  });
+  const altitudes = ALTITUDES.map((altitude) => {
+    const altitudeCards = cards.filter((card) => card.altitude === altitude);
+    return {
+      altitude,
+      cards: altitudeCards.length,
+      new: altitudeCards.filter((card) => isNewSchedule(card.sched)).length,
+      due: altitudeCards.filter((card) => !isNewSchedule(card.sched) && card.sched.due <= today).length,
+      accuracy: accuracy(altitudeMap.get(altitude)),
+    };
   });
   const data = {
     version: 2,
     project: state.bank.project,
-    bankSize: state.bank.cards.length,
+    bankSize: cards.length,
+    retired,
     states,
     levelDistribution,
     neverAttempted,
@@ -698,6 +798,7 @@ function commandStatus(positionals) {
     dueToday,
     overdue,
     topicAccuracy,
+    altitudes,
     weakestTopics: topicAccuracy.slice(0, 3),
     lapsesLeaders,
     next7Days,
@@ -710,6 +811,9 @@ function commandStatus(positionals) {
   console.log(`new     | ${states.new}`);
   console.log(`learning| ${states.learning}`);
   console.log(`mature  | ${states.mature}`);
+  console.log('Altitude | Cards | New | Due | Accuracy');
+  for (const item of altitudes) console.log(`${item.altitude.padEnd(9)}| ${String(item.cards).padEnd(7)}| ${String(item.new).padEnd(5)}| ${String(item.due).padEnd(5)}| ${item.accuracy === null ? 'n/a' : item.accuracy.toFixed(2)}`);
+  console.log(`Retired: ${data.retired}`);
   console.log(`Defensible: ${data.defensible.verdict ? 'true' : 'false'}`);
   if (data.defensible.fails.length) console.log(`Fails: ${data.defensible.fails.join('; ')}`);
   console.log(JSON.stringify(data));
@@ -726,6 +830,7 @@ function main(argv) {
     case 'next': return commandNext(positionals, options);
     case 'answer': return commandAnswer(positionals, options);
     case 'record': return commandRecord(positionals, options);
+    case 'remove': return commandRemove(positionals, options);
     case 'refine': return commandRefine(positionals, options);
     case 'update': return commandUpdate(positionals, options);
     case 'gaps': return commandGaps(positionals, options);
