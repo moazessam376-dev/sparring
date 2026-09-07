@@ -31,7 +31,7 @@ function runFail(testHome, args, message = 'bank is v1; run migrate') {
   assert.fail('command unexpectedly succeeded');
 }
 
-function cards(count, levels = [1], contexts = ['raptor', 'library', 'hospital'], altitudes = ['mechanism']) {
+function cards(count, levels = [1], contexts = ['demo', 'library', 'hospital'], altitudes = ['mechanism']) {
   return Array.from({ length: count }, (_, index) => {
     const level = Array.isArray(levels) ? levels[index % levels.length] : levels(index);
     const altitude = Array.isArray(altitudes) ? altitudes[index % altitudes.length] : altitudes(index);
@@ -55,7 +55,7 @@ function add(testHome, project, items) {
   return run(testHome, ['add', project, file]);
 }
 
-function record(testHome, id, grade, date = NOW, question = `Fresh wording for ${id}`, context = 'raptor', gap = grade === 'correct' ? '' : 'missing mechanism') {
+function record(testHome, id, grade, date = NOW, question = `Fresh wording for ${id}`, context = 'demo', gap = grade === 'correct' ? '' : 'missing mechanism') {
   return run(testHome, ['record', 'demo', id, '--grade', grade, '--answer', 'candidate answer', '--gap', gap, '--question', question, '--context', context], date);
 }
 
@@ -77,7 +77,7 @@ test('add validates contexts, skips duplicate concepts, and assigns card ids', (
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   const bad = { ...cards(1)[0], contexts: ['mars'] };
   fs.writeFileSync(path.join(testHome, 'bad.json'), JSON.stringify([bad]));
-  runFail(testHome, ['add', 'demo', path.join(testHome, 'bad.json')], 'card 1 contexts must be a non-empty subset of the supported contexts');
+  runFail(testHome, ['add', 'demo', path.join(testHome, 'bad.json')], 'card 1 contexts must be a non-empty, duplicate-free subset of demo, library, hospital, isp-support, ecommerce, school, bank, logistics, generic');
   add(testHome, 'demo', cards(2, [1, 2]));
   const duplicate = { ...cards(1)[0], concept: '  Synthetic concept 1-1  ' };
   const result = add(testHome, 'demo', [duplicate, cards(1, [3])[0]]);
@@ -85,6 +85,22 @@ test('add validates contexts, skips duplicate concepts, and assigns card ids', (
   assert.deepEqual(result, { added: 1, skipped: 1, total: 3 });
   assert.deepEqual(bank.cards.map((card) => card.id), ['c001', 'c002', 'c003']);
   assert.deepEqual(bank.cards[0].sched, { interval: 0, ease: 2.5, due: '2026-09-05', reps: 0, lapses: 0, lastGrade: null });
+});
+
+test('add rejects another project name as a context', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  const input = path.join(testHome, 'other-project.json');
+  fs.writeFileSync(input, JSON.stringify([{ ...cards(1)[0], contexts: ['wiretrace', 'library'] }]));
+  runFail(testHome, ['add', 'demo', input], 'card 1 contexts must be a non-empty, duplicate-free subset of demo, library, hospital, isp-support, ecommerce, school, bank, logistics, generic');
+});
+
+test('add rejects cards without the bank project context', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  const input = path.join(testHome, 'missing-project.json');
+  fs.writeFileSync(input, JSON.stringify([{ ...cards(1)[0], contexts: ['library', 'hospital'] }]));
+  runFail(testHome, ['add', 'demo', input], 'card 1 contexts must include the bank project "demo" and at least one transfer world; allowed contexts: demo, library, hospital, isp-support, ecommerce, school, bank, logistics, generic');
 });
 
 test('add requires a valid altitude on every card', () => {
@@ -155,7 +171,7 @@ test('v1 commands fail, while status warns and migrate converts with backups', (
 test('migrate upgrades missing v2 altitudes and is idempotent', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
-  add(testHome, 'demo', cards(3, [1, 2, 3], ['raptor'], ['map', 'boundary', 'line']));
+  add(testHome, 'demo', cards(3, [1, 2, 3], ['demo', 'library'], ['map', 'boundary', 'line']));
   const bankFile = path.join(testHome, 'demo', 'bank.json');
   const bank = JSON.parse(fs.readFileSync(bankFile));
   delete bank.cards[0].altitude;
@@ -217,6 +233,16 @@ test('next hides rubric and grounding, orders overdue cards, caps new cards, and
   assert.equal(rotated.cards[0].suggestedContext, 'hospital');
 });
 
+test('suggested context prefers a transfer world after a correct home-context attempt', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(1));
+  record(testHome, 'c001', 'correct', NOW, 'Home-context question', 'demo');
+  const result = run(testHome, ['next', 'demo', '--n', '1'], '2026-09-06T12:00:00Z');
+  assert.equal(result.cards[0].suggestedContext, 'library');
+  assert.notEqual(result.cards[0].suggestedContext, 'demo');
+});
+
 test('remove retires cards without deleting attempts or listing them', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
@@ -242,7 +268,7 @@ test('remove retires cards without deleting attempts or listing them', () => {
 test('next weights new cards by altitude and filters due and new cards', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
-  add(testHome, 'demo', cards(40, [1], ['raptor'], ['map', 'boundary', 'mechanism', 'line']).map((card, index) => ({
+  add(testHome, 'demo', cards(40, [1], ['demo', 'library'], ['map', 'boundary', 'mechanism', 'line']).map((card, index) => ({
     ...card,
     concept: `Altitude concept ${index + 1}`,
   })));
@@ -276,7 +302,7 @@ test('refine returns legacy cards and update preserves scheduling', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   add(testHome, 'demo', [{ ...cards(1)[0], needsRewrite: true }]);
-  record(testHome, 'c001', 'wrong', NOW, 'Wording before rewrite', 'raptor');
+  record(testHome, 'c001', 'wrong', NOW, 'Wording before rewrite', 'demo');
   const before = JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'bank.json'))).cards[0].sched;
   const refine = run(testHome, ['refine', 'demo']);
   assert.equal(refine.cards.length, 1);
@@ -288,7 +314,7 @@ test('refine returns legacy cards and update preserves scheduling', () => {
     concept: 'Tenant fence',
     ask: 'Where does the tenant fence live in a privileged function?',
     rubric: ['The function runs with elevated privileges.', 'The body applies the tenant predicate.'],
-    contexts: ['raptor', 'hospital', 'school'],
+    contexts: ['demo', 'hospital', 'school'],
   }));
   assert.deepEqual(run(testHome, ['update', 'demo', 'c001', '--file', updateFile]), { updated: true, id: 'c001' });
   const card = JSON.parse(fs.readFileSync(path.join(testHome, 'demo', 'bank.json'))).cards[0];
@@ -302,10 +328,10 @@ test('gaps groups wrong and partial attempts by card and transfer mode is accept
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   add(testHome, 'demo', cards(2));
-  record(testHome, 'c001', 'wrong', '2026-09-03T12:00:00Z', 'Scenario one', 'raptor', 'missing tenant check');
+  record(testHome, 'c001', 'wrong', '2026-09-03T12:00:00Z', 'Scenario one', 'demo', 'missing tenant check');
   record(testHome, 'c001', 'partial', '2026-09-05T12:00:00Z', 'Scenario two', 'hospital', 'vague boundary');
   record(testHome, 'c001', 'correct', '2026-09-05T12:01:00Z', 'Transfer question', 'library', '', 'transfer');
-  record(testHome, 'c002', 'wrong', '2026-08-01T12:00:00Z', 'Old wording', 'raptor', 'old gap');
+  record(testHome, 'c002', 'wrong', '2026-08-01T12:00:00Z', 'Old wording', 'demo', 'old gap');
   const result = run(testHome, ['gaps', 'demo', '--days', '7']);
   assert.equal(result.gaps.length, 1);
   assert.deepEqual(result.gaps[0], { id: 'c001', concept: 'Synthetic concept 1-1', topic: 'topic1', level: 1, grades: ['wrong', 'partial'], gaps: ['missing tenant check', 'vague boundary'] });
@@ -328,7 +354,7 @@ test('mock ignores scheduling and returns a level-distributed card set without a
 test('status reports v2 states and the defensible verdict', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
-  add(testHome, 'demo', [...cards(3, [1, 2, 3], ['raptor', 'library', 'hospital'], ['mechanism', 'map', 'boundary']), ...cards(1, [4], ['raptor', 'library', 'hospital'], ['line'])].map((card, index) => ({ ...card, concept: `status-${index}` })));
+  add(testHome, 'demo', [...cards(3, [1, 2, 3], ['demo', 'library', 'hospital'], ['mechanism', 'map', 'boundary']), ...cards(1, [4], ['demo', 'library', 'hospital'], ['line'])].map((card, index) => ({ ...card, concept: `status-${index}` })));
   record(testHome, 'c001', 'correct', '2026-09-01T12:00:00Z');
   record(testHome, 'c001', 'correct', '2026-09-02T12:00:00Z');
   record(testHome, 'c001', 'correct', '2026-09-03T12:00:00Z');
@@ -359,8 +385,8 @@ test('status reports altitude counts and the map-boundary defensible condition',
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   add(testHome, 'demo', [
-    ...cards(8, [1, 2, 3], ['raptor'], ['mechanism']),
-    ...cards(2, [4], ['raptor'], ['map', 'boundary']),
+    ...cards(8, [1, 2, 3], ['demo', 'library'], ['mechanism']),
+    ...cards(2, [4], ['demo', 'library'], ['map', 'boundary']),
   ].map((card, index) => ({ ...card, concept: `altitude-status-${index}` })));
   const bankFile = path.join(testHome, 'demo', 'bank.json');
   const scoresFile = path.join(testHome, 'demo', 'scores.json');
@@ -369,7 +395,7 @@ test('status reports altitude counts and the map-boundary defensible condition',
   for (const card of bank.cards) card.sched = { ...readySchedule };
   bank.cards[9].sched = { interval: 1, ease: 2.5, due: '2026-09-05', reps: 1, lapses: 0, lastGrade: 'partial' };
   fs.writeFileSync(bankFile, JSON.stringify(bank));
-  fs.writeFileSync(scoresFile, JSON.stringify({ attempts: [{ id: 'c009', cardId: 'c009', date: NOW, session: '2026-09-05', grade: 'correct', answer: 'a', gap: '', mode: 'drill', question: 'Fresh map question', context: 'raptor' }] }));
+  fs.writeFileSync(scoresFile, JSON.stringify({ attempts: [{ id: 'c009', cardId: 'c009', date: NOW, session: '2026-09-05', grade: 'correct', answer: 'a', gap: '', mode: 'drill', question: 'Fresh map question', context: 'demo' }] }));
   let status = run(testHome, ['status', 'demo']);
   assert.deepEqual(status.altitudes.map((item) => ({ altitude: item.altitude, cards: item.cards, new: item.new, due: item.due })), [
     { altitude: 'map', cards: 1, new: 0, due: 0 },

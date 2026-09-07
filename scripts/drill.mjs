@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const HOME = process.env.INTERVIEW_DRILL_HOME || path.join(os.homedir(), '.interview-drill');
 const GRADES = ['correct', 'partial', 'wrong'];
 const MODES = ['drill', 'mock', 'transfer'];
-const CONTEXTS = ['raptor', 'wiretrace', 'crosstalk', 'library', 'hospital', 'isp-support', 'ecommerce', 'school', 'generic'];
+const TRANSFER_WORLDS = ['library', 'hospital', 'isp-support', 'ecommerce', 'school', 'bank', 'logistics', 'generic'];
 const ALTITUDES = ['map', 'boundary', 'mechanism', 'line'];
 const ALTITUDE_WEIGHTS = [3, 3, 3, 1];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -250,10 +250,17 @@ function validateGrounding(value, label, required = true) {
   if (required && value.length === 0) fail(`${label} grounding must contain at least one path`);
 }
 
-function validateContexts(value, label) {
-  if (!Array.isArray(value) || value.length === 0 || value.some((item) => !CONTEXTS.includes(item)) || new Set(value).size !== value.length) {
-    fail(`${label} contexts must be a non-empty subset of the supported contexts`);
+function allowedContexts(project) {
+  return [...new Set([project, ...TRANSFER_WORLDS])];
+}
+
+function validateContexts(value, label, project) {
+  const allowed = allowedContexts(project);
+  const requirements = `${label} contexts must include the bank project "${project}" and at least one transfer world; allowed contexts: ${allowed.join(', ')}`;
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => !allowed.includes(item)) || new Set(value).size !== value.length) {
+    fail(`${label} contexts must be a non-empty, duplicate-free subset of ${allowed.join(', ')}`);
   }
+  if (!value.includes(project) || !value.some((context) => TRANSFER_WORLDS.includes(context))) fail(requirements);
 }
 
 function validateSource(value, label) {
@@ -262,7 +269,7 @@ function validateSource(value, label) {
   }
 }
 
-function validateCardContent(item, index, { requireGrounding = true, requireSource = true, requireAltitude = true } = {}) {
+function validateCardContent(item, index, { requireGrounding = true, requireSource = true, requireAltitude = true, project } = {}) {
   const label = `card ${index + 1}`;
   if (!item || typeof item !== 'object' || Array.isArray(item)) fail(`${label} must be an object`);
   if (!Number.isInteger(item.level) || item.level < 1 || item.level > 4) fail(`${label} level must be an integer from 1 to 4`);
@@ -272,17 +279,17 @@ function validateCardContent(item, index, { requireGrounding = true, requireSour
   if (typeof item.ask !== 'string' || !item.ask.trim()) fail(`${label} ask must be non-empty`);
   validateRubric(item.rubric, label);
   if (requireGrounding || 'grounding' in item) validateGrounding(item.grounding, label, requireGrounding);
-  validateContexts(item.contexts, label);
+  validateContexts(item.contexts, label, project);
   if (requireSource || 'source' in item) validateSource(item.source, label);
   if ('needsRewrite' in item && typeof item.needsRewrite !== 'boolean') fail(`${label} needsRewrite must be boolean`);
   if ('retired' in item && typeof item.retired !== 'boolean') fail(`${label} retired must be boolean`);
 }
 
-function validateNewCard(item, index) {
+function validateNewCard(item, index, project) {
   const label = `card ${index + 1}`;
   if (!item || typeof item !== 'object' || Array.isArray(item)) validateCardContent(item, index);
   if ('id' in item || 'added' in item || 'sched' in item) fail(`${label} must omit id, added, and sched`);
-  validateCardContent(item, index);
+  validateCardContent(item, index, { project });
 }
 
 function chooseNew(cards, count) {
@@ -353,9 +360,10 @@ function suggestedContext(card, state) {
   const used = new Set(history.slice(0, 2).map((attempt) => attempt.context).filter(Boolean));
   let candidates = card.contexts.filter((context) => !used.has(context));
   if (!candidates.length) candidates = [...card.contexts];
-  const hasRaptorCorrect = history.some((attempt) => attempt.grade === 'correct' && attempt.context === 'raptor');
-  if (hasRaptorCorrect) return candidates.find((context) => context !== 'raptor') || candidates[0];
-  return candidates.find((context) => context === 'raptor') || candidates[0];
+  const homeContext = state.bank.project;
+  const hasHomeCorrect = history.some((attempt) => attempt.grade === 'correct' && attempt.context === homeContext);
+  if (hasHomeCorrect) return candidates.find((context) => context !== homeContext) || candidates[0];
+  return candidates.find((context) => context === homeContext) || candidates[0];
 }
 
 function publicCard(card, state, today, includeAttempts = true) {
@@ -501,7 +509,7 @@ function commandAdd(positionals) {
   const state = loadProject(positionals[0]);
   const input = readJson(path.resolve(positionals[1]));
   if (!Array.isArray(input)) fail('add file must contain a JSON array');
-  input.forEach(validateNewCard);
+  input.forEach((item, index) => validateNewCard(item, index, state.bank.project));
   let nextId = state.bank.cards.reduce((max, item) => Math.max(max, Number(/^c(\d+)$/.exec(item.id)?.[1] || 0)), 0) + 1;
   const concepts = new Set(state.bank.cards.map((item) => item.concept.trim()));
   let added = 0;
@@ -565,7 +573,8 @@ function commandRecord(positionals, options) {
   if (typeof options.answer !== 'string' || typeof options.gap !== 'string' || typeof options.question !== 'string' || !options.question.trim()) {
     fail('record requires --answer, --gap, and --question');
   }
-  if (typeof options.context !== 'string' || (!CONTEXTS.includes(options.context) && options.context !== 'other-domain')) fail('--context must be a supported context');
+  const recordContexts = [...allowedContexts(state.bank.project), 'other-domain'];
+  if (typeof options.context !== 'string' || !recordContexts.includes(options.context)) fail(`--context must be one of ${recordContexts.join(', ')}`);
   if (!card.contexts.includes(options.context)) fail('--context must be included in the card contexts');
   const mode = options.mode || 'drill';
   if (!MODES.includes(mode)) fail('--mode must be drill, mock, or transfer');
@@ -606,7 +615,7 @@ function commandUpdate(positionals, options) {
   const replacement = readJson(path.resolve(options.file));
   if (!replacement || typeof replacement !== 'object' || Array.isArray(replacement)) fail('update file must contain a JSON object');
   for (const field of ['level', 'topic', 'concept', 'ask', 'rubric', 'contexts']) if (!(field in replacement)) fail(`update file must contain ${field}`);
-  validateCardContent(replacement, 0, { requireGrounding: false, requireSource: false, requireAltitude: false });
+  validateCardContent(replacement, 0, { requireGrounding: false, requireSource: false, requireAltitude: false, project: state.bank.project });
   card.level = replacement.level;
   card.topic = replacement.topic;
   card.concept = replacement.concept;

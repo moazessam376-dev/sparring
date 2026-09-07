@@ -16,7 +16,7 @@ Every lesson is a self-contained HTML page in the teach workspace and follows th
 
 Use these design tokens: dark theme, one amber accent, JetBrains Mono for headings and code, Inter for body text, and an 880px maximum content width. The lesson must work at 390px, use no external scripts, keep code at 14px or larger, and give every diagram box a caption. Terms receive inline definitions on first use.
 
-Each lesson ships `NNNN-<slug>.cards.json` with three to six cards. Cards are levels 1–3, have `contexts` including `raptor` and at least two transfer contexts, and use `source = {"type":"lesson","ref":"<slug>"}`. Run `drill.mjs add` on this file; do not add ids, dates, or schedules by hand.
+Each lesson ships `NNNN-<slug>.cards.json` with three to six cards. Cards are levels 1–3, have `contexts` including the project's own name and at least one transfer context, and use `source = {"type":"lesson","ref":"<slug>"}`. Run `drill.mjs add` on this file; do not add ids, dates, or schedules by hand.
 
 ## Map
 

@@ -45,7 +45,7 @@ Card fields:
   - `line`: a specific load-bearing statement whose absence would cause a security or correctness bug.
 - `concept` names the idea. `ask` is an answer-free hint used to generate a fresh question. `rubric` is the hidden one-to-six item checklist for grading.
 - `grounding` contains relative `path:line` or `path:start-end` references matching `^[^:]+:\d+(-\d+)?$`. It may be empty for transfer-only cards.
-- `contexts` is a non-empty, duplicate-free subset of `raptor`, `wiretrace`, `crosstalk`, `library`, `hospital`, `isp-support`, `ecommerce`, `school`, and `generic`.
+- `contexts` is a non-empty, duplicate-free subset of the bank's own `project` name plus the transfer worlds `library`, `hospital`, `isp-support`, `ecommerce`, `school`, `bank`, `logistics`, and `generic`. Every card must include the project name and at least one transfer world; for example, a bank whose project is `raptor` might use `raptor`, `library`, and `hospital`.
 - `source` contains non-empty `type` and `ref`, such as a lesson reference.
 - `added` is a `YYYY-MM-DD` date assigned by `add`.
 - `needsRewrite` marks a card converted from v1 whose concept, ask, or rubric still needs refinement.

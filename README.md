@@ -1,4 +1,5 @@
 # interview-drill
+[![tests](https://github.com/moazessam376-dev/interview-drill/actions/workflows/test.yml/badge.svg)](https://github.com/moazessam376-dev/interview-drill/actions/workflows/test.yml)
 
 A hard technical interviewer and visual tutor for codebases you built, for any coding agent that reads `SKILL.md` files.
 
@@ -11,7 +12,7 @@ Engineers who build with agents must still defend every decision. Nobody holds a
 ### Claude Code
 
 ```sh
-git clone <repo> ~/.claude/skills/interview-drill
+git clone https://github.com/moazessam376-dev/interview-drill.git ~/.claude/skills/interview-drill
 ```
 
 You can also clone anywhere and run `./install.sh`. Invoke the skill by asking to be drilled, or with `/interview-drill`.
@@ -19,7 +20,7 @@ You can also clone anywhere and run `./install.sh`. Invoke the skill by asking t
 ### Codex CLI
 
 ```sh
-git clone <repo> ~/.codex/skills/interview-drill
+git clone https://github.com/moazessam376-dev/interview-drill.git ~/.codex/skills/interview-drill
 ```
 
 You can also clone anywhere and run `./install.sh`. The installer appends a pointer paragraph to `~/.codex/AGENTS.md` if that file exists, and creates it otherwise.
@@ -27,7 +28,7 @@ You can also clone anywhere and run `./install.sh`. The installer appends a poin
 ### Cursor
 
 ```sh
-git clone <repo> ~/.cursor/skills/interview-drill
+git clone https://github.com/moazessam376-dev/interview-drill.git ~/.cursor/skills/interview-drill
 ```
 
 For one project only, clone into `.cursor/skills/interview-drill` inside that project. You can also clone anywhere and run `./install.sh`. Cursor reads the same `SKILL.md` format.
@@ -38,13 +39,13 @@ For one project only, clone into `.cursor/skills/interview-drill` inside that pr
 
 | Mode | Trigger phrase |
 | --- | --- |
-| `build-bank` | “build a question bank”, “make a bank from this repo” |
-| `drill` | “drill me”, “quiz me”, “test me on this project” |
-| `lesson` | “teach me”, “explain”, “I don’t understand X”, “lesson on what I got wrong” |
-| `refine` | “clean up the cards” |
-| `read` | “read this file with me”, “make me explain this code” |
-| `mock` | “mock interview”, “interview me for 45 minutes” |
-| `grill-design` | “grill this design”, “challenge this design before coding” |
+| `build-bank` | "build a question bank", "make a bank from this repo" |
+| `drill` | "drill me", "quiz me", "test me on this project" |
+| `lesson` | "teach me", "explain", "I don't understand X", "lesson on what I got wrong" |
+| `refine` | "clean up the cards" |
+| `read` | "read this file with me", "make me explain this code" |
+| `mock` | "mock interview", "interview me for 45 minutes" |
+| `grill-design` | "grill this design", "challenge this design before coding" |
 
 ## How a session goes
 
