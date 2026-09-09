@@ -366,6 +366,13 @@ function suggestedContext(card, state) {
   return candidates.find((context) => context === homeContext) || candidates[0];
 }
 
+function recentQuestions(state, id) {
+  return attemptsFor(state, id)
+    .slice(0, 3)
+    .map((attempt) => attempt.question)
+    .filter((question) => typeof question === 'string' && question.trim());
+}
+
 function publicCard(card, state, today, includeAttempts = true) {
   const output = {
     id: card.id,
@@ -380,6 +387,7 @@ function publicCard(card, state, today, includeAttempts = true) {
     dueDays: daysBetween(today, card.sched.due),
   };
   if (includeAttempts) {
+    output.recentQuestions = recentQuestions(state, card.id);
     output.attempts = attemptsFor(state, card.id).length;
     output.lastGrade = card.sched.lastGrade;
   }
@@ -472,7 +480,7 @@ function commandMigrate(positionals) {
       ask: question.question,
       rubric,
       grounding: Array.isArray(question.grounding) ? question.grounding : [],
-      contexts: ['raptor', 'generic', 'other-domain'],
+      contexts: [state.bank.project, 'generic'],
       source: { type: 'drill', ref: 'v1' },
       added: question.added || today,
       needsRewrite: true,
@@ -488,7 +496,7 @@ function commandMigrate(positionals) {
       return {
         ...attempt,
         question: attempt.question || question?.question || '',
-        context: attempt.context || 'raptor',
+        context: attempt.context || state.bank.project,
         cardId: oldId,
       };
     }),
@@ -573,7 +581,7 @@ function commandRecord(positionals, options) {
   if (typeof options.answer !== 'string' || typeof options.gap !== 'string' || typeof options.question !== 'string' || !options.question.trim()) {
     fail('record requires --answer, --gap, and --question');
   }
-  const recordContexts = [...allowedContexts(state.bank.project), 'other-domain'];
+  const recordContexts = allowedContexts(state.bank.project);
   if (typeof options.context !== 'string' || !recordContexts.includes(options.context)) fail(`--context must be one of ${recordContexts.join(', ')}`);
   if (!card.contexts.includes(options.context)) fail('--context must be included in the card contexts');
   const mode = options.mode || 'drill';

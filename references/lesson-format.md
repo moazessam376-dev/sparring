@@ -6,7 +6,7 @@ Every lesson is a self-contained HTML page in the teach workspace and follows th
 2. **Before you start.** List assumed terms, each with a one-line definition and a link to the lesson that teaches it. If no lesson exists, say so.
 3. **Why this exists.** Two to four sentences describing the problem before explaining the mechanism.
 4. **The mechanism, generic.** One diagram, using inline SVG or stacked HTML cards. Every diagram box has a caption saying what it is and why it is on the path. Define every term inline on first use with `<details>` or a styled `<abbr>` with a visible expansion.
-5. **The same thing in Raptor.** Quote the real file and lines verbatim, use at least 14px code, and put a plain-language line beside each excerpt.
+5. **The same thing in the project.** Quote the real file and lines verbatim, use at least 14px code, and put a plain-language line beside each excerpt.
 6. **What breaks if.** Show before and after statically, with the failure in red.
 7. **Say it like an interviewer.** Give four to five sentences to say out loud.
 8. **Check yourself.** Give three retrieval questions with click-to-reveal answers of equal word count.

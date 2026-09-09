@@ -205,11 +205,6 @@
       }
     }
 
-    .map-reveal.no-animation {
-      opacity: 1;
-      transform: none;
-    }
-
     .map-questions {
       display: grid;
       gap: 14px;
@@ -301,6 +296,11 @@
       }
     }
   </style>
+  <noscript>
+    <style>
+      .map-reveal { opacity: 1; transform: none; animation: none; }
+    </style>
+  </noscript>
 </head>
 <body>
   <main class="page map-page">

@@ -46,6 +46,14 @@ remove_link() {
 
 install_link() {
   link_path=$1
+  if [ -e "$link_path" ] || [ -L "$link_path" ]; then
+    if [ -L "$link_path" ] && [ "$(readlink "$link_path")" = "$skill_dir" ]; then
+      echo "linked $link_path -> $skill_dir"
+    else
+      echo "warning: skipping existing path $link_path" >&2
+    fi
+    return
+  fi
   ln -sfn "$skill_dir" "$link_path"
   echo "linked $link_path -> $skill_dir"
 }

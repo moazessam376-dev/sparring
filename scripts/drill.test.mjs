@@ -91,7 +91,7 @@ test('add rejects another project name as a context', () => {
   const testHome = home();
   run(testHome, ['init', 'demo', '--repo', '/tmp']);
   const input = path.join(testHome, 'other-project.json');
-  fs.writeFileSync(input, JSON.stringify([{ ...cards(1)[0], contexts: ['wiretrace', 'library'] }]));
+  fs.writeFileSync(input, JSON.stringify([{ ...cards(1)[0], contexts: ['demo-two', 'library'] }]));
   runFail(testHome, ['add', 'demo', input], 'card 1 contexts must be a non-empty, duplicate-free subset of demo, library, hospital, isp-support, ecommerce, school, bank, logistics, generic');
 });
 
@@ -156,13 +156,21 @@ test('v1 commands fail, while status warns and migrate converts with backups', (
   assert.equal(v2Bank.version, 2);
   assert.equal(v2Bank.cards[0].id, 'q001');
   assert.deepEqual(v2Bank.cards[0].rubric, ['Verification proves the signed claims were not changed.', 'Follow-up: What if the token is only decoded?']);
-  assert.deepEqual(v2Bank.cards[0].contexts, ['raptor', 'generic', 'other-domain']);
+  assert.deepEqual(v2Bank.cards[0].contexts, ['demo', 'generic']);
   assert.equal(v2Bank.cards[0].sched.interval, 3);
   assert.equal(v2Bank.cards[0].needsRewrite, true);
   assert.equal(v2Bank.cards[0].altitude, 'mechanism');
   assert.equal(v2Scores.attempts[0].cardId, 'q001');
   assert.equal(v2Scores.attempts[0].question, 'Why does the server verify the token?');
-  assert.equal(v2Scores.attempts[0].context, 'raptor');
+  assert.equal(v2Scores.attempts[0].context, 'demo');
+  assert.deepEqual(run(testHome, ['record', 'demo', 'q001', '--grade', 'correct', '--answer', 'a', '--gap', '', '--question', 'A fresh migrated-bank question', '--context', 'demo']), {
+    recorded: true,
+    id: 'q001',
+    cardId: 'q001',
+    session: '2026-09-05',
+    grade: 'correct',
+    mode: 'drill',
+  });
   const before = fs.readFileSync(path.join(dir, 'bank.json'), 'utf8');
   assert.deepEqual(run(testHome, ['migrate', 'demo']), { project: 'demo', migrated: false, alreadyV2: true, unchanged: true, cards: 1, upgraded: 0 });
   assert.equal(fs.readFileSync(path.join(dir, 'bank.json'), 'utf8'), before);
@@ -226,11 +234,13 @@ test('next hides rubric and grounding, orders overdue cards, caps new cards, and
   assert.equal(result.cards.filter((card) => card.state === 'new').length, 1);
   assert.equal('rubric' in result.cards[0], false);
   assert.equal('grounding' in result.cards[0], false);
+  assert.deepEqual(result.cards[0].recentQuestions, ['Fresh wording for c001']);
   assert.equal(result.cards[0].suggestedContext, 'library');
   record(testHome, 'c001', 'partial', '2026-09-04T13:00:00Z', 'Second wording for c001', 'library');
   const rotated = run(testHome, ['next', 'demo', '--n', '1', '--topic', 'topic1']);
   assert.equal(rotated.cards[0].id, 'c001');
   assert.equal(rotated.cards[0].suggestedContext, 'hospital');
+  assert.deepEqual(rotated.cards[0].recentQuestions, ['Second wording for c001', 'Fresh wording for c001']);
 });
 
 test('suggested context prefers a transfer world after a correct home-context attempt', () => {

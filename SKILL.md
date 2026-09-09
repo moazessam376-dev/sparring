@@ -38,7 +38,7 @@ Read only the chosen mode reference plus [references/interviewer-rules.md](refer
 9. End with one change. Name one small change to make by hand, tied to the worst answer.
 10. Generate, do not read.
 Every question is written fresh from the card's `ask` and
-`suggestedContext`. Never reuse a wording listed in `answer`'s recent attempts.
+`suggestedContext`, avoiding every wording listed in `next`'s `recentQuestions`.
 11. At map and boundary altitude, reward a committed best guess with a verification plan over silence; grade the guess.
 
 ## Command cheat sheet
