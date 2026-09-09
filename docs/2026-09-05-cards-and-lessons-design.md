@@ -87,7 +87,7 @@ Unchanged names and flags keep working; these change or are added.
 
 ## Part 3: lessons
 
-Workspace: `~/.interview-drill/<project>/teach/` with `MISSION.md`, `RESOURCES.md`, `NOTES.md`, `assets/lesson.css`, `lessons/NNNN-<slug>.html`, `lessons/NNNN-<slug>.cards.json`, `reference/glossary.html`, `learning-records/`, and `index.html` listing lessons in order.
+Workspace: `~/.sparring/<project>/teach/` with `MISSION.md`, `RESOURCES.md`, `NOTES.md`, `assets/lesson.css`, `lessons/NNNN-<slug>.html`, `lessons/NNNN-<slug>.cards.json`, `reference/glossary.html`, `learning-records/`, and `index.html` listing lessons in order.
 
 ### Lesson format, every lesson
 

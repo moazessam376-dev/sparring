@@ -1,15 +1,15 @@
 ---
-name: interview-drill
+name: sparring
 description: "Hard technical interviewer for codebases the user built. Use when the user asks to be drilled, quizzed, grilled, mock-interviewed, or tested on a project, wants a concept-card bank built from a repo, wants a lesson, wants to refine cards, wants to explain code and be corrected, or wants a design document grilled before implementation. Modes: build-bank, drill, lesson, refine, read, mock, grill-design."
 ---
 
-# Interview drill
+# Sparring
 
 The user builds software with agents and must be able to defend every decision in an interview. This skill produces that ability by drilling, not explaining. The script owns all state.
 
 ## State
 
-Use `$INTERVIEW_DRILL_HOME`, defaulting to `~/.interview-drill`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `altitude`, `needsRewrite`, optional `retired`, and `sched`. Altitude is `map`, `boundary`, `mechanism`, or `line`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
+Use `$SPARRING_HOME`, defaulting to `~/.sparring`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `altitude`, `needsRewrite`, optional `retired`, and `sched`. Altitude is `map`, `boundary`, `mechanism`, or `line`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
 
 ## Select a mode
 

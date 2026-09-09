@@ -10,12 +10,12 @@ const script = path.resolve(new URL('./drill.mjs', import.meta.url).pathname);
 const NOW = '2026-09-05T12:00:00Z';
 
 function home() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'interview-drill-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'sparring-'));
 }
 
 function run(testHome, args, date = NOW) {
   const output = execFileSync(process.execPath, [script, ...args], {
-    env: { ...process.env, INTERVIEW_DRILL_HOME: testHome, INTERVIEW_DRILL_NOW: date },
+    env: { ...process.env, SPARRING_HOME: testHome, SPARRING_NOW: date },
     encoding: 'utf8',
   });
   return JSON.parse(output.trim().split('\n').at(-1));

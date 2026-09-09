@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const HOME = process.env.INTERVIEW_DRILL_HOME || path.join(os.homedir(), '.interview-drill');
+const HOME = process.env.SPARRING_HOME || path.join(os.homedir(), '.sparring');
 const GRADES = ['correct', 'partial', 'wrong'];
 const MODES = ['drill', 'mock', 'transfer'];
 const TRANSFER_WORLDS = ['library', 'hospital', 'isp-support', 'ecommerce', 'school', 'bank', 'logistics', 'generic'];
@@ -14,7 +14,7 @@ const ALTITUDE_WEIGHTS = [3, 3, 3, 1];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function clock() {
-  return process.env.INTERVIEW_DRILL_NOW ? new Date(process.env.INTERVIEW_DRILL_NOW) : new Date();
+  return process.env.SPARRING_NOW ? new Date(process.env.SPARRING_NOW) : new Date();
 }
 
 export function sessionDate(date = clock()) {

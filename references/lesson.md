@@ -7,7 +7,7 @@ For any new project, write the map lesson first, before any deep lesson. Write a
 1. Run `drill.mjs gaps <project>` and use its grouped wrong and partial cards. If the user named a concept, use that concept instead.
 2. Check the learner's floor in `NOTES.md` and `learning-records/` inside the project's `teach/` workspace. Do not assume a concept is known because it appeared in a previous chat.
 3. Pick the lowest-level missing concept first. Prefer the prerequisite that makes the current gap intelligible.
-4. Write one lesson following [lesson-format.md](lesson-format.md) in `~/.interview-drill/<project>/teach/`. Put its lesson HTML in `lessons/` and its companion cards JSON beside it as `lessons/NNNN-<slug>.cards.json`.
+4. Write one lesson following [lesson-format.md](lesson-format.md) in `~/.sparring/<project>/teach/`. Put its lesson HTML in `lessons/` and its companion cards JSON beside it as `lessons/NNNN-<slug>.cards.json`.
 5. Run `drill.mjs add <project> <path-to-the-cards.json>`. The script assigns card ids and starts each card as new.
 6. On macOS, open the lesson with `open <path-to-the-lesson.html>`.
 7. End by telling the user to answer the transfer questions in chat. Ask one at a time and grade transfer answers with the interviewer rules; record each with `drill.mjs record <project> <id> --mode transfer --question "<wording>" --context <transfer-context> ...`.

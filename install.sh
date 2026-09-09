@@ -12,7 +12,7 @@ while [ -L "$source_path" ]; do
 done
 skill_dir=$(cd -P "$(dirname "$source_path")" && pwd)
 
-agents_pointer="Skills live in ~/.codex/skills. If a request mentions drilling, interview practice, question banks, mock interviews, lessons, or grilling a design, read ~/.codex/skills/interview-drill/SKILL.md first and follow it."
+agents_pointer="Skills live in ~/.codex/skills. If a request mentions drilling, interview practice, question banks, mock interviews, lessons, or grilling a design, read ~/.codex/skills/sparring/SKILL.md first and follow it."
 run_tests=true
 uninstall=false
 
@@ -59,20 +59,20 @@ install_link() {
 }
 
 if [ "$uninstall" = true ]; then
-  remove_link "${HOME}/.claude/skills/interview-drill"
-  remove_link "${HOME}/.codex/skills/interview-drill"
-  remove_link "${HOME}/.cursor/skills/interview-drill"
+  remove_link "${HOME}/.claude/skills/sparring"
+  remove_link "${HOME}/.codex/skills/sparring"
+  remove_link "${HOME}/.cursor/skills/sparring"
   remove_pointer "${HOME}/.codex/AGENTS.md"
 else
   mkdir -p "${HOME}/.claude/skills" "${HOME}/.codex/skills" "${HOME}/.cursor/skills"
 
-  install_link "${HOME}/.claude/skills/interview-drill"
-  install_link "${HOME}/.codex/skills/interview-drill"
-  install_link "${HOME}/.cursor/skills/interview-drill"
+  install_link "${HOME}/.claude/skills/sparring"
+  install_link "${HOME}/.codex/skills/sparring"
+  install_link "${HOME}/.cursor/skills/sparring"
 
   agents_file="${HOME}/.codex/AGENTS.md"
   if [ -f "$agents_file" ]; then
-    if ! grep -Fq "interview-drill" "$agents_file"; then
+    if ! grep -Fq "sparring" "$agents_file"; then
       printf '\n%s\n' "$agents_pointer" >> "$agents_file"
     fi
   else
