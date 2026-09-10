@@ -11,12 +11,27 @@
   h1, h2, h3 { font-family: var(--font-mono); }
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
   h2 { font-size: 1rem; font-weight: 600; margin: 0 0 8px; }
+  /* page rules used by the demo body only; a lesson has its own strip CSS */
+  .wire, .lede { color: var(--muted); }
+  .wire { margin: 0 0 32px; }
+  .strip { margin: 0 0 32px; }
+  .strip > h2 { margin-bottom: 4px; }
+  .strip > .lede { font-size: 0.95rem; margin: 0 0 16px; }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
+  .panel { min-width: 0; }
+  .panel .n { margin-bottom: 8px; }
+  .sketch { display: block; width: 100%; height: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--elev); }
+  .panel p { margin: 0; font-size: 15px; }
+  .sk-box { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
+  .sk-store { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
+  .sk-label { fill: var(--fg); font-family: var(--font-body); font-size: 12px; text-anchor: middle; }
+  .sk-small { fill: var(--muted); font-family: var(--font-mono); font-size: 10px; text-anchor: middle; }
+  .sk-arrow { fill: none; stroke: var(--muted); stroke-width: 1.4; marker-end: url(#sk-head); }
+  .sk-arrow.accent { stroke: var(--accent); marker-end: url(#sk-head-accent); }
 </style>
 <!-- Copy the block below and the script at the end of the page into a lesson. -->
 <style data-exercises>
   * { box-sizing: border-box; }
-  .wire, .lede { color: var(--muted); }
-  .wire { margin: 0 0 32px; }
   button, input, textarea { font: inherit; }
   button { border: 1px solid var(--border); border-radius: 6px; background: var(--elev); color: var(--fg); padding: 8px 12px; cursor: pointer; }
   button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
@@ -49,21 +64,7 @@
   .ans { margin-top: 14px; }
   .ans code { display: block; overflow-x: auto; padding: 12px; border: 1px solid var(--border); color: var(--accent); font-family: var(--font-mono); font-size: 14px; }
   .mnemonic { color: var(--muted); }
-  .strip { margin: 0 0 32px; }
-  .strip > h2 { margin-bottom: 4px; }
-  .strip > .lede { font-size: 0.95rem; margin: 0 0 16px; }
   .strip.focus { padding: 16px; border: 1px solid var(--accent); border-left-width: 4px; border-radius: 8px; }
-  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
-  .panel { min-width: 0; }
-  .panel .n { margin-bottom: 8px; }
-  .sketch { display: block; width: 100%; height: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--elev); }
-  .panel p { margin: 0; font-size: 15px; }
-  .sk-box { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
-  .sk-store { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
-  .sk-label { fill: var(--fg); font-family: var(--font-body); font-size: 12px; text-anchor: middle; }
-  .sk-small { fill: var(--muted); font-family: var(--font-mono); font-size: 10px; text-anchor: middle; }
-  .sk-arrow { fill: none; stroke: var(--muted); stroke-width: 1.4; marker-end: url(#sk-head); }
-  .sk-arrow.accent { stroke: var(--accent); marker-end: url(#sk-head-accent); }
   [data-results] { min-height: 48px; margin: 20px 0 12px; padding: 12px; overflow-x: auto; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; }
   .check [hidden] { display: none !important; }
 </style>
@@ -73,7 +74,6 @@
   <div class="check" data-lesson="socketio-rooms-sequence">
     <div class="progress" data-progress aria-live="polite"></div>
     <h1>Sequence numbers in rooms</h1>
-    <p class="wire">Redis assigns every room one atomic number before fan-out.</p>
 
     <div class="ex ex-pretest" data-ex="pre-1" data-strip="seq">
       <h2>Pretest</h2>
@@ -89,6 +89,7 @@
         <button type="button" data-mark="miss">Missed it</button>
       </div>
     </div>
+    <p class="wire">Redis assigns every room one atomic number before fan-out.</p>
 
     <section class="strip" data-strip="seq">
       <h2>Sequence numbers</h2>
