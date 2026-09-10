@@ -77,31 +77,31 @@ Lessons are map-first visual explanations: they establish the project map, then 
 
 ## Commands
 
-`node scripts/drill.mjs init <project> --repo <abs path>` — initialize or update a v2 project.
+`node scripts/drill.mjs init <project> --repo <abs path>`: initialize or update a v2 project.
 
-`node scripts/drill.mjs migrate <project>` — back up and convert a v1 bank once.
+`node scripts/drill.mjs migrate <project>`: back up and convert a v1 bank once.
 
-`node scripts/drill.mjs add <project> <file.json>` — validate and add concept cards.
+`node scripts/drill.mjs add <project> <file.json>`: validate and add concept cards.
 
-`node scripts/drill.mjs next <project> --n 12 --new 6` — return a due/new card queue without answers.
+`node scripts/drill.mjs next <project> --n 12 --new 6`: return a due/new card queue without answers.
 
-`node scripts/drill.mjs answer <project> <id>` — fetch one card's rubric after commitment.
+`node scripts/drill.mjs answer <project> <id>`: fetch one card's rubric after commitment.
 
-`node scripts/drill.mjs record <project> <id> --grade <g> --answer "..." --gap "..." --question "..." --context <ctx>` — record an attempt.
+`node scripts/drill.mjs record <project> <id> --grade <g> --answer "..." --gap "..." --question "..." --context <ctx>`: record an attempt.
 
-`node scripts/drill.mjs refine <project> --n 10` — return converted cards that need rewriting.
+`node scripts/drill.mjs refine <project> --n 10`: return converted cards that need rewriting.
 
-`node scripts/drill.mjs update <project> <id> --file <json>` — replace a card's rewritten fields.
+`node scripts/drill.mjs update <project> <id> --file <json>`: replace a card's rewritten fields.
 
-`node scripts/drill.mjs remove <project> <id>` — retire a card while keeping its attempts.
+`node scripts/drill.mjs remove <project> <id>`: retire a card while keeping its attempts.
 
-`node scripts/drill.mjs gaps <project> --days 7` — group recent wrong and partial cards.
+`node scripts/drill.mjs gaps <project> --days 7`: group recent wrong and partial cards.
 
-`node scripts/drill.mjs note <project> "..."` — append a session note.
+`node scripts/drill.mjs note <project> "..."`: append a session note.
 
-`node scripts/drill.mjs mock <project> --n 15` — return a score-blind mock set.
+`node scripts/drill.mjs mock <project> --n 15`: return a score-blind mock set.
 
-`node scripts/drill.mjs status <project>` — print progress and the defensible verdict.
+`node scripts/drill.mjs status <project>`: print progress and the defensible verdict.
 
 ## Design records
 
