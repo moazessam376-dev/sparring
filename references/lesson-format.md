@@ -37,6 +37,7 @@ Draw the overview at the `doc-inline` width (viewBox width 960, height as the co
 Everything after the overview is told in strips, modelled on a numbered storyboard: a heading, an optional one-line lede, then two to four panels in a row. `templates/strip.html` holds the markup, the CSS and the sketch vocabulary. Two panel kinds:
 
 - **Mechanism panel**: a number badge, a sketch (`svg.sketch`, viewBox 240 by 120, drawn from the vocabulary below), and one caption.
+A strip with four panels takes the class `panels four` and lays out two by two, so sketches stay wide enough for their labels. Sketch labels must fit their box: a 72px box holds about ten characters at 12px; widen the box to 96px for longer names.
 - **Decision panel**: text only, three per strip, keyed "What we do", "The other way", "Why not here". One or two short sentences each. No sketch.
 
 Sketch vocabulary, nothing else: `sk-box` (a labelled box), `sk-store` (a store, drawn as a taller box), `sk-arrow` (solid; add `dashed` for a return or a retry; add `accent` for the one thing the panel is about), `sk-cross` (something dies), `sk-label` (12px name), `sk-small` (10px technical word). One accent per panel at most. No mascots, icons or illustrations.
