@@ -110,3 +110,8 @@ Read the dated [design records](docs/) for the decisions behind the card model, 
 ## License
 
 MIT.
+
+## How it teaches
+
+Lessons are built for retention, not reading: a floor check in chat, a pretest, strips of short panels, one typed exercise per strip with the answer shown at once, a self-explanation prompt, and at most five recall cards for the strings worth keeping. Drills are spaced over days and interleaved across projects. The evidence behind each rule is in `docs/research/2026-09-10-learning-science.md`.
+

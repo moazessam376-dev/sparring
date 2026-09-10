@@ -11,7 +11,7 @@ The user builds software with agents and must be able to defend every decision i
 
 Use `$SPARRING_HOME`, defaulting to `~/.sparring`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `altitude`, `needsRewrite`, optional `retired`, and `sched`. Altitude is `map`, `boundary`, `mechanism`, or `line`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
 
-Lesson diagrams are built with the diagram-design skill using the `sparring` profile from `templates/diagram-design-profile.md`; see the Diagrams section of [references/lesson-format.md](references/lesson-format.md).
+Lessons follow the learning framework in [references/lesson-format.md](references/lesson-format.md) (floor check, pretest, strips, one production exercise per strip, self-explanation, recall cards; exercises from `templates/exercises.html`). Lesson diagrams are built with the diagram-design skill using the `sparring` profile from `templates/diagram-design-profile.md`; see the Diagrams section of [references/lesson-format.md](references/lesson-format.md).
 
 ## Select a mode
 
@@ -48,7 +48,7 @@ Every question is written fresh from the card's `ask` and
 `node <skill dir>/scripts/drill.mjs init <project> --repo <abs path>`: initialize or update a v2 project.
 `node <skill dir>/scripts/drill.mjs migrate <project>`: back up and convert a v1 bank once.
 `node <skill dir>/scripts/drill.mjs add <project> <file.json>`: validate and add concept cards.
-`node <skill dir>/scripts/drill.mjs next <project> --n 12`: return a due/new card queue without answers.
+`node <skill dir>/scripts/drill.mjs next <project> --n 12 [--all] [--include-mature]`: return a due/new card queue without answers; `--all` merges every project's queue and tags each card with its project; `--include-mature` pulls back cards retired from daily drill.
 `node <skill dir>/scripts/drill.mjs answer <project> <id>`: fetch one rubric after commitment.
 `node <skill dir>/scripts/drill.mjs record <project> <id> --grade <g> --answer "..." --gap "..." --question "..." --context <ctx>`: record an attempt.
 `node <skill dir>/scripts/drill.mjs remove <project> <id>`: retire a card while keeping its attempts.

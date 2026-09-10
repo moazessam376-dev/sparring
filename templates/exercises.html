@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exercises template</title>
+<style data-demo-page>
+  :root { --bg: #0a0f0e; --elev: #0d1513; --border: #1d2a26; --fg: #ece9e1; --muted: #a9b0ac; --faint: #6f7a76; --accent: #f2b544; --font-body: "Inter", ui-sans-serif, system-ui, sans-serif; --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1, h2, h3 { font-family: var(--font-mono); }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  h2 { font-size: 1rem; font-weight: 600; margin: 0 0 8px; }
+  /* page rules used by the demo body only; a lesson has its own strip CSS */
+  .wire, .lede { color: var(--muted); }
+  .wire { margin: 0 0 32px; }
+  .strip { margin: 0 0 32px; }
+  .strip > h2 { margin-bottom: 4px; }
+  .strip > .lede { font-size: 0.95rem; margin: 0 0 16px; }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
+  .panel { min-width: 0; }
+  .panel .n { margin-bottom: 8px; }
+  .sketch { display: block; width: 100%; height: auto; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--elev); }
+  .panel p { margin: 0; font-size: 15px; }
+  .sk-box { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
+  .sk-store { fill: var(--elev); stroke: var(--muted); stroke-width: 1.2; }
+  .sk-label { fill: var(--fg); font-family: var(--font-body); font-size: 12px; text-anchor: middle; }
+  .sk-small { fill: var(--muted); font-family: var(--font-mono); font-size: 10px; text-anchor: middle; }
+  .sk-arrow { fill: none; stroke: var(--muted); stroke-width: 1.4; marker-end: url(#sk-head); }
+  .sk-arrow.accent { stroke: var(--accent); marker-end: url(#sk-head-accent); }
+</style>
+<!-- Copy the block below and the script at the end of the page into a lesson. -->
+<style data-exercises>
+  * { box-sizing: border-box; }
+  button, input, textarea { font: inherit; }
+  button { border: 1px solid var(--border); border-radius: 6px; background: var(--elev); color: var(--fg); padding: 8px 12px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { cursor: not-allowed; opacity: 0.55; }
+  .progress { margin: 0 0 24px; color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; }
+  .ex { margin: 0 0 32px; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--elev); }
+  .ex .q { margin: 0 0 12px; font-weight: 600; }
+  .ex textarea, .ex-type input { display: block; width: 100%; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 10px; }
+  .ex textarea { min-height: 88px; resize: vertical; }
+  .ex-type input { max-width: 420px; }
+  .reveal, .why { margin: 16px 0 0; padding: 12px; border-left: 3px solid var(--accent); background: var(--bg); }
+  .reveal p, .why { margin: 0; }
+  .mark { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .mark span { color: var(--muted); margin-right: 4px; }
+  .feedback { min-height: 24px; margin-top: 12px; color: var(--accent); font-family: var(--font-mono); font-size: 0.85rem; }
+  .n { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 4px; background: var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 12px; line-height: 20px; text-align: center; }
+  .ex > .n, .card > .n { display: block; width: fit-content; margin-top: 16px; }
+  .steps, .choices, .recall { margin: 0; padding: 0; }
+  .steps { display: grid; gap: 10px; padding-left: 0; list-style: none; }
+  .steps li { display: flex; align-items: center; gap: 8px; }
+  .steps li button { flex: 1; min-width: 0; text-align: left; }
+  .steps li.focus button, .choices button.focus { border-color: var(--accent); color: var(--accent); }
+  .steps li .n { flex: 0 0 auto; }
+  .choices { display: grid; gap: 10px; list-style: none; }
+  .choices button { width: 100%; text-align: left; }
+  .recall { display: grid; gap: 16px; list-style: none; }
+  .card { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--elev); }
+  .cue { width: 100%; text-align: left; }
+  .ans { margin-top: 14px; }
+  .ans code { display: block; overflow-x: auto; padding: 12px; border: 1px solid var(--border); color: var(--accent); font-family: var(--font-mono); font-size: 14px; }
+  .mnemonic { color: var(--muted); }
+  .strip.focus { padding: 16px; border: 1px solid var(--accent); border-left-width: 4px; border-radius: 8px; }
+  [data-results] { min-height: 48px; margin: 20px 0 12px; padding: 12px; overflow-x: auto; border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; }
+  .check [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="check" data-lesson="socketio-rooms-sequence">
+    <div class="progress" data-progress aria-live="polite"></div>
+    <h1>Sequence numbers in rooms</h1>
+
+    <div class="ex ex-pretest" data-ex="pre-1" data-strip="seq">
+      <h2>Pretest</h2>
+      <p class="q">A client sends a message. Who decides its number, and where does the number come from?</p>
+      <textarea data-answer rows="3" placeholder="Write your answer before reading."></textarea>
+      <button type="button" data-submit>Show model answer</button>
+      <div class="reveal" data-reveal hidden>
+        <p>Redis decides, with one counter per room, using <code>INCR</code>.</p>
+      </div>
+      <div class="mark" data-marks hidden>
+        <span>Mark your answer.</span>
+        <button type="button" data-mark="ok">Had it</button>
+        <button type="button" data-mark="miss">Missed it</button>
+      </div>
+    </div>
+    <p class="wire">Redis assigns every room one atomic number before fan-out.</p>
+
+    <section class="strip" data-strip="seq">
+      <h2>Sequence numbers</h2>
+      <p class="lede">Redis assigns every message before fan-out.</p>
+      <ol class="panels four">
+        <li class="panel">
+          <span class="n">1</span>
+          <svg class="sketch" viewBox="0 0 240 120" aria-hidden="true">
+            <rect class="sk-box" x="16" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="52" y="64">Client A</text>
+            <path class="sk-arrow" d="M92 60 H148"/>
+            <rect class="sk-box" x="152" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="188" y="64">Instance A</text>
+          </svg>
+          <p>The client sends the message to instance A.</p>
+        </li>
+        <li class="panel">
+          <span class="n">2</span>
+          <svg class="sketch" viewBox="0 0 240 120" aria-hidden="true">
+            <rect class="sk-box" x="16" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="52" y="64">RoomStore</text>
+            <path class="sk-arrow accent" d="M92 60 H148"/>
+            <rect class="sk-store" x="152" y="32" width="72" height="56" rx="6" stroke="#f2b544"/><text class="sk-label" x="188" y="56">Redis</text><text class="sk-small" x="188" y="74">INCR</text>
+          </svg>
+          <p>Redis assigns one atomic number per room before fan-out.</p>
+        </li>
+        <li class="panel">
+          <span class="n">3</span>
+          <svg class="sketch" viewBox="0 0 240 120" aria-hidden="true">
+            <rect class="sk-box" x="16" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="52" y="64">Redis</text>
+            <path class="sk-arrow" d="M92 60 H148"/>
+            <rect class="sk-box" x="152" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="188" y="64">Stream</text>
+          </svg>
+          <p>The Streams adapter carries the event across instances.</p>
+        </li>
+        <li class="panel">
+          <span class="n">4</span>
+          <svg class="sketch" viewBox="0 0 240 120" aria-hidden="true">
+            <rect class="sk-box" x="16" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="52" y="64">Instance B</text>
+            <path class="sk-arrow" d="M92 60 H148"/>
+            <rect class="sk-box" x="152" y="40" width="72" height="40" rx="6"/><text class="sk-label" x="188" y="64">Clients</text>
+          </svg>
+          <p>Instance B delivers the message to connected clients.</p>
+        </li>
+      </ol>
+    </section>
+
+    <div class="ex ex-type" data-ex="t-1" data-accept="INCR|incr">
+      <h2>Type the command</h2>
+      <p class="q">Which Redis command hands out the next room number?</p>
+      <input data-answer type="text" autocomplete="off">
+      <button type="button" data-submit>Check answer</button>
+      <div class="feedback" data-feedback aria-live="polite"></div>
+      <p class="why" data-why hidden>INCR gives each room the next atomic number.</p>
+    </div>
+
+    <div class="ex ex-order" data-ex="o-1">
+      <h2>Put the send path in order</h2>
+      <p class="q">Click each step in the order that a message travels.</p>
+      <ol class="steps" data-steps>
+        <li data-pos="1"><button type="button">The client sends the message.</button></li>
+        <li data-pos="2"><button type="button">The RoomStore runs the atomic script that numbers and stores it.</button></li>
+        <li data-pos="3"><button type="button">The Streams adapter reads the new stream entry.</button></li>
+        <li data-pos="4"><button type="button">Instance B delivers the message to its own connected clients.</button></li>
+      </ol>
+      <div class="feedback" data-feedback aria-live="polite"></div>
+    </div>
+
+    <div class="ex ex-predict" data-ex="p-1" data-why="clientId makes the write idempotent.">
+      <h2>Predict the retry result</h2>
+      <p class="q">A client retries after a lost acknowledgement and reuses the same clientId. What happens?</p>
+      <ul class="choices">
+        <li><button type="button" data-choice data-lure="The retry is a new request, but the script keys on clientId.">The message is stored twice</button></li>
+        <li><button type="button" data-choice data-correct="true">The script returns the original number</button></li>
+        <li><button type="button" data-choice data-lure="Nothing is wrong. The first write already succeeded.">The client receives an error</button></li>
+      </ul>
+      <div class="feedback" data-feedback aria-live="polite"></div>
+    </div>
+
+    <div class="ex ex-predict" data-ex="p-2" data-why="Old unread entries can disappear under MAXLEN ~ while you catch up.">
+      <h2>Predict the trimming result</h2>
+      <p class="q">You catch up while the stream passes a cap (MAXLEN ~). What happens to unread entries?</p>
+      <ul class="choices">
+        <li><button type="button" data-choice data-lure="Trimming does not wait for a reader to consume an entry.">Every unread entry survives until you read it</button></li>
+        <li><button type="button" data-choice data-correct="true">Some unread entries disappear under approximate trimming</button></li>
+        <li><button type="button" data-choice data-lure="Approximate trimming allows slack while it still removes old entries.">You see the stream grow without bound during catch-up</button></li>
+      </ul>
+      <div class="feedback" data-feedback aria-live="polite"></div>
+    </div>
+
+    <div class="ex ex-explain" data-ex="e-1">
+      <h2>Explain the ordering boundary</h2>
+      <p class="q">Why must the number be assigned before fan-out?</p>
+      <textarea data-answer rows="3" placeholder="Write one sentence."></textarea>
+      <button type="button" data-submit>Show model answer</button>
+      <div class="reveal" data-reveal hidden>
+        <p>Every instance must deliver the same order, and replay asks for messages after a number.</p>
+      </div>
+      <div class="mark" data-marks hidden>
+        <span>Mark your answer.</span>
+        <button type="button" data-mark="ok">Had it</button>
+        <button type="button" data-mark="miss">Missed it</button>
+      </div>
+    </div>
+
+    <h2>Recall cards</h2>
+    <ul class="recall">
+      <li class="ex ex-type" data-ex="r-1" data-accept="INCR|incr">
+        <p class="q">Two clients race for the next room number. Which single command keeps each increment safe?</p>
+        <input data-answer type="text" autocomplete="off">
+        <button type="button" data-submit>Check answer</button>
+        <div class="feedback" data-feedback aria-live="polite"></div>
+        <p class="why" data-why hidden>INCR updates the counter atomically, so racing clients receive different numbers.</p>
+      </li>
+      <li class="ex ex-type" data-ex="r-2" data-accept="SET key value NX EX 300|SET NX EX|set nx ex">
+        <p class="q">A retry must not create a second row. Which command and flags?</p>
+        <input data-answer type="text" autocomplete="off">
+        <button type="button" data-submit>Check answer</button>
+        <div class="feedback" data-feedback aria-live="polite"></div>
+        <p class="why" data-why hidden>NX: only if Not eXists. EX: EXpires in seconds.</p>
+      </li>
+      <li class="card" data-ex="r-3">
+        <button class="cue" type="button" data-flip>Append a message and keep the stream bounded.</button>
+        <div class="ans" hidden>
+          <code>XADD room * ... MAXLEN ~ 500</code>
+          <p class="mnemonic">MAXLEN ~ trims approximately. It does not stop exactly at 500.</p>
+          <div class="mark" data-marks>
+            <span>Mark your recall.</span>
+            <button type="button" data-mark="ok">Got it</button>
+            <button type="button" data-mark="miss">Missed it</button>
+          </div>
+        </div>
+      </li>
+    </ul>
+
+    <button type="button" data-copy-results>Copy results</button>
+    <pre data-results></pre>
+    <button type="button" data-reset>Reset lesson</button>
+  </div>
+</main>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <defs>
+    <marker id="sk-head" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a9b0ac"/></marker>
+    <marker id="sk-head-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f2b544"/></marker>
+  </defs>
+</svg>
+<script>
+const check = document.querySelector(".check[data-lesson]");
+const lesson = check.dataset.lesson;
+const storageKey = `sparring:${lesson}`;
+const memoryResults = Object.create(null);
+const exercises = Array.from(check.querySelectorAll("[data-ex]"));
+const progress = check.querySelector("[data-progress]");
+const resultsOutput = check.querySelector("pre[data-results]");
+function readResults() {
+  try { const raw = localStorage.getItem(storageKey); if (raw) { const parsed = JSON.parse(raw); if (parsed && typeof parsed === "object") Object.assign(memoryResults, parsed); } } catch (error) {}
+  return memoryResults;
+}
+function writeResults() {
+  try { localStorage.setItem(storageKey, JSON.stringify(memoryResults)); } catch (error) {}
+  return memoryResults;
+}
+function clearResults() {
+  Object.keys(memoryResults).forEach(id => delete memoryResults[id]);
+  try { localStorage.removeItem(storageKey); } catch (error) {}
+  window.location.reload();
+}
+function updateProgress() {
+  const done = exercises.filter(ex => memoryResults[ex.dataset.ex]).length;
+  const revisit = exercises.filter(ex => memoryResults[ex.dataset.ex] === "miss").length;
+  progress.textContent = `${done} of ${exercises.length} done, ${revisit} to revisit`;
+}
+function focusStrip(id) {
+  const strip = Array.from(document.querySelectorAll("section.strip[data-strip]")).find(item => item.dataset.strip === id);
+  if (strip) strip.classList.add("focus");
+}
+function renderRecorded(ex, state) {
+  const badge = document.createElement("span");
+  badge.className = "n";
+  badge.textContent = `Recorded: ${state}`;
+  ex.append(badge);
+}
+function recordResult(ex, state) {
+  const id = ex.dataset.ex;
+  if (memoryResults[id]) return false;
+  memoryResults[id] = state;
+  writeResults();
+  if (ex.classList.contains("ex-pretest") && state === "miss") focusStrip(ex.dataset.strip);
+  renderRecorded(ex, state);
+  updateProgress();
+  return true;
+}
+function lockExercise(ex) {
+  ex.querySelectorAll("button, input, textarea").forEach(control => { control.disabled = true; });
+  const reveal = ex.querySelector("[data-reveal]");
+  const answer = ex.querySelector(".ans");
+  if (reveal) reveal.hidden = false;
+  if (answer) answer.hidden = false;
+}
+function bindMarks(ex) {
+  const buttons = Array.from(ex.querySelectorAll("[data-mark]"));
+  buttons.forEach(button => button.addEventListener("click", () => {
+    if (recordResult(ex, button.dataset.mark)) buttons.forEach(item => { item.disabled = true; });
+  }));
+}
+function initSelfMark(ex) {
+  const answer = ex.querySelector("[data-answer]"), submit = ex.querySelector("[data-submit]");
+  const reveal = ex.querySelector("[data-reveal]"), marks = ex.querySelector("[data-marks]");
+  const sync = () => { submit.disabled = !answer.value.trim(); };
+  answer.addEventListener("input", sync);
+  submit.addEventListener("click", () => { if (!answer.value.trim()) return; reveal.hidden = marks.hidden = false; submit.disabled = true; });
+  bindMarks(ex);
+  sync();
+}
+function normalize(value) { return value.trim().toLowerCase().replace(/\s+/g, " "); }
+function initType(ex) {
+  const input = ex.querySelector("[data-answer]"), submit = ex.querySelector("[data-submit]");
+  const feedback = ex.querySelector("[data-feedback]"), why = ex.querySelector("[data-why]");
+  const alternatives = ex.dataset.accept.split("|");
+  const submitAnswer = () => {
+    const correct = alternatives.some(alternative => normalize(input.value) === normalize(alternative));
+    feedback.textContent = correct ? "Correct" : `Not quite. Expected: ${alternatives[0]}`;
+    why.hidden = false;
+    if (recordResult(ex, correct ? "ok" : "miss") && correct) input.disabled = submit.disabled = true;
+  };
+  submit.addEventListener("click", submitAnswer);
+  input.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); submitAnswer(); } });
+}
+function hashSeed(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return hash >>> 0;
+}
+function seededRandom(seed) {
+  return () => { seed += 0x6D2B79F5; let value = seed; value = Math.imul(value ^ value >>> 15, value | 1); value ^= value + Math.imul(value ^ value >>> 7, value | 61); return ((value ^ value >>> 14) >>> 0) / 4294967296; };
+}
+function shuffleSteps(steps, id) {
+  const items = Array.from(steps.querySelectorAll("li[data-pos]")), random = seededRandom(hashSeed(id));
+  for (let index = items.length - 1; index > 0; index -= 1) { const other = Math.floor(random() * (index + 1)); [items[index], items[other]] = [items[other], items[index]]; }
+  items.forEach(item => steps.append(item));
+}
+function revealOrder(ex, items) {
+  const steps = ex.querySelector("[data-steps]");
+  items.slice().sort((a, b) => Number(a.dataset.pos) - Number(b.dataset.pos)).forEach(item => {
+    steps.append(item); item.querySelectorAll(".n").forEach(badge => badge.remove());
+    const badge = document.createElement("span"); badge.className = "n"; badge.textContent = item.dataset.pos; item.append(badge);
+    item.classList.add("focus"); item.querySelector("button").disabled = true;
+  });
+}
+function initOrder(ex, interactive) {
+  const steps = ex.querySelector("[data-steps]"), feedback = ex.querySelector("[data-feedback]");
+  const items = Array.from(steps.querySelectorAll("li[data-pos]"));
+  const correctOrder = items.map(item => item.dataset.pos).sort((a, b) => Number(a) - Number(b));
+  shuffleSteps(steps, ex.dataset.ex);
+  if (!interactive) return;
+  let index = 0;
+  items.forEach(item => item.querySelector("button").addEventListener("click", () => {
+    if (item.dataset.pos !== correctOrder[index]) { feedback.textContent = "Not the next step"; revealOrder(ex, items); recordResult(ex, "miss"); return; }
+    const badge = document.createElement("span"); badge.className = "n"; badge.textContent = String(index + 1); item.append(badge);
+    item.querySelector("button").disabled = true; index += 1;
+    if (index === correctOrder.length) { feedback.textContent = "Correct"; items.forEach(step => step.classList.add("focus")); recordResult(ex, "ok"); }
+  }));
+}
+function initPredict(ex) {
+  const choices = Array.from(ex.querySelectorAll("[data-choice]")), feedback = ex.querySelector("[data-feedback]");
+  choices.forEach(choice => choice.addEventListener("click", () => {
+    choices.forEach(item => { item.disabled = true; });
+    const correct = choice.dataset.correct === "true";
+    if (correct) feedback.textContent = ex.dataset.why ? `Correct. ${ex.dataset.why}` : "Correct";
+    else { feedback.textContent = choice.dataset.lure; const answer = choices.find(item => item.dataset.correct === "true"); if (answer) answer.classList.add("focus"); }
+    recordResult(ex, correct ? "ok" : "miss");
+  }));
+}
+function initRecall(ex) {
+  const flip = ex.querySelector("[data-flip]"), answer = ex.querySelector(".ans");
+  flip.addEventListener("click", () => { answer.hidden = !answer.hidden; });
+  bindMarks(ex);
+}
+function initExercise(ex) {
+  const state = memoryResults[ex.dataset.ex];
+  if (ex.classList.contains("ex-order")) initOrder(ex, !state);
+  if (state) { renderRecorded(ex, state); if (ex.classList.contains("ex-pretest") && state === "miss") focusStrip(ex.dataset.strip); lockExercise(ex); return; }
+  if (ex.classList.contains("ex-pretest") || ex.classList.contains("ex-explain")) initSelfMark(ex);
+  if (ex.classList.contains("ex-type")) initType(ex);
+  if (ex.classList.contains("ex-predict")) initPredict(ex);
+  if (ex.classList.contains("card")) initRecall(ex);
+}
+function copyResults() {
+  // Unanswered exercises are omitted consistently from the exported line.
+  const pairs = exercises.filter(ex => memoryResults[ex.dataset.ex]).map(ex => `${ex.dataset.ex}:${memoryResults[ex.dataset.ex]}`);
+  const line = `sparring-results v1 lesson=${lesson}${pairs.length ? ` ${pairs.join(" ")}` : ""}`;
+  resultsOutput.textContent = line;
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      const pending = navigator.clipboard.writeText(line); if (pending && typeof pending.catch === "function") pending.catch(() => {});
+    }
+  } catch (error) {}
+  return line;
+}
+function boot() {
+  readResults(); exercises.forEach(initExercise); updateProgress();
+  const copyButton = check.querySelector("[data-copy-results]");
+  if (copyButton) copyButton.addEventListener("click", copyResults);
+  const resetButton = check.querySelector("[data-reset]");
+  if (resetButton) resetButton.addEventListener("click", clearResults);
+}
+boot();
+</script>
+</body>
+</html>

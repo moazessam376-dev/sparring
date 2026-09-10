@@ -11,6 +11,7 @@ const MODES = ['drill', 'mock', 'transfer'];
 const TRANSFER_WORLDS = ['library', 'hospital', 'isp-support', 'ecommerce', 'school', 'bank', 'logistics', 'generic'];
 const ALTITUDES = ['map', 'boundary', 'mechanism', 'line'];
 const ALTITUDE_WEIGHTS = [3, 3, 3, 1];
+const BOOLEAN_FLAGS = new Set(['all', 'include-mature']);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function clock() {
@@ -78,6 +79,7 @@ function loadRawProject(project) {
 function loadProject(project) {
   const state = loadRawProject(project);
   if (!isV2Bank(state.bank)) fail('bank is v1; run migrate');
+  deriveMissingStreaks(state);
   return state;
 }
 
@@ -105,7 +107,7 @@ export function daysBetween(later, earlier) {
 }
 
 export function initialSchedule(today = sessionDate()) {
-  return { interval: 0, ease: 2.5, due: dateOnly(today), reps: 0, lapses: 0, lastGrade: null };
+  return { interval: 0, ease: 2.5, due: dateOnly(today), reps: 0, lapses: 0, lastGrade: null, streak: 0 };
 }
 
 export function scheduleState(schedule) {
@@ -119,6 +121,12 @@ export function isNewSchedule(schedule) {
   return scheduleState(schedule) === 'new';
 }
 
+export function isRetiredFromDaily(schedule) {
+  const streak = Number(schedule?.streak ?? 0);
+  const interval = Number(schedule?.interval ?? 0);
+  return streak >= 4 && interval >= 21;
+}
+
 function roundedEase(value) {
   return Math.round(value * 100) / 100;
 }
@@ -130,6 +138,7 @@ export function applySchedule(schedule, grade, today = sessionDate()) {
     ease: Number(schedule?.ease ?? 2.5),
     reps: Number(schedule?.reps ?? 0),
     lapses: Number(schedule?.lapses ?? 0),
+    streak: Number(schedule?.streak ?? 0),
   };
   const next = { ...current };
   if (grade === 'wrong') {
@@ -137,14 +146,19 @@ export function applySchedule(schedule, grade, today = sessionDate()) {
     next.ease = Math.max(1.3, roundedEase(current.ease - 0.2));
     next.lapses = current.lapses + 1;
     next.reps = 0;
+    next.streak = 0;
   } else if (grade === 'partial') {
-    next.interval = Math.max(1, Math.round(current.interval * 1.2));
-    next.ease = Math.max(1.3, roundedEase(current.ease - 0.05));
-    next.reps = current.reps + 1;
+    next.interval = Math.max(2, current.interval);
+    next.streak = Math.max(0, current.streak - 1);
   } else {
-    next.interval = current.reps === 0 ? 1 : current.reps === 1 ? 3 : Math.round(current.interval * current.ease);
-    next.ease = Math.min(3.0, roundedEase(current.ease + 0.05));
+    next.streak = current.streak + 1;
     next.reps = current.reps + 1;
+    next.ease = Math.min(3.0, roundedEase(current.ease + 0.05));
+    const ladderInterval = next.streak === 1 ? 4
+      : next.streak === 2 ? 12
+      : next.streak === 3 ? 21
+      : Math.min(90, Math.round(current.interval * next.ease));
+    next.interval = Math.max(ladderInterval, current.interval);
   }
   next.due = addDays(today, next.interval);
   next.lastGrade = grade;
@@ -186,6 +200,18 @@ export function replaySchedule(attempts, today = sessionDate()) {
   return schedule;
 }
 
+function deriveStreak(card, attempts, today) {
+  const cardAttempts = attempts.filter((attempt) => attemptCardId(attempt) === card.id);
+  card.sched.streak = replaySchedule(cardAttempts, today).streak;
+}
+
+function deriveMissingStreaks(state, today = sessionDate()) {
+  for (const card of state.bank.cards) {
+    if (card.sched && card.sched.streak === undefined) deriveStreak(card, state.scores.attempts, today);
+  }
+  return state;
+}
+
 function getCard(state, id) {
   const card = state.bank.cards.find((item) => item.id === id);
   if (!card) fail(`card not found: ${id}`);
@@ -223,6 +249,10 @@ function parseArgs(args) {
       continue;
     }
     const key = token.slice(2);
+    if (BOOLEAN_FLAGS.has(key)) {
+      options[key] = true;
+      continue;
+    }
     if (i + 1 >= args.length || args[i + 1].startsWith('--')) fail(`missing value for --${key}`);
     options[key] = args[++i];
   }
@@ -355,6 +385,27 @@ function chooseWeightedNew(cards, count) {
   return buckets.flatMap((bucket, index) => chooseNew(bucket, counts[index]));
 }
 
+function interleaveByKey(items, keyFn) {
+  const buckets = new Map();
+  const order = [];
+  for (const item of items) {
+    const key = keyFn(item);
+    if (!buckets.has(key)) { buckets.set(key, []); order.push(key); }
+    buckets.get(key).push(item);
+  }
+  const result = [];
+  let lastKey = null;
+  while (result.length < items.length) {
+    const candidates = order
+      .filter((key) => buckets.get(key).length > 0)
+      .sort((a, b) => buckets.get(b).length - buckets.get(a).length || order.indexOf(a) - order.indexOf(b));
+    const chosenKey = candidates.find((key) => key !== lastKey) ?? candidates[0];
+    result.push(buckets.get(chosenKey).shift());
+    lastKey = chosenKey;
+  }
+  return result;
+}
+
 function suggestedContext(card, state) {
   const history = attemptsFor(state, card.id);
   const used = new Set(history.slice(0, 2).map((attempt) => attempt.context).filter(Boolean));
@@ -444,20 +495,26 @@ function commandInit(positionals, options) {
 function commandMigrate(positionals) {
   const project = projectName(positionals[0]);
   const state = loadRawProject(project);
+  const today = sessionDate();
   if (isV2Bank(state.bank)) {
     let upgraded = 0;
     for (const card of state.bank.cards) {
+      let changed = false;
       if (card.altitude === undefined) {
         card.altitude = 'mechanism';
-        upgraded += 1;
+        changed = true;
       }
+      if (card.sched && card.sched.streak === undefined) {
+        deriveStreak(card, state.scores.attempts, today);
+        changed = true;
+      }
+      if (changed) upgraded += 1;
     }
     if (upgraded) writeJson(filesFor(project).bank, state.bank);
     json({ project, migrated: false, alreadyV2: true, unchanged: upgraded === 0, cards: state.bank.cards.length, upgraded });
     return;
   }
   if (!Array.isArray(state.bank.questions)) fail('project state has an invalid questions array');
-  const today = sessionDate();
   const questions = new Map(state.bank.questions.map((question) => [question.id, question]));
   const attemptsById = new Map();
   for (const attempt of state.scores.attempts) {
@@ -545,7 +602,6 @@ function commandAdd(positionals) {
 }
 
 function commandNext(positionals, options) {
-  const state = loadProject(positionals[0]);
   const n = options.n === undefined ? 12 : positiveInteger(options.n, '--n');
   const newLimit = options.new === undefined ? 6 : nonNegativeInteger(options.new, '--new');
   const level = options.level === undefined ? null : positiveInteger(options.level, '--level');
@@ -554,17 +610,82 @@ function commandNext(positionals, options) {
   const altitude = options.altitude === undefined ? null : options.altitude;
   if (altitude !== null) validateAltitude(altitude, '--altitude');
   const today = sessionDate();
-  const cards = activeCards(state).filter((card) => (level === null || card.level === level) && (topic === null || card.topic === topic) && (altitude === null || card.altitude === altitude));
+  const includeMature = Boolean(options['include-mature']);
+  const filterCards = (state) => activeCards(state).filter((card) =>
+    (level === null || card.level === level)
+    && (topic === null || card.topic === topic)
+    && (altitude === null || card.altitude === altitude)
+    && (includeMature || !isRetiredFromDaily(card.sched))
+  );
+  const dueComparator = (a, b) => {
+    const left = a.card ?? a;
+    const right = b.card ?? b;
+    const dueDays = daysBetween(today, right.sched.due) - daysBetween(today, left.sched.due);
+    return dueDays
+      || right.sched.lapses - left.sched.lapses
+      || left.level - right.level
+      || left.id.localeCompare(right.id)
+      || (a.project || '').localeCompare(b.project || '');
+  };
+
+  if (options.all) {
+    const states = [];
+    const projectNames = fs.existsSync(HOME)
+      ? fs.readdirSync(HOME, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(entry.name) && fs.existsSync(path.join(HOME, entry.name, 'bank.json')))
+        .map((entry) => entry.name)
+        .sort((a, b) => a.localeCompare(b))
+      : [];
+    for (const project of projectNames) {
+      try {
+        states.push(loadProject(project));
+      } catch {
+        // An invalid project does not prevent other projects from being queued.
+      }
+    }
+    const stateByCard = new Map();
+    const due = [];
+    const newCards = [];
+    for (const state of states) {
+      const cards = filterCards(state);
+      for (const card of cards) {
+        stateByCard.set(card, state);
+        if (isNewSchedule(card.sched)) {
+          newCards.push(card);
+        } else if (card.sched.due <= today) {
+          due.push({ card, state, project: state.bank.project });
+        }
+      }
+    }
+    due.sort(dueComparator);
+    const selectedDue = due.slice(0, n);
+    const newCount = Math.min(Math.max(n - selectedDue.length, 0), newLimit);
+    const selectedNew = altitude === null ? chooseWeightedNew(newCards, newCount) : chooseNew(newCards, newCount);
+    const selected = [
+      ...selectedDue,
+      ...selectedNew.map((card) => {
+        const state = stateByCard.get(card);
+        return { card, state, project: state.bank.project };
+      }),
+    ];
+    const interleaved = interleaveByKey(selected, (entry) => entry.project);
+    json({
+      session: today,
+      cards: interleaved.map(({ card, state, project }) => ({ project, ...publicCard(card, state, today) })),
+    });
+    return;
+  }
+
+  const state = loadProject(positionals[0]);
+  const cards = filterCards(state);
   const due = cards.filter((card) => !isNewSchedule(card.sched) && card.sched.due <= today);
-  due.sort((a, b) => {
-    const dueDays = daysBetween(today, b.sched.due) - daysBetween(today, a.sched.due);
-    return dueDays || b.sched.lapses - a.sched.lapses || a.level - b.level || a.id.localeCompare(b.id);
-  });
+  due.sort(dueComparator);
   const selected = due.slice(0, n);
   const newCards = cards.filter((card) => isNewSchedule(card.sched));
   const newCount = Math.min(Math.max(n - selected.length, 0), newLimit);
   selected.push(...(altitude === null ? chooseWeightedNew(newCards, newCount) : chooseNew(newCards, newCount)));
-  json({ session: today, cards: selected.map((card) => publicCard(card, state, today)) });
+  const interleaved = interleaveByKey(selected, (card) => card.topic);
+  json({ session: today, cards: interleaved.map((card) => publicCard(card, state, today)) });
 }
 
 function commandAnswer(positionals) {
@@ -604,7 +725,7 @@ function commandRecord(positionals, options) {
   state.scores.attempts.push(attempt);
   writeJson(filesFor(positionals[0]).scores, state.scores);
   fs.mkdirSync(state.sessions, { recursive: true });
-  const line = `- ${card.id} [L${card.level} ${card.topic}] ${options.grade} — ${options.gap}`;
+  const line = `- ${card.id} [L${card.level} ${card.topic}] ${options.grade}: ${options.gap}`;
   fs.appendFileSync(path.join(state.sessions, `${session}.md`), `${line}\n`);
   writeJson(filesFor(positionals[0]).bank, state.bank);
   json({ recorded: true, id: card.id, cardId: card.id, session, grade: options.grade, mode });
@@ -759,9 +880,11 @@ function commandStatus(positionals) {
     statusV1(state);
     return;
   }
+  deriveMissingStreaks(state);
   const today = sessionDate();
   const cards = activeCards(state);
   const retired = state.bank.cards.filter((card) => card.retired === true).length;
+  const keptFromDaily = cards.filter((card) => isRetiredFromDaily(card.sched)).length;
   const states = { new: 0, learning: 0, mature: 0 };
   for (const card of cards) states[scheduleState(card.sched)] += 1;
   const dueCards = cards.filter((card) => card.sched.due <= today);
@@ -808,6 +931,7 @@ function commandStatus(positionals) {
     project: state.bank.project,
     bankSize: cards.length,
     retired,
+    keptFromDaily,
     states,
     levelDistribution,
     neverAttempted,
@@ -831,6 +955,7 @@ function commandStatus(positionals) {
   console.log('Altitude | Cards | New | Due | Accuracy');
   for (const item of altitudes) console.log(`${item.altitude.padEnd(9)}| ${String(item.cards).padEnd(7)}| ${String(item.new).padEnd(5)}| ${String(item.due).padEnd(5)}| ${item.accuracy === null ? 'n/a' : item.accuracy.toFixed(2)}`);
   console.log(`Retired: ${data.retired}`);
+  console.log(`Kept (retired from daily): ${data.keptFromDaily}`);
   console.log(`Defensible: ${data.defensible.verdict ? 'true' : 'false'}`);
   if (data.defensible.fails.length) console.log(`Fails: ${data.defensible.fails.join('; ')}`);
   console.log(JSON.stringify(data));
