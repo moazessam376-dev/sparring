@@ -70,6 +70,16 @@ else
   install_link "${HOME}/.codex/skills/sparring"
   install_link "${HOME}/.cursor/skills/sparring"
 
+  profile_dir="${HOME}/.diagram-design/profiles"
+  mkdir -p "$profile_dir"
+  if [ ! -f "$profile_dir/sparring.md" ] || ! cmp -s "$skill_dir/templates/diagram-design-profile.md" "$profile_dir/sparring.md"; then
+    cp "$skill_dir/templates/diagram-design-profile.md" "$profile_dir/sparring.md"
+    echo "installed diagram-design profile $profile_dir/sparring.md"
+  fi
+  if [ ! -e "${HOME}/.claude/skills/diagram-design" ] && [ ! -e "${HOME}/.codex/skills/diagram-design" ]; then
+    echo "note: the diagram-design skill is not installed; lessons need it: https://github.com/cathrynlavery/diagram-design" >&2
+  fi
+
   agents_file="${HOME}/.codex/AGENTS.md"
   if [ -f "$agents_file" ]; then
     if ! grep -Fq "sparring" "$agents_file"; then
