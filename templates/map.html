@@ -10,108 +10,90 @@
       width: min(100% - 48px, 1120px);
     }
 
-    .map-graph {
-      position: relative;
+    .road-visual {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      grid-template-rows: repeat(3, minmax(145px, 1fr));
-      gap: 34px 18px;
-      min-height: 710px;
-      padding: 38px 16px 32px;
-      overflow: hidden;
+      gap: 32px;
+    }
+
+    .diagram-figure {
+      margin: 0;
+      padding: 24px;
+      overflow-x: auto;
+      overflow-y: hidden;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: #080d0c;
+      background: var(--elev);
     }
 
-    .edge-layer {
-      position: absolute;
-      z-index: 0;
-      inset: 0;
+    .lesson-diagram {
+      display: block;
       width: 100%;
-      height: 100%;
-      pointer-events: none;
+      min-width: 960px;
+      height: auto;
     }
 
-    .edge-layer path,
-    .edge-layer line {
-      fill: none;
-      stroke: var(--faint);
-      stroke-linecap: round;
-      stroke-width: 2;
-      vector-effect: non-scaling-stroke;
+    .diagram-figure figcaption {
+      margin-top: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.4;
     }
 
-    .edge-layer .primary-edge {
-      stroke: var(--accent);
-      stroke-width: 3;
+    .node-list {
+      display: grid;
+      gap: 24px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
 
-    .map-node {
-      position: relative;
-      z-index: 2;
-      align-self: center;
-      display: flex;
+    .node-group {
       min-width: 0;
-      min-height: 116px;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 16px 17px;
+      padding: 20px;
       border: 1px solid var(--border);
-      border-top: 2px solid var(--accent);
       border-radius: 10px;
       background: var(--elev);
-      color: var(--fg);
-      text-decoration: none;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
     }
 
-    .map-node:hover,
-    .map-node:focus-visible {
-      border-color: var(--accent);
-      outline: none;
-      transform: translateY(-2px);
-    }
-
-    .node-1 { grid-column: 1; grid-row: 1; }
-    .node-2 { grid-column: 2; grid-row: 1; }
-    .node-3 { grid-column: 3; grid-row: 1; }
-    .node-4 { grid-column: 4; grid-row: 1; }
-    .node-5 { grid-column: 1; grid-row: 2; }
-    .node-6 { grid-column: 2; grid-row: 2; }
-    .node-7 { grid-column: 3; grid-row: 2; }
-    .node-8 { grid-column: 4; grid-row: 2; }
-    .node-9 { grid-column: 1; grid-row: 3; }
-    .node-10 { grid-column: 2; grid-row: 3; }
-    .node-11 { grid-column: 3; grid-row: 3; }
-    .node-12 { grid-column: 4; grid-row: 3; }
-
-    .node-number,
-    .node-sentence,
-    .band-label,
-    .band-copy strong {
-      font-family: var(--font-mono);
-    }
-
-    .node-number {
+    .node-group > h3 {
+      margin-bottom: 14px;
       color: var(--accent);
-      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-    .node-name {
-      margin: 10px 0 8px;
-      font-family: var(--font-mono);
-      font-size: 1rem;
-      font-weight: 600;
-      line-height: 1.25;
+    .node-group-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding-left: 27px;
     }
 
-    .node-sentence {
+    .node-group-list > li {
+      padding-left: 5px;
       color: var(--muted);
-      font-size: 0.73rem;
-      line-height: 1.45;
+      font-size: 0.91rem;
+      line-height: 1.5;
+    }
+
+    .node-group-list > li::marker {
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    .node-group-list strong {
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-weight: 600;
+    }
+
+    .band-label,
+    .band-copy strong {
+      font-family: var(--font-mono);
     }
 
     .map-band-layer {
@@ -137,6 +119,19 @@
       font-size: 0.72rem;
       text-decoration: none;
       pointer-events: auto;
+    }
+
+    .road-visual > .map-band-layer {
+      position: relative;
+      inset: auto;
+      display: grid;
+      gap: 12px;
+      margin-top: 10px;
+      pointer-events: auto;
+    }
+
+    .road-visual > .map-band {
+      position: static;
     }
 
     .map-band:hover,
@@ -235,26 +230,6 @@
         width: min(100% - 36px, 1120px);
       }
 
-      .map-graph {
-        display: flex;
-        min-height: 0;
-        flex-direction: column;
-        gap: 14px;
-        padding: 0;
-        overflow: visible;
-        border: 0;
-        background: transparent;
-      }
-
-      .edge-layer {
-        display: none;
-      }
-
-      .map-node {
-        align-self: stretch;
-        min-height: 112px;
-      }
-
       .map-band-layer {
         position: static;
         display: grid;
@@ -287,9 +262,7 @@
 
     @media (prefers-reduced-motion: reduce) {
       .map-reveal,
-      .map-reveal.revealed,
-      .map-node:hover,
-      .map-node:focus-visible {
+      .map-reveal.revealed {
         opacity: 1;
         transform: none;
         animation: none;
@@ -315,83 +288,42 @@
       <h2 id="architecture-heading">Request path and the constraints around it</h2>
       <p class="visibility-note">[PLACEHOLDER: one sentence explaining how to read this graph]</p>
 
-      <div class="map-graph" aria-label="Project architecture graph">
-        <svg class="edge-layer map-reveal" viewBox="0 0 1000 710" preserveAspectRatio="none" aria-hidden="true">
-          <path class="primary-edge" d="M125 145 C205 145 210 145 305 145"></path>
-          <path class="primary-edge" d="M375 145 C455 145 460 145 555 145"></path>
-          <path class="primary-edge" d="M625 145 C705 145 710 145 875 145"></path>
-          <path d="M625 185 C625 245 145 245 145 300"></path>
-          <path d="M625 185 C625 245 375 245 375 300"></path>
-          <path d="M625 185 C625 245 625 245 625 300"></path>
-          <path d="M875 185 C875 245 875 245 875 300"></path>
-          <path d="M145 380 C145 445 145 445 145 535"></path>
-          <path d="M375 380 C375 445 375 445 375 535"></path>
-          <path d="M625 380 C625 445 625 445 625 535"></path>
-          <path d="M875 380 C875 445 875 445 875 535"></path>
-          <path d="M205 590 C305 590 405 590 555 590"></path>
-          <path d="M705 590 C760 590 800 590 875 590"></path>
-        </svg>
+      <div class="road-visual">
+        <figure class="diagram-figure">
+          <!-- paste the <svg> element from <teach>/diagrams/<slug>.html here; keep role, aria-labelledby, title and desc -->
+          <svg class="lesson-diagram" viewBox="0 0 1280 448" role="img" aria-labelledby="SLUG-ONE-title SLUG-ONE-desc"><title id="SLUG-ONE-title">TITLE</title><desc id="SLUG-ONE-desc">DESC</desc></svg>
+          <figcaption>TITLE</figcaption>
+        </figure>
 
-        <a id="node-1" class="map-node map-reveal node-1" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 1 deep-lesson or glossary target]">
-          <span class="node-number">Node 01</span>
-          <span class="node-name">[PLACEHOLDER: node 1 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 1 sentence]</span>
-        </a>
-        <a id="node-2" class="map-node map-reveal node-2" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 2 deep-lesson or glossary target]">
-          <span class="node-number">Node 02</span>
-          <span class="node-name">[PLACEHOLDER: node 2 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 2 sentence]</span>
-        </a>
-        <a id="node-3" class="map-node map-reveal node-3" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 3 deep-lesson or glossary target]">
-          <span class="node-number">Node 03</span>
-          <span class="node-name">[PLACEHOLDER: node 3 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 3 sentence]</span>
-        </a>
-        <a id="node-4" class="map-node map-reveal node-4" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 4 deep-lesson or glossary target]">
-          <span class="node-number">Node 04</span>
-          <span class="node-name">[PLACEHOLDER: node 4 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 4 sentence]</span>
-        </a>
-        <a id="node-5" class="map-node map-reveal node-5" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 5 deep-lesson or glossary target]">
-          <span class="node-number">Node 05</span>
-          <span class="node-name">[PLACEHOLDER: node 5 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 5 sentence]</span>
-        </a>
-        <a id="node-6" class="map-node map-reveal node-6" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 6 deep-lesson or glossary target]">
-          <span class="node-number">Node 06</span>
-          <span class="node-name">[PLACEHOLDER: node 6 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 6 sentence]</span>
-        </a>
-        <a id="node-7" class="map-node map-reveal node-7" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 7 deep-lesson or glossary target]">
-          <span class="node-number">Node 07</span>
-          <span class="node-name">[PLACEHOLDER: node 7 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 7 sentence]</span>
-        </a>
-        <a id="node-8" class="map-node map-reveal node-8" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 8 deep-lesson or glossary target]">
-          <span class="node-number">Node 08</span>
-          <span class="node-name">[PLACEHOLDER: node 8 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 8 sentence]</span>
-        </a>
-        <a id="node-9" class="map-node map-reveal node-9" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 9 deep-lesson or glossary target]">
-          <span class="node-number">Node 09</span>
-          <span class="node-name">[PLACEHOLDER: node 9 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 9 sentence]</span>
-        </a>
-        <a id="node-10" class="map-node map-reveal node-10" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 10 deep-lesson or glossary target]">
-          <span class="node-number">Node 10</span>
-          <span class="node-name">[PLACEHOLDER: node 10 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 10 sentence]</span>
-        </a>
-        <a id="node-11" class="map-node map-reveal node-11" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 11 deep-lesson or glossary target]">
-          <span class="node-number">Node 11</span>
-          <span class="node-name">[PLACEHOLDER: node 11 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 11 sentence]</span>
-        </a>
-        <a id="node-12" class="map-node map-reveal node-12" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: node 12 deep-lesson or glossary target]">
-          <span class="node-number">Node 12</span>
-          <span class="node-name">[PLACEHOLDER: node 12 name]</span>
-          <span class="node-sentence">[PLACEHOLDER: node 12 sentence]</span>
-        </a>
+        <figure class="diagram-figure">
+          <!-- paste the <svg> element from <teach>/diagrams/<slug>.html here; keep role, aria-labelledby, title and desc -->
+          <svg class="lesson-diagram" viewBox="0 0 1280 448" role="img" aria-labelledby="SLUG-TWO-title SLUG-TWO-desc"><title id="SLUG-TWO-title">TITLE</title><desc id="SLUG-TWO-desc">DESC</desc></svg>
+          <figcaption>TITLE</figcaption>
+        </figure>
+
+        <ol class="node-list">
+          <li class="node-group">
+            <h3>Request path</h3>
+            <ol class="node-group-list" start="1">
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+            </ol>
+          </li>
+          <li class="node-group">
+            <h3>Storage</h3>
+            <ol class="node-group-list" start="3">
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+            </ol>
+          </li>
+          <li class="node-group">
+            <h3>Cross-cutting</h3>
+            <ol class="node-group-list" start="5">
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+              <li><strong>NODE</strong> What it is and why it is on this path.</li>
+            </ol>
+          </li>
+        </ol>
 
         <div class="map-band-layer" aria-label="Cross-cutting constraints">
           <a class="map-band map-reveal band-1" href="lessons/0000-placeholder.html" data-placeholder="[PLACEHOLDER: band 1 deep-lesson or glossary target]">
