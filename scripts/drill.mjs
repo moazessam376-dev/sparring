@@ -79,6 +79,7 @@ function loadRawProject(project) {
 function loadProject(project) {
   const state = loadRawProject(project);
   if (!isV2Bank(state.bank)) fail('bank is v1; run migrate');
+  deriveMissingStreaks(state);
   return state;
 }
 
@@ -123,7 +124,7 @@ export function isNewSchedule(schedule) {
 export function isRetiredFromDaily(schedule) {
   const streak = Number(schedule?.streak ?? 0);
   const interval = Number(schedule?.interval ?? 0);
-  return streak >= 3 && interval >= 21;
+  return streak >= 4 && interval >= 21;
 }
 
 function roundedEase(value) {
@@ -148,15 +149,16 @@ export function applySchedule(schedule, grade, today = sessionDate()) {
     next.streak = 0;
   } else if (grade === 'partial') {
     next.interval = Math.max(2, current.interval);
-    next.streak = 0;
+    next.streak = Math.max(0, current.streak - 1);
   } else {
     next.streak = current.streak + 1;
     next.reps = current.reps + 1;
     next.ease = Math.min(3.0, roundedEase(current.ease + 0.05));
-    next.interval = next.streak === 1 ? 4
+    const ladderInterval = next.streak === 1 ? 4
       : next.streak === 2 ? 12
       : next.streak === 3 ? 21
       : Math.min(90, Math.round(current.interval * next.ease));
+    next.interval = Math.max(ladderInterval, current.interval);
   }
   next.due = addDays(today, next.interval);
   next.lastGrade = grade;
@@ -196,6 +198,18 @@ export function replaySchedule(attempts, today = sessionDate()) {
   let schedule = initialSchedule(today);
   for (const attempt of attempts) schedule = applySchedule(schedule, attempt.grade, attemptDay(attempt, today));
   return schedule;
+}
+
+function deriveStreak(card, attempts, today) {
+  const cardAttempts = attempts.filter((attempt) => attemptCardId(attempt) === card.id);
+  card.sched.streak = replaySchedule(cardAttempts, today).streak;
+}
+
+function deriveMissingStreaks(state, today = sessionDate()) {
+  for (const card of state.bank.cards) {
+    if (card.sched && card.sched.streak === undefined) deriveStreak(card, state.scores.attempts, today);
+  }
+  return state;
 }
 
 function getCard(state, id) {
@@ -481,6 +495,7 @@ function commandInit(positionals, options) {
 function commandMigrate(positionals) {
   const project = projectName(positionals[0]);
   const state = loadRawProject(project);
+  const today = sessionDate();
   if (isV2Bank(state.bank)) {
     let upgraded = 0;
     for (const card of state.bank.cards) {
@@ -490,7 +505,7 @@ function commandMigrate(positionals) {
         changed = true;
       }
       if (card.sched && card.sched.streak === undefined) {
-        card.sched.streak = 0;
+        deriveStreak(card, state.scores.attempts, today);
         changed = true;
       }
       if (changed) upgraded += 1;
@@ -500,7 +515,6 @@ function commandMigrate(positionals) {
     return;
   }
   if (!Array.isArray(state.bank.questions)) fail('project state has an invalid questions array');
-  const today = sessionDate();
   const questions = new Map(state.bank.questions.map((question) => [question.id, question]));
   const attemptsById = new Map();
   for (const attempt of state.scores.attempts) {
@@ -866,6 +880,7 @@ function commandStatus(positionals) {
     statusV1(state);
     return;
   }
+  deriveMissingStreaks(state);
   const today = sessionDate();
   const cards = activeCards(state);
   const retired = state.bank.cards.filter((card) => card.retired === true).length;

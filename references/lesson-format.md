@@ -2,7 +2,7 @@
 
 Every lesson is a self-contained HTML page in the teach workspace and follows these eleven elements, in order:
 
-1. **The sentence that wires it.** One plain sentence saying what the thing is, such as “the fence is the result boundary”. It is the first element under the title.
+1. **The sentence that wires it.** One plain sentence saying what the thing is, such as “the fence is the result boundary”. It comes after the title and the pretest, never before, because it must not leak the pretest's answer.
 2. **Before you start.** List assumed terms, each with a one-line definition and a link to the lesson that teaches it. If no lesson exists, say so.
 3. **Why this exists.** Two to four sentences describing the problem before explaining the mechanism.
 4. **The mechanism, generic.** One strip (see Strips and phrasing below): two to four numbered panels, each a small sketch plus one caption. Define every term inline on first use with `<details>` or a styled `<abbr>` with a visible expansion.
@@ -51,7 +51,7 @@ Phrasing rules, checked on every caption and every sentence in a lesson:
 - A number appears only when it carries meaning (500 messages, two minutes).
 - A term the learner has not met gets a `details.term` chip the first time, never a definition inside the sentence.
 
-A lesson page stays under three hundred lines of HTML. Lesson and copy lanes run at reasoning `high`; code lanes stay at `max`.
+A lesson page's line budget depends on its kind: see Budgets in the learning framework below. Lesson and copy lanes run at reasoning `high`; code lanes stay at `max`.
 
 ## Learning framework
 
@@ -59,13 +59,13 @@ The rules in this section come from `docs/research/2026-09-10-learning-science.m
 
 Every lesson page has this order:
 
-1. **Floor check, in chat, before the page is written.** The agent names the three to five terms the lesson depends on and asks the learner to define each in one sentence, one at a time. Each is recorded in `teach/NOTES.md` as `known`, `roughly` or `no` with the date. Terms marked `known` appear on the page inside a collapsed "You know this" block; the rest get a full panel. Never assume a term is known because it came up in a previous chat (finding 8, and lesson.md step 2).
-2. **Pretest at the top of the page.** One question about the mechanism, answered in a box before anything is read, then the answer is shown and the learner marks "had it" or "missed it". A miss highlights the strip that teaches it (finding 8).
-3. **Strips as worked traces.** The first time a mechanism appears it is told step by step; once the same pattern has appeared in two projects, later lessons pose it as a problem first (findings 5 and 6).
+1. **Floor check, in chat, before the page is written.** The agent names the three to five terms the lesson depends on and asks the learner to define each in one sentence, one at a time. Each is recorded in `teach/NOTES.md` as `known`, `roughly` or `no` with the date. Terms marked `known` collapse into one block placed after the open definitions: `<details class="known"><summary>You know this: term, term</summary><dl>...</dl></details>`. Terms marked `roughly` keep their definition open and get one added exercise that targets the term. Terms marked `no` get a full mechanism panel before the term is first used. Never assume a term is known because it came up in a previous chat (finding 8, and lesson.md step 2).
+2. **Pretest right after the title.** One question about the mechanism, answered in a box before anything is read, then the answer is shown and the learner marks "had it" or "missed it". The wiring sentence follows the pretest and never precedes it. A miss highlights the strip that teaches it (finding 8).
+3. **Strips as worked traces.** The first time a mechanism appears it is told step by step; once the same pattern has appeared in two projects, later lessons pose it as a problem first (findings 5 and 6). The agent tracks this in `~/.sparring/patterns.md`, a list it appends to whenever a lesson teaches a pattern, recording the pattern name, the project, and the date.
 4. **One production exercise after every strip.** Typed answer or cued free recall, checked on submit, correct answer and one line of why shown at once, before the next strip. Multiple choice only for a "predict" exercise whose wrong options are real misconceptions, each with a one-line reason it is wrong (findings 1 and 9).
 5. **One self-explanation prompt after the mechanism strips.** "Why must step N come before step N plus one?" The learner writes a sentence, then compares with the model sentence and self-marks (finding 4).
 6. **Recall cards at the end**, at most five, for the exact strings worth keeping (commands, flags, limits). Each is cued by a situation, never by its name, and carries a one-line mnemonic (finding 11).
-7. **Five to eight retrieval items per page**, counting the pretest, the exercises, the explanation prompt and the recall cards (findings 6 and 9).
+7. **Budgets.** A map lesson holds one pretest, one exercise per strip (at most eight strips), one explain prompt and at most five recall items, under 700 lines. A deep lesson holds one pretest, three to five exercises, one explain prompt and at most five recall items, under 350 lines (findings 6 and 9).
 8. **Results go back to the agent.** The page stores marks in `localStorage` and offers a "Copy results" line the learner pastes into chat. The agent uses it to pick what to drill first and records nothing from it: only answers graded in chat move a card's schedule.
 
 ### Exercise markup
@@ -73,12 +73,11 @@ Every lesson page has this order:
 `templates/exercises.html` holds the exercise CSS (the `<style data-exercises>` block) and the one inline script that drives every exercise; copy exactly those two into a lesson, never the demo page's own `body`, `main` or heading rules. Exercises are plain HTML with data attributes, so a lesson never contains its own JavaScript:
 
 - Page wrapper: `<div class="check" data-lesson="<project>-<slug>">` around the whole body, holding one `<div class="progress" data-progress></div>` near the top.
-- Pretest and explain: `<div class="ex ex-pretest" data-ex="pre-1" data-strip="<strip id>">` or `class="ex ex-explain"`, containing `<p class="q">`, `<textarea data-answer>`, `<button data-submit>`, `<div class="reveal" data-reveal hidden>` with the model answer, and `<div class="mark" data-marks hidden>` with `<button data-mark="got">` and `<button data-mark="miss">`.
+- Pretest and explain: `<div class="ex ex-pretest" data-ex="pre-1" data-strip="<strip id>">` or `class="ex ex-explain"`, containing `<p class="q">`, `<textarea data-answer>`, `<button data-submit>`, `<div class="reveal" data-reveal hidden>` with the model answer, and `<div class="mark" data-marks hidden>` with `<button data-mark="ok">` and `<button data-mark="miss">`; result states are `ok` and `miss` only.
 - Typed production: `<div class="ex ex-type" data-ex="t-1" data-accept="INCR|incr">` with `<p class="q">`, `<input data-answer type="text" autocomplete="off">`, `<button data-submit>`, `<div class="feedback" data-feedback></div>`, `<p class="why" data-why hidden>`. Matching trims, lowercases and collapses spaces; `data-accept` lists alternatives separated by `|`.
 - Order: `<div class="ex ex-order" data-ex="o-1">` with `<ol class="steps" data-steps>` of `<li data-pos="N">` items; the script shuffles them and the learner clicks them in order.
-- Predict: `<div class="ex ex-predict" data-ex="p-1">` with `<ul class="choices">` of `<button data-choice>` items; the right one has `data-correct="true"`, each wrong one has `data-lure="<why this is wrong>"`.
-- Recall: `<ul class="recall">` of `<li class="card" data-ex="r-1">` with `<button class="cue" data-flip>`, then `<div class="ans" hidden>` holding `<code>`, `<p class="mnemonic">` and the same marks block.
-- Results: `<button data-copy-results>` writes `sparring-results v1 lesson=<id> pre-1:miss t-1:ok o-1:ok ...` to the clipboard and into a `<pre data-results>` for manual copying.
+- Predict: `<div class="ex ex-predict" data-ex="p-1">` with `<ul class="choices">` of `<button data-choice>` items; the right one has `data-correct="true"`, each wrong one has `data-lure="<why this is wrong>"`. The block may carry `data-why="..."`, shown alongside "Correct" when the learner picks right.
+- Recall: `<ul class="recall">` of `<li class="card" data-ex="r-1">` with `<button class="cue" data-flip>`, then `<div class="ans" hidden>` holding `<code>`, `<p class="mnemonic">` and the same marks block. A recall string under thirty characters uses `<li class="ex ex-type" data-ex="..." data-accept="...">` instead of flip-card markup and is graded on submit like any other typed exercise; the flip card stays for longer strings.
+- Results: `<button data-copy-results>` writes `sparring-results v1 lesson=<id> pre-1:miss t-1:ok o-1:ok ...` to the clipboard and into a `<pre data-results>` for manual copying. Both `[data-reset]` and `[data-copy-results]` are optional; a lesson without either still boots correctly.
 
 A strip with a mechanism gets a `data-strip` id on its `<section class="strip">` so a pretest miss can highlight it (`class="strip focus"`).
-

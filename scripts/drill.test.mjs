@@ -199,6 +199,24 @@ test('migrate upgrades missing v2 altitudes and is idempotent', () => {
   assert.equal(fs.readFileSync(bankFile, 'utf8'), before);
 });
 
+test('migrate derives a missing streak from attempts instead of defaulting to zero', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(1));
+  record(testHome, 'c001', 'correct');
+  record(testHome, 'c001', 'correct');
+  const bankFile = path.join(testHome, 'demo', 'bank.json');
+  const bank = JSON.parse(fs.readFileSync(bankFile));
+  const interval = bank.cards[0].sched.interval;
+  delete bank.cards[0].sched.streak;
+  fs.writeFileSync(bankFile, JSON.stringify(bank));
+  const migrated = run(testHome, ['migrate', 'demo']);
+  assert.equal(migrated.upgraded, 1);
+  const migratedBank = JSON.parse(fs.readFileSync(bankFile));
+  assert.equal(migratedBank.cards[0].sched.streak, 2);
+  assert.equal(migratedBank.cards[0].sched.interval, interval);
+});
+
 test('schedule transitions follow the v2 table and card states', () => {
   let schedule = initialSchedule('2026-09-05');
   assert.deepEqual(schedule, { interval: 0, ease: 2.5, due: '2026-09-05', reps: 0, lapses: 0, lastGrade: null, streak: 0 });
@@ -212,9 +230,10 @@ test('schedule transitions follow the v2 table and card states', () => {
   schedule = applySchedule(schedule, 'correct', '2026-09-23');
   assert.deepEqual(schedule, { interval: 21, ease: 2.65, due: '2026-10-14', reps: 3, lapses: 0, lastGrade: 'correct', streak: 3 });
   assert.equal(scheduleState(schedule), 'mature');
-  assert.equal(isRetiredFromDaily(schedule), true);
+  assert.equal(isRetiredFromDaily(schedule), false);
   schedule = applySchedule(schedule, 'correct', '2026-10-14');
   assert.deepEqual(schedule, { interval: 57, ease: 2.7, due: '2026-12-10', reps: 4, lapses: 0, lastGrade: 'correct', streak: 4 });
+  assert.equal(isRetiredFromDaily(schedule), true);
   schedule = applySchedule(schedule, 'wrong', '2026-12-10');
   assert.deepEqual(schedule, { interval: 1, ease: 2.5, due: '2026-12-11', reps: 0, lapses: 1, lastGrade: 'wrong', streak: 0 });
   schedule = applySchedule(schedule, 'correct', '2026-12-11');
@@ -232,11 +251,25 @@ test('schedule transitions follow the v2 table and card states', () => {
   assert.equal(replayed.streak, 2);
 });
 
-test('isRetiredFromDaily requires three correct recalls and a 21-day interval', () => {
-  assert.equal(isRetiredFromDaily({ streak: 3, interval: 21 }), true);
-  assert.equal(isRetiredFromDaily({ streak: 2, interval: 21 }), false);
-  assert.equal(isRetiredFromDaily({ streak: 3, interval: 20 }), false);
+test('isRetiredFromDaily requires four correct recalls and a 21-day interval', () => {
+  assert.equal(isRetiredFromDaily({ streak: 4, interval: 21 }), true);
+  assert.equal(isRetiredFromDaily({ streak: 3, interval: 21 }), false);
+  assert.equal(isRetiredFromDaily({ streak: 4, interval: 20 }), false);
   assert.equal(isRetiredFromDaily({ interval: 90 }), false);
+});
+
+test('partial on a mature card keeps the interval and decrements the streak', () => {
+  const schedule = applySchedule({ interval: 57, ease: 2.7, reps: 4, lapses: 0, streak: 4 }, 'partial', '2026-09-05');
+  assert.equal(schedule.interval, 57);
+  assert.equal(schedule.streak, 3);
+  assert.equal(schedule.ease, 2.7);
+  assert.equal(schedule.due, addDays('2026-09-05', 57));
+});
+
+test('correct after a partial never drops the interval below the previous value', () => {
+  const schedule = applySchedule({ interval: 57, ease: 2.7, reps: 4, lapses: 0, streak: 0, lastGrade: 'partial' }, 'correct', '2026-09-05');
+  assert.equal(schedule.streak, 1);
+  assert.equal(schedule.interval, 57);
 });
 
 test('next excludes retired-from-daily cards unless include-mature is passed', () => {
@@ -246,7 +279,7 @@ test('next excludes retired-from-daily cards unless include-mature is passed', (
   const bankFile = path.join(testHome, 'demo', 'bank.json');
   const bank = JSON.parse(fs.readFileSync(bankFile));
   bank.cards[0].sched = { interval: 1, ease: 2.5, due: '2026-09-05', reps: 1, lapses: 0, lastGrade: 'correct', streak: 1 };
-  bank.cards[1].sched = { interval: 21, ease: 2.5, due: '2026-09-05', reps: 3, lapses: 0, lastGrade: 'correct', streak: 3 };
+  bank.cards[1].sched = { interval: 21, ease: 2.5, due: '2026-09-05', reps: 3, lapses: 0, lastGrade: 'correct', streak: 4 };
   fs.writeFileSync(bankFile, JSON.stringify(bank));
   const daily = run(testHome, ['next', 'demo', '--n', '2']);
   assert.equal(daily.cards.some((card) => card.id === 'c002'), false);
@@ -291,6 +324,23 @@ test('next all interleaves queues by project deterministically', () => {
   assert.equal(result.cards.every((card) => Boolean(card.project)), true);
   assert.deepEqual(result.cards.map((card) => card.project), ['alpha', 'beta', 'alpha', 'beta', 'alpha', 'beta']);
   assert.deepEqual(result.cards.map((card) => card.id), ['a001', 'b001', 'a002', 'b002', 'a003', 'b003']);
+});
+
+test('next --all with a single project behaves like next', () => {
+  const testHome = home();
+  run(testHome, ['init', 'demo', '--repo', '/tmp']);
+  add(testHome, 'demo', cards(6, [1]));
+  const bankFile = path.join(testHome, 'demo', 'bank.json');
+  const bank = JSON.parse(fs.readFileSync(bankFile));
+  for (const card of bank.cards) {
+    card.sched = { interval: 1, ease: 2.5, due: '2026-09-05', reps: 1, lapses: 0, lastGrade: 'correct', streak: 1 };
+  }
+  fs.writeFileSync(bankFile, JSON.stringify(bank));
+  const direct = run(testHome, ['next', 'demo', '--n', '4']);
+  const all = run(testHome, ['next', '--n', '4', '--all']);
+  assert.deepEqual(all.cards.map((card) => card.id), direct.cards.map((card) => card.id));
+  assert.equal(all.cards.every((card) => card.project === 'demo'), true);
+  assert.deepEqual(all.cards.map(({ project, ...card }) => card), direct.cards);
 });
 
 test('next hides rubric and grounding, orders overdue cards, caps new cards, and rotates contexts', () => {
