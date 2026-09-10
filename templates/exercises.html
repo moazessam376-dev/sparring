@@ -90,7 +90,7 @@
     <section class="strip" data-strip="seq">
       <h2>Sequence numbers</h2>
       <p class="lede">Redis assigns every message before fan-out.</p>
-      <ol class="panels">
+      <ol class="panels four">
         <li class="panel">
           <span class="n">1</span>
           <svg class="sketch" viewBox="0 0 240 120" aria-hidden="true">
@@ -184,7 +184,7 @@
         <div class="ans" hidden>
           <code>SET key value NX EX 300</code>
           <p class="mnemonic">NX: only if Not eXists. EX: EXpires in seconds.</p>
-          <div class="mark" data-marks>
+          <div class="mark" data-marks hidden>
             <span>Mark your recall.</span>
             <button type="button" data-mark="got">Got it</button>
             <button type="button" data-mark="miss">Missed it</button>
@@ -196,7 +196,7 @@
         <div class="ans" hidden>
           <code>XADD room * ... MAXLEN ~ 500</code>
           <p class="mnemonic">MAXLEN ~ trims approximately. It does not stop exactly at 500.</p>
-          <div class="mark" data-marks>
+          <div class="mark" data-marks hidden>
             <span>Mark your recall.</span>
             <button type="button" data-mark="got">Got it</button>
             <button type="button" data-mark="miss">Missed it</button>
