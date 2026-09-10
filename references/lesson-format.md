@@ -70,7 +70,7 @@ Every lesson page has this order:
 
 ### Exercise markup
 
-`templates/exercises.html` holds the CSS and the one inline script that drives every exercise; copy both into a lesson. Exercises are plain HTML with data attributes, so a lesson never contains its own JavaScript:
+`templates/exercises.html` holds the exercise CSS (the `<style data-exercises>` block) and the one inline script that drives every exercise; copy exactly those two into a lesson, never the demo page's own `body`, `main` or heading rules. Exercises are plain HTML with data attributes, so a lesson never contains its own JavaScript:
 
 - Page wrapper: `<div class="check" data-lesson="<project>-<slug>">` around the whole body, holding one `<div class="progress" data-progress></div>` near the top.
 - Pretest and explain: `<div class="ex ex-pretest" data-ex="pre-1" data-strip="<strip id>">` or `class="ex ex-explain"`, containing `<p class="q">`, `<textarea data-answer>`, `<button data-submit>`, `<div class="reveal" data-reveal hidden>` with the model answer, and `<div class="mark" data-marks hidden>` with `<button data-mark="got">` and `<button data-mark="miss">`.

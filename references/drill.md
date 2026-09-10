@@ -9,7 +9,7 @@
 
 Grade `correct` only when both mechanism and reason are right and the candidate could reproduce the decision. Grade `partial` when one is right but incomplete. Grade `wrong` for neither, delegation, or a confident wrong claim.
 
-Accuracy counts `correct` as 1, `partial` as 0.5, and `wrong` as 0. Scheduling is day-based: wrong lapses the card, partial grows it conservatively, and correct grows it by ease.
+Accuracy counts `correct` as 1, `partial` as 0.5, and `wrong` as 0. Scheduling is day-based: wrong resets to 1 day and drops ease; partial keeps the interval from the last full correct recall with a 2-day floor; correct steps through 4, 12, and 21 days, then grows by ease capped at 90 days. A card retires from the daily queue after three correct recalls once its interval reaches 21 days, and `--include-mature` brings it back. Aim for about twenty cards or fifteen minutes per session, with due cards plus a few new.
 
 ## Map and boundary cards
 

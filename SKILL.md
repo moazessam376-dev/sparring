@@ -48,7 +48,7 @@ Every question is written fresh from the card's `ask` and
 `node <skill dir>/scripts/drill.mjs init <project> --repo <abs path>`: initialize or update a v2 project.
 `node <skill dir>/scripts/drill.mjs migrate <project>`: back up and convert a v1 bank once.
 `node <skill dir>/scripts/drill.mjs add <project> <file.json>`: validate and add concept cards.
-`node <skill dir>/scripts/drill.mjs next <project> --n 12`: return a due/new card queue without answers.
+`node <skill dir>/scripts/drill.mjs next <project> --n 12 [--all] [--include-mature]`: return a due/new card queue without answers; `--all` merges every project's queue and tags each card with its project; `--include-mature` pulls back cards retired from daily drill.
 `node <skill dir>/scripts/drill.mjs answer <project> <id>`: fetch one rubric after commitment.
 `node <skill dir>/scripts/drill.mjs record <project> <id> --grade <g> --answer "..." --gap "..." --question "..." --context <ctx>`: record an attempt.
 `node <skill dir>/scripts/drill.mjs remove <project> <id>`: retire a card while keeping its attempts.
