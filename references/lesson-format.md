@@ -53,3 +53,32 @@ Phrasing rules, checked on every caption and every sentence in a lesson:
 
 A lesson page stays under three hundred lines of HTML. Lesson and copy lanes run at reasoning `high`; code lanes stay at `max`.
 
+## Learning framework
+
+The rules in this section come from `docs/research/2026-09-10-learning-science.md` (finding numbers below refer to it). Reading a page is the weakest way to keep it; retrieval with feedback, spaced over days, is what keeps it.
+
+Every lesson page has this order:
+
+1. **Floor check, in chat, before the page is written.** The agent names the three to five terms the lesson depends on and asks the learner to define each in one sentence, one at a time. Each is recorded in `teach/NOTES.md` as `known`, `roughly` or `no` with the date. Terms marked `known` appear on the page inside a collapsed "You know this" block; the rest get a full panel. Never assume a term is known because it came up in a previous chat (finding 8, and lesson.md step 2).
+2. **Pretest at the top of the page.** One question about the mechanism, answered in a box before anything is read, then the answer is shown and the learner marks "had it" or "missed it". A miss highlights the strip that teaches it (finding 8).
+3. **Strips as worked traces.** The first time a mechanism appears it is told step by step; once the same pattern has appeared in two projects, later lessons pose it as a problem first (findings 5 and 6).
+4. **One production exercise after every strip.** Typed answer or cued free recall, checked on submit, correct answer and one line of why shown at once, before the next strip. Multiple choice only for a "predict" exercise whose wrong options are real misconceptions, each with a one-line reason it is wrong (findings 1 and 9).
+5. **One self-explanation prompt after the mechanism strips.** "Why must step N come before step N plus one?" The learner writes a sentence, then compares with the model sentence and self-marks (finding 4).
+6. **Recall cards at the end**, at most five, for the exact strings worth keeping (commands, flags, limits). Each is cued by a situation, never by its name, and carries a one-line mnemonic (finding 11).
+7. **Five to eight retrieval items per page**, counting the pretest, the exercises, the explanation prompt and the recall cards (findings 6 and 9).
+8. **Results go back to the agent.** The page stores marks in `localStorage` and offers a "Copy results" line the learner pastes into chat. The agent uses it to pick what to drill first and records nothing from it: only answers graded in chat move a card's schedule.
+
+### Exercise markup
+
+`templates/exercises.html` holds the CSS and the one inline script that drives every exercise; copy both into a lesson. Exercises are plain HTML with data attributes, so a lesson never contains its own JavaScript:
+
+- Page wrapper: `<div class="check" data-lesson="<project>-<slug>">` around the whole body, holding one `<div class="progress" data-progress></div>` near the top.
+- Pretest and explain: `<div class="ex ex-pretest" data-ex="pre-1" data-strip="<strip id>">` or `class="ex ex-explain"`, containing `<p class="q">`, `<textarea data-answer>`, `<button data-submit>`, `<div class="reveal" data-reveal hidden>` with the model answer, and `<div class="mark" data-marks hidden>` with `<button data-mark="got">` and `<button data-mark="miss">`.
+- Typed production: `<div class="ex ex-type" data-ex="t-1" data-accept="INCR|incr">` with `<p class="q">`, `<input data-answer type="text" autocomplete="off">`, `<button data-submit>`, `<div class="feedback" data-feedback></div>`, `<p class="why" data-why hidden>`. Matching trims, lowercases and collapses spaces; `data-accept` lists alternatives separated by `|`.
+- Order: `<div class="ex ex-order" data-ex="o-1">` with `<ol class="steps" data-steps>` of `<li data-pos="N">` items; the script shuffles them and the learner clicks them in order.
+- Predict: `<div class="ex ex-predict" data-ex="p-1">` with `<ul class="choices">` of `<button data-choice>` items; the right one has `data-correct="true"`, each wrong one has `data-lure="<why this is wrong>"`.
+- Recall: `<ul class="recall">` of `<li class="card" data-ex="r-1">` with `<button class="cue" data-flip>`, then `<div class="ans" hidden>` holding `<code>`, `<p class="mnemonic">` and the same marks block.
+- Results: `<button data-copy-results>` writes `sparring-results v1 lesson=<id> pre-1:miss t-1:ok o-1:ok ...` to the clipboard and into a `<pre data-results>` for manual copying.
+
+A strip with a mechanism gets a `data-strip` id on its `<section class="strip">` so a pretest miss can highlight it (`class="strip focus"`).
+
