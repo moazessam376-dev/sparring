@@ -113,5 +113,5 @@ MIT.
 
 ## How it teaches
 
-Lessons are built for retention, not reading: a floor check in chat, a pretest, strips of short panels, one typed exercise per strip with the answer shown at once, a self-explanation prompt, and at most five recall cards for the strings worth keeping. Drills are spaced over days and interleaved across projects. The evidence behind each rule is in `docs/research/2026-09-10-learning-science.md`.
+Lessons are Markdown files built for retention, not reading: a knowledge ladder of yes-or-no questions in chat first, a pretest, parts that each explain one idea with a story and a Mermaid diagram, one check per part asked and graded in chat, a self-explanation prompt, and at most five recall strings. Drills are spaced over days and interleaved across projects. The evidence behind each rule is in `docs/research/2026-09-10-learning-science.md`.
 

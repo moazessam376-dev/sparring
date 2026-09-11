@@ -11,7 +11,7 @@ The user builds software with agents and must be able to defend every decision i
 
 Use `$SPARRING_HOME`, defaulting to `~/.sparring`. Store each project at `<home>/<project>/bank.json`, `<home>/<project>/scores.json`, and `<home>/<project>/sessions/<YYYY-MM-DD>.md`. Banks are v2 concept cards: `concept`, answer-free `ask`, hidden `rubric`, `grounding`, `contexts`, `source`, `added`, `altitude`, `needsRewrite`, optional `retired`, and `sched`. Altitude is `map`, `boundary`, `mechanism`, or `line`. Attempts carry `cardId`, the fresh `question`, `context`, grade, answer, gap, and mode. Run `<skill dir>/scripts/drill.mjs`; resolve the skill directory from the location of this `SKILL.md`.
 
-Lessons follow the learning framework in [references/lesson-format.md](references/lesson-format.md) (floor check, pretest, strips, one production exercise per strip, self-explanation, recall cards; exercises from `templates/exercises.html`). Lesson diagrams are built with the diagram-design skill using the `sparring` profile from `templates/diagram-design-profile.md`; see the Diagrams section of [references/lesson-format.md](references/lesson-format.md).
+Lessons are Markdown files written from `templates/lesson.md` and follow the learning framework in [references/lesson-format.md](references/lesson-format.md) (knowledge ladder and every check asked in chat, story-based parts, Mermaid diagrams, recall strings). The map's one overview diagram may be built with the diagram-design skill using the `sparring` profile from `templates/diagram-design-profile.md`; see the Diagrams section of [references/lesson-format.md](references/lesson-format.md).
 
 ## Select a mode
 
