@@ -5,10 +5,11 @@ Every lesson is one Markdown file in the teach workspace, written from `template
 A lesson has these parts, in order:
 
 1. **What we are building.** Two short paragraphs: what the thing is in plain words, then a real-world comparison that says what it is like and what it is not like. Name the people in the story (Moaz and Taha are the users; instance A and instance B are two copies of the server).
-2. **Parts.** One section per idea, three to seven per lesson. Each part is: an explanation paragraph of 60 to 120 words (concrete first, the technical name once in parentheses), a story step following the named people, a Mermaid diagram when a picture helps (sequence or flowchart, at most eight nodes), and one `> **Check.**` blockquote: the question the agent asks in chat after that part.
+2. **Parts.** One section per idea, three to nine on a map and three to five in a deep lesson. Each part is: an explanation paragraph of 60 to 120 words (concrete first, the technical name once in parentheses), a story step following the named people, a Mermaid diagram when a picture helps (sequence or flowchart, at most eight nodes), one `> **Check.**` blockquote: the question the agent asks in chat after that part, and a last line `Grounding: design.md:<start>-<end>` naming the source lines.
 3. **Say it like an interviewer.** Four or five sentences to say out loud.
-4. **Recall.** At most five exact strings worth keeping, each cued by a situation, with a one-line mnemonic. The agent asks these in chat as typed answers.
-5. **Read the source.** Primary documentation, one line each.
+4. **Why not the other way** (map only) goes to the companion `decisions.md`: each decision as three short lines, what we do, the other way and when it would be right, why not here.
+5. **Recall.** At most five exact strings worth keeping, each cued by a situation, with a one-line mnemonic. The agent asks these in chat as typed answers.
+6. **Read the source.** Primary documentation, one line each.
 
 Phrasing rules, checked on every sentence: at most fifteen words; no more than two consecutive sentences under seven words (write "letters, digits, underscores and hyphens are allowed" as one sentence, not four); an explanation paragraph may use one subordinate clause per sentence; one idea per sentence; concrete first, then the technical name once in parentheses; "you" for the learner, "we" for the design; no comma chains, no "so that", no "which", no "in order to"; a number only where it carries meaning; a term the learner has not met is explained in the paragraph that introduces it, not in a chip.
 
@@ -36,5 +37,5 @@ The rules in this section come from `docs/research/2026-09-10-learning-science.m
 4. **One check per part, in chat.** After the learner says a part is read, the agent asks that part's Check, waits for a committed answer, then gives the correct answer and one line of why. Typed word or one-sentence mechanism, not recognition (findings 1 and 9). The lesson's cards file holds exactly one card per part, in part order, so the answer is recorded with `drill.mjs record ... --mode transfer` against that part's card and moves its schedule.
 5. **One self-explanation prompt after the last part.** "Why must step N come before step N plus one?" Recorded against the card of the part it spans (finding 4).
 6. **Recall in chat.** The agent asks each Recall string as a typed answer, situation first, and gives the mnemonic after the attempt. The cards file holds one level-1 card per recall string, after the part cards, so each attempt is recorded (finding 11).
-7. **Budgets.** A map: three to seven parts, at most one check each, one self-explanation, at most five recall strings. A deep lesson: three to five parts, same limits. A session on one lesson is about twenty minutes.
+7. **Budgets.** A map: three to nine parts, at most one check each, one self-explanation, at most five recall strings; its twelve-decision "Why not the other way" section lives in a companion file `teach/decisions.md`, linked from the map and read in a later session. A deep lesson: three to five parts, same limits. A session on one lesson is about twenty minutes, so a nine-part map is read over two sessions.
 8. **Records.** Only chat-graded answers move a card's schedule; the drill in `references/drill.md` carries them forward over days and weeks.
