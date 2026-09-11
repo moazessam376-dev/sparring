@@ -10,7 +10,7 @@ A lesson has these parts, in order:
 4. **Recall.** At most five exact strings worth keeping, each cued by a situation, with a one-line mnemonic. The agent asks these in chat as typed answers.
 5. **Read the source.** Primary documentation, one line each.
 
-Phrasing rules, checked on every sentence: at most fifteen words; one verb, one idea; concrete first, then the technical name once in parentheses; "you" for the learner, "we" for the design; no comma chains, no "so that", no "which", no "in order to"; a number only where it carries meaning; a term the learner has not met is explained in the paragraph that introduces it, not in a chip.
+Phrasing rules, checked on every sentence: at most fifteen words, but vary the length and never run a paragraph of six-word sentences (write "letters, digits, underscores and hyphens are allowed" as one sentence, not four); one verb, one idea; concrete first, then the technical name once in parentheses; "you" for the learner, "we" for the design; no comma chains, no "so that", no "which", no "in order to"; a number only where it carries meaning; a term the learner has not met is explained in the paragraph that introduces it, not in a chip.
 
 Check questions: each must be unanswerable from labels alone. Use the story ("Taha's phone loses signal for ten seconds; what does his browser do first?"), a changed condition, or a wrong claim to correct. Never an ordering that the names give away ("put A before B"). Prefer questions that need a typed word or a one-sentence mechanism over yes or no.
 
