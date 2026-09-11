@@ -36,6 +36,12 @@ sequenceDiagram
 
 - When a retry must not create a second row: `SET key value NX EX 300`. NX: only if Not eXists. EX: EXpires in seconds.
 
+## Glossary
+
+<Every backticked term above, one line each, in the order the reader meets them.>
+
+- `INCR room:seq`: adds one to the room counter and returns the new value, atomically.
+
 ## Read the source
 
 - <primary documentation, one line each>
