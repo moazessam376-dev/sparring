@@ -42,6 +42,7 @@ Read only the chosen mode reference plus [references/interviewer-rules.md](refer
 Every question is written fresh from the card's `ask` and
 `suggestedContext`, avoiding every wording listed in `next`'s `recentQuestions`.
 11. At map and boundary altitude, reward a committed best guess with a verification plan over silence; grade the guess.
+12. A question from the candidate gets an answer told as a story with the lesson's named people, then the open question returns.
 
 ## Command cheat sheet
 

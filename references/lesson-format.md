@@ -9,7 +9,8 @@ A lesson has these parts, in order:
 3. **Say it like an interviewer.** Four or five sentences to say out loud.
 4. **Why not the other way** (map only) goes to the companion `decisions.md`: each decision as three short lines, what we do, the other way and when it would be right, why not here.
 5. **Recall.** At most five exact strings worth keeping, each cued by a situation, with a one-line mnemonic. The agent asks these in chat as typed answers.
-6. **Read the source.** Primary documentation, one line each.
+6. **Glossary.** Every term that appears in backticks anywhere above, one line each, in the order the reader meets them. The paragraph that introduces a term explains it; the glossary is where the reader checks it later.
+7. **Read the source.** Primary documentation, one line each.
 
 Phrasing rules, checked on every sentence: at most fifteen words; no more than two consecutive sentences under seven words (write "letters, digits, underscores and hyphens are allowed" as one sentence, not four); an explanation paragraph may use one subordinate clause per sentence; one idea per sentence; concrete first, then the technical name once in parentheses; "you" for the learner, "we" for the design; no comma chains, no "so that", no "which", no "in order to"; a number only where it carries meaning; a term the learner has not met is explained in the paragraph that introduces it, not in a chip.
 
