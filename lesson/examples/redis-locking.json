@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "id": "redis-locking",
+  "project": "chat-service",
+  "title": "Redis locking without double work",
+  "topics": ["redis-locks", "distributed-systems"],
+  "blocks": [
+    {
+      "type": "prose",
+      "heading": "The duplicate-work problem",
+      "body": "Two workers can observe the same missing job and both begin it. A short-lived Redis key lets one worker claim the job before the other starts.",
+      "names": ["worker A", "worker B", "Redis"]
+    },
+    {
+      "type": "diagram",
+      "nodes": [
+        {"id": "a", "label": "Worker A", "sub": "claims first", "focal": true},
+        {"id": "b", "label": "Worker B", "sub": "loses the claim", "focal": false},
+        {"id": "r", "label": "Redis", "sub": "stores the lease", "focal": false}
+      ],
+      "edges": [
+        {"from": "a", "to": "r", "label": "SET NX"},
+        {"from": "b", "to": "r", "label": "SET NX rejected"}
+      ],
+      "caption": "Only one worker receives the lock token."
+    },
+    {
+      "type": "trace",
+      "steps": [
+        {"text": "The worker creates a random token.", "file": "src/locks.mjs", "line": 12},
+        {"text": "Redis stores the token only when the key is absent.", "file": "src/locks.mjs", "line": 18},
+        {"text": "The worker releases the key only when its token matches.", "file": "src/locks.mjs", "line": 31}
+      ],
+      "commit": "8f4a2c1"
+    },
+    {
+      "type": "terminal",
+      "lines": [
+        {"cmd": "redis-cli SET job:42 token NX EX 30", "out": "OK"},
+        {"cmd": "redis-cli SET job:42 other NX EX 30", "out": "(nil)"}
+      ],
+      "cwd": "/workspace/chat-service"
+    },
+    {
+      "type": "short",
+      "ask": "Why must the release operation compare the token before deleting the key?",
+      "rubric": [
+        "It prevents a delayed worker from deleting a newer owner's lock.",
+        "The token identifies the lease owner.",
+        "The comparison and deletion must be atomic."
+      ],
+      "grounding": {"path": "src/locks.mjs", "line": 31, "commit": "8f4a2c1"}
+    },
+    {
+      "type": "code",
+      "ask": "Write the guarded release operation for the lock token.",
+      "languages": ["lua", "javascript"],
+      "starter": "if redis.call('get', KEYS[1]) == ARGV[1] then\n  -- release here\nend",
+      "reviewAgainst": {"path": "src/locks.mjs", "line": 31}
+    },
+    {
+      "type": "recall",
+      "situation": "When a worker must claim a missing lock for thirty seconds, type the command.",
+      "answer": "SET job:42 token NX EX 30",
+      "accept": ["SET job:42 token NX EX 30", "SET lock token NX EX 30"]
+    },
+    {
+      "type": "lure",
+      "ask": "What does NX protect in the lock acquisition command?",
+      "options": [
+        {"text": "It writes only when the key does not already exist.", "correct": true},
+        {"text": "It renews the key every time a worker reads it.", "correct": false, "why": "NX controls creation, not renewal or reads."},
+        {"text": "It deletes the key after the expiry period.", "correct": false, "why": "EX supplies expiry; NX does not delete keys."}
+      ]
+    },
+    {
+      "type": "order",
+      "ask": "Put the lock lifecycle steps in the order they happen.",
+      "steps": ["Release the token-checked key", "Claim the absent key", "Run the protected work"],
+      "order": [1, 2, 0]
+    },
+    {
+      "type": "blank",
+      "snippet": "SET lock token NX EX 30",
+      "blanks": [
+        {"at": 4, "answer": "lock", "distractors": ["token", "NX", "EX"]}
+      ],
+      "file": {"path": "src/locks.mjs", "line": 18}
+    },
+    {
+      "type": "place",
+      "diagram": "block:1",
+      "place": [
+        {"label": "lock owner", "target": "a"},
+        {"label": "shared lease store", "target": "r"}
+      ]
+    },
+    {
+      "type": "explainself",
+      "prompt": "Why must the token comparison precede deletion in the same atomic operation?"
+    },
+    {
+      "type": "schema",
+      "columns": ["field", "meaning", "owner"],
+      "rows": [
+        ["job:42", "lock key", "Redis"],
+        ["token", "lease identity", "worker"]
+      ],
+      "highlight": [0, 1]
+    },
+    {
+      "type": "timeline",
+      "events": [
+        {"at": 0, "label": "Worker A claims", "lane": "A"},
+        {"at": 1, "label": "Worker B is rejected", "lane": "B"},
+        {"at": 30, "label": "Lease expires", "lane": "Redis"}
+      ],
+      "unit": "seconds"
+    },
+    {
+      "type": "reqres",
+      "request": {"command": "SET", "key": "job:42", "flags": ["NX", "EX 30"]},
+      "response": {"firstWorker": "OK", "secondWorker": "(nil)"},
+      "focus": "the first response decides ownership"
+    }
+  ],
+  "created": "2026-09-12T00:00:00Z"
+}
