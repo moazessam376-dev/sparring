@@ -99,7 +99,13 @@ Improving the application does not require personal data. It requires answers to
 
 1. **Core.** The event log, the derived database, the topic graph, the scheduler and the mastery computation. Headless and tested, with no interface dependency.
 2. **Agent bridge.** The server the user's agent connects to, exposing the core as tools: fetch the due queue, fetch a rubric after commitment, record an attempt, propose cards, author a lesson, grade an answer, survey a repository. Plus the portable rules files, so every agent drives it the same way.
-3. **Lesson system.** A typed lesson document the agent emits and the application validates, with blocks for prose, diagrams, worked traces, checks, self-explanation prompts and the closing quiz. Invalid lessons are rejected before a learner sees them. The player renders, runs the checks, routes free text to the agent and writes results back.
+3. **Lesson system.** A library of finished interactive components, and a typed document that assembles them.
+
+   The agent does not build a lesson, it fills one in. It picks components from a catalogue and supplies content, and the application owns every pixel and every interaction. Three reasons this is the right way round. It is far cheaper in tokens, which matters because the user pays for them. It puts a floor under quality, so a small model produces the same interface a large one does and only the content differs. And it makes a lesson validatable, because a closed set of component types with typed content can be checked before a learner ever sees it, where free-form markup cannot.
+
+   The catalogue has to be wide enough that an agent never has to improvise. Prose and worked traces, diagrams, a code editor with language selection that saves and hands the code to the agent for review, a terminal transcript, a step-ordering exercise, a fill-the-blank over real code, a diagram where the learner places the node, a request and response pair, a schema or table view, a timeline, a misconception check with genuine lures, a typed exact-recall field for commands, and a free-text self-explanation prompt. Anything an agent cannot express with these is a gap in the catalogue and gets reported as one, rather than worked around with prose.
+
+   Invalid lessons are rejected before a learner sees them. The player renders, runs the checks, routes free text to the agent and writes results back.
 4. **Repo survey and map.** Section 6.
 5. **Desktop application.** The window, the graph view, the project view, the lesson player, the drill runner, the gaps view, the tray and the scheduled reminders.
 6. **Teaching rules.** The versioned behaviour layer that makes even a small model teach well: interviewer rules, lesson format, altitude, the check mix. Shipped with the application and handed to whatever agent connects.
