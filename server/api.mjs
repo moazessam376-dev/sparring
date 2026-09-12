@@ -5,6 +5,9 @@ import {
   card,
   contest,
   due,
+  discoverBanks,
+  dryRunImport,
+  importBank,
   gaps,
   projects,
   record,
@@ -119,7 +122,30 @@ export async function handle(state, req, res) {
       return;
     }
 
+    if (req.method === 'GET' && (url.pathname === '/api/imports' || url.pathname === '/api/import')) {
+      send(res, 200, discoverBanks(state.home));
+      return;
+    }
+
     const segments = pathSegments(url);
+    if (req.method === 'POST' && (url.pathname === '/api/import/dry-run' || url.pathname === '/api/imports/dry-run')) {
+      const body = await readBody(req);
+      send(res, 200, dryRunImport(state, body?.project));
+      return;
+    }
+    if (req.method === 'POST' && (url.pathname === '/api/import' || url.pathname === '/api/imports')) {
+      const body = await readBody(req);
+      send(res, 200, importBank(state, body?.project));
+      return;
+    }
+    if (req.method === 'GET' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'imports' && segments[3] === 'dry-run') {
+      send(res, 200, dryRunImport(state, decodeURIComponent(segments[2])));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 3 && segments[0] === 'api' && segments[1] === 'imports') {
+      send(res, 200, importBank(state, decodeURIComponent(segments[2])));
+      return;
+    }
     if (req.method === 'GET' && segments.length === 3 && segments[0] === 'api' && segments[1] === 'card') {
       send(res, 200, card(state, decodeURIComponent(segments[2])));
       return;

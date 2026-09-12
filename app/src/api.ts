@@ -201,6 +201,92 @@ export async function projects(connection: Connection): Promise<Project[]> {
   });
 }
 
+export type ImportBank = {
+  project: string;
+  version: number | null;
+  formatVersion: number | null;
+  cards: number;
+  topics: number;
+  attempts: number;
+  importable: boolean;
+  error: string | null;
+};
+
+export type ImportRefusal = { record: string; reason: string };
+
+export type ImportReport = {
+  project: string;
+  version: number | null;
+  formatVersion: number | null;
+  fingerprint: string;
+  dryRun: boolean;
+  imported: boolean;
+  alreadyImported: boolean;
+  projects: number;
+  cards: number;
+  topics: number;
+  attempts: number;
+  events: number;
+  refused: ImportRefusal[];
+};
+
+function asImportRefusal(value: unknown, index: number): ImportRefusal {
+  const raw = asRecord(value, `import refusal ${index}`);
+  return {
+    record: asText(raw.record, `import refusal ${index} record`),
+    reason: asText(raw.reason, `import refusal ${index} reason`),
+  };
+}
+
+function asImportReport(value: unknown, what: string): ImportReport {
+  const raw = asRecord(value, what);
+  return {
+    project: asText(raw.project, `${what} project`),
+    version: asOptionalNumber(raw.version, `${what} version`),
+    formatVersion: asOptionalNumber(raw.formatVersion, `${what} format version`),
+    fingerprint: asText(raw.fingerprint, `${what} fingerprint`),
+    dryRun: raw.dryRun === true,
+    imported: raw.imported === true,
+    alreadyImported: raw.alreadyImported === true,
+    projects: asNumber(raw.projects, `${what} projects`),
+    cards: asNumber(raw.cards, `${what} cards`),
+    topics: asNumber(raw.topics, `${what} topics`),
+    attempts: asNumber(raw.attempts, `${what} attempts`),
+    events: asNumber(raw.events, `${what} events`),
+    refused: asList(raw.refused, `${what} refusals`).map(asImportRefusal),
+  };
+}
+
+export async function importBanks(connection: Connection): Promise<ImportBank[]> {
+  return asList(await request(connection, "/api/imports"), "import banks").map((item, index) => {
+    const raw = asRecord(item, `import bank ${index}`);
+    return {
+      project: asText(raw.project, `import bank ${index} project`),
+      version: asOptionalNumber(raw.version, `import bank ${index} version`),
+      formatVersion: asOptionalNumber(raw.formatVersion, `import bank ${index} format version`),
+      cards: asNumber(raw.cards, `import bank ${index} cards`),
+      topics: asNumber(raw.topics, `import bank ${index} topics`),
+      attempts: asNumber(raw.attempts, `import bank ${index} attempts`),
+      importable: raw.importable === true,
+      error: asOptionalText(raw.error, `import bank ${index} error`),
+    };
+  });
+}
+
+export async function importDryRun(connection: Connection, project: string): Promise<ImportReport> {
+  return asImportReport(
+    await request(connection, "/api/import/dry-run", { method: "POST", body: { project } }),
+    "import dry run",
+  );
+}
+
+export async function importProject(connection: Connection, project: string): Promise<ImportReport> {
+  return asImportReport(
+    await request(connection, "/api/import", { method: "POST", body: { project } }),
+    "import",
+  );
+}
+
 export type TopicKind = "technology" | "concept" | "skill";
 
 export type Topic = {
