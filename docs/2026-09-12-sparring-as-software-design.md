@@ -158,6 +158,24 @@ Answered by `research/2026-09-12-large-repository-survey.md`. The short version 
 
 The durable product of a survey is the map together with its evidence and its coverage boundary. The picture alone is the part that can lie.
 
+### What the first gate got wrong
+
+The gate was built, then attacked. Eight fabricated claims were written against it and all eight came back verified. The finding is structural, not a bug list, and it is recorded here because it is the single largest threat to the product's central promise.
+
+**The agent supplies its own evidence, so the gate checks internal consistency rather than truth.** A constraint claim passes when a pattern matches, and the agent chooses the pattern. "Every write is wrapped in a transaction" with an enforcement pattern of `export` passes on any JavaScript repository. The falsifying pattern has the same flaw and is worse, because it is optional: an agent will never supply a falsifier that fires, and supplying one that cannot fire looks better than supplying none.
+
+**Nothing ties the sentence to the evidence.** The sentence is free text that no check reads. Attach true evidence to a false sentence and every check passes. A claim citing a real one-line function that returns an empty array, described as implementing exponential backoff with jitter and a circuit breaker, verifies.
+
+**The span hash proves the citation, not the claim**, and in a single survey-then-verify pass it proves only that the agent can copy bytes. It earns its keep on re-verification at a later commit and nowhere else.
+
+**One import edge verifies an entire boundary.** A boundary declared as the whole repository, with itself as its own neighbour, passes. There is no measure of internal against crossing density, which is the check the research actually specified.
+
+**Enforcement has no notion of reachability.** A match inside a comment, a string, a test, or commented-out code counts. So does a symbol named only in a `TODO`.
+
+The direction of the fix: the gate generates the candidate enforcement patterns and falsifiers itself, from a fixed library of queries per constraint kind, rather than accepting the agent's. The sentence is decomposed into propositions whose identifiers must appear in the evidence for the claim to stand. Matches inside comments and strings stop counting. A boundary is measured rather than merely witnessed.
+
+Until that lands, the gate's honest description is that it catches a careless agent and not a motivated one, and the interface must not describe a verified claim as more than that.
+
 This is the entry point for the entire product. A new user installs the application, points it at a repository they built with an agent, and within one pass has a map of it, a set of topics, and a first question. The map is also the honest test of whether the survey was any good, because a wrong map is obvious to the person who built the thing.
 
 ## 7. Privacy and telemetry
