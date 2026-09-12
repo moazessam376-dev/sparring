@@ -363,6 +363,23 @@ fn state_dir(state: State<'_, SidecarManager>) -> String {
     state.state_dir().display().to_string()
 }
 
+#[tauri::command]
+fn skill_resource_dir<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
+    let mut candidates = Vec::new();
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("skill"));
+        candidates.push(resource_dir.join("resources/skill"));
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skill"));
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../skill"));
+
+    candidates
+        .into_iter()
+        .find(|candidate| candidate.join("SKILL.md").is_file() && candidate.join("install.sh").is_file())
+        .map(|candidate| candidate.display().to_string())
+        .ok_or_else(|| "The bundled sparring skill was not found.".to_string())
+}
+
 /// Which window conventions this build is running under.
 ///
 /// macOS puts the window controls on the left and expects them to be the real
@@ -712,6 +729,7 @@ pub fn run() {
             sidecar_status,
             sidecar_token,
             state_dir,
+            skill_resource_dir,
             window_chrome,
             notify,
             open_path
