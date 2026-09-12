@@ -10,6 +10,17 @@ export const CLAIM_TYPES = ['part', 'interaction', 'constraint', 'topic'];
 
 export const CLAIM_STATUSES = ['verified', 'inferred', 'contradicted', 'stale', 'unchecked'];
 
+// `inferred` has only partial evidence, `stale` has evidence whose citation no
+// longer matches the repository, and `unchecked` has no mechanical verdict.
+// None of those statuses positively disproves the sentence, so the user may
+// vouch for them. `contradicted` is deliberately absent: vouching cannot
+// overrule evidence that the repository has disproved the claim.
+export const VOUCHABLE_CLAIM_STATUSES = ['inferred', 'stale', 'unchecked'];
+
+export function canVouchClaim(status) {
+  return VOUCHABLE_CLAIM_STATUSES.includes(status);
+}
+
 export const COVERAGE_LABELS = ['inspected', 'excluded', 'generated', 'binary', 'unresolved', 'pending'];
 
 // Worst first. The gate takes the worst status any single check produced, so a

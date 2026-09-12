@@ -8,7 +8,8 @@ create table if not exists events (
   seq integer not null,
   at text not null,
   type text not null check (type in ('project.added', 'topic.added', 'topic.linked', 'topic.prereq',
-    'card.added', 'card.updated', 'card.retired', 'attempt.recorded', 'grade.contested', 'lesson.completed')),
+    'card.added', 'card.updated', 'card.retired', 'attempt.recorded', 'grade.contested', 'lesson.completed',
+    'claim.vouched', 'claim.vouch.withdrawn')),
   v integer not null,
   data text not null check (json_valid(data)),
   primary key (device, seq)
@@ -19,6 +20,10 @@ create table if not exists projects (
 create table if not exists topics (
   id text primary key, name text not null, parent text,
   kind text not null check (kind in ('technology', 'concept', 'skill'))
+);
+create table if not exists topic_claims (
+  topic text primary key, gate_status text not null
+    check (gate_status in ('verified', 'inferred', 'stale', 'unchecked', 'contradicted'))
 );
 create table if not exists topic_projects (
   topic text not null, project text not null, primary key (topic, project)
@@ -73,6 +78,10 @@ create table if not exists card_elo (
 );
 create table if not exists topic_elo (
   topic text primary key, rating real not null default 0, n integer not null default 0
+);
+create table if not exists vouches (
+  claim text primary key, claim_json text not null check (json_valid(claim_json)),
+  judgement text not null, vouched_at text not null
 );
 create table if not exists meta (key text primary key, value text not null);
 create index if not exists attempts_by_card on attempts (card, at);

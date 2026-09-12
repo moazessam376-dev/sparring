@@ -10,8 +10,10 @@ import {
   record,
   standing,
   topics,
+  vouch,
+  withdrawVouch,
 } from '../core/index.mjs';
-import { inspectRepository, listSurveys, surveyState } from '../survey/store.mjs';
+import { inspectRepository, listSurveys, storedClaimForVouch, surveyState } from '../survey/store.mjs';
 import { presence } from './presence.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
@@ -141,6 +143,16 @@ export async function handle(state, req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/contest') {
       send(res, 200, contest(state, await readBody(req)));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/vouch') {
+      const body = await readBody(req);
+      const claim = storedClaimForVouch(state.home, body?.repo, body?.claimId);
+      send(res, 200, vouch(state, { claim, judgement: body?.judgement }));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/vouch/withdraw') {
+      send(res, 200, withdrawVouch(state, await readBody(req)));
       return;
     }
     notFound(res);

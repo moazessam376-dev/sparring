@@ -31,6 +31,8 @@ export type GraphNode = {
   fontSize: number;
   /** False when nothing in the repository grounds this node. Drawn dashed. */
   verified: boolean;
+  /** True when the node is seeded from a user vouch, not a gate verdict. */
+  vouched: boolean;
   /** Why it is unverified, shown beside it. Null when it is verified. */
   mark: string | null;
 };
@@ -91,12 +93,16 @@ export function buildGraph(
       r: 32,
       fontSize: 13,
       verified: true,
+      vouched: false,
       mark: null,
     },
   ];
 
   for (const topic of topics) {
     const rank = rankOf(topic, byId);
+    const hasCards = topic.cards > 0;
+    const vouched = topic.vouched;
+    const gateVerified = !vouched && hasCards && (topic.gateStatus === null || topic.gateStatus === "verified");
     nodes.push({
       key: `topic:${topic.id}`,
       id: topic.id,
@@ -107,8 +113,15 @@ export function buildGraph(
       y: 0,
       r: rank === 1 ? 25 : 17,
       fontSize: rank === 1 ? 12 : 11,
-      verified: topic.cards > 0,
-      mark: topic.cards > 0 ? null : "no card grounds this topic",
+      verified: gateVerified,
+      vouched,
+      mark: vouched
+        ? "confirmed by you, not proven by the code"
+        : gateVerified
+          ? null
+          : hasCards
+            ? "cards exist, but the gate did not verify this claim"
+          : "no card grounds this topic",
     });
   }
 
@@ -133,6 +146,7 @@ export function buildGraph(
       r: 15,
       fontSize: 11,
       verified: false,
+      vouched: false,
       mark: "named by a prerequisite, not in this project",
     });
   }

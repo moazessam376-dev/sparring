@@ -20,6 +20,8 @@ import {
   repository as inspect,
   surveyOf,
   surveys as listSurveys,
+  vouchClaim,
+  withdrawClaimVouch,
   type AgentPresence,
   type ClaimStatus,
   type Connection,
@@ -80,6 +82,7 @@ const STATUS_TONE: Record<ClaimStatus, string> = {
   stale: WARNING,
   unchecked: WARNING,
   contradicted: DANGER,
+  vouched: WARNING,
 };
 
 const STATUS_WORD: Record<ClaimStatus, string> = {
@@ -88,6 +91,7 @@ const STATUS_WORD: Record<ClaimStatus, string> = {
   stale: "stale",
   unchecked: "unverified",
   contradicted: "contradicted",
+  vouched: "confirmed by you",
 };
 
 function gateReasons(claim: SurveyClaim): string[] {
@@ -135,6 +139,10 @@ export function Survey({ connection, onDone, onConnect }: Props) {
   const [copied, setCopied] = useState(false);
   const [copiedResubmission, setCopiedResubmission] = useState(false);
   const [written, setWritten] = useState<{ topics: number; cards: number } | null>(null);
+  const [vouchingClaim, setVouchingClaim] = useState<string | null>(null);
+  const [judgement, setJudgement] = useState("");
+  const [vouchBusy, setVouchBusy] = useState(false);
+  const [vouchProblem, setVouchProblem] = useState<string | null>(null);
 
   // Repositories that have been surveyed before, so the list can say which of
   // the recent paths already has a map and which has never been read.
@@ -276,7 +284,7 @@ export function Survey({ connection, onDone, onConnect }: Props) {
       setProblem("This window has no clipboard. Select the instruction and copy it by hand.");
       return;
     }
-    const claims = view.survey.claims.filter((claim) => claim.status !== "verified");
+    const claims = view.survey.claims.filter((claim) => claim.status !== "verified" && claim.status !== "vouched");
     void clipboard
       .writeText(resubmissionInstructionFor(chosen.root ?? chosen.path, claims))
       .then(() => {
@@ -289,7 +297,7 @@ export function Survey({ connection, onDone, onConnect }: Props) {
   const seed = view?.seed ?? null;
   const surveyClaims = view?.survey?.claims ?? [];
   const verifiedClaims = surveyClaims.filter((claim) => claim.status === "verified");
-  const resubmissionClaims = surveyClaims.filter((claim) => claim.status !== "verified");
+  const resubmissionClaims = surveyClaims.filter((claim) => claim.status !== "verified" && claim.status !== "vouched");
   const keptTopics = useMemo(
     () => (seed?.topics ?? []).filter((topic) => !dropped.has(topic.claim)),
     [seed, dropped],
@@ -299,6 +307,58 @@ export function Survey({ connection, onDone, onConnect }: Props) {
     [seed, dropped],
   );
   const needsEvidence = (seed?.topics.length ?? 0) === 0 && verifiedClaims.length === 0;
+
+  const refreshCurrentSurvey = useCallback(async () => {
+    if (chosen === null) return;
+    const next = await surveyOf(connection, chosen.root ?? chosen.path);
+    setView(next);
+  }, [chosen, connection]);
+
+  const beginVouch = useCallback((claimId: string) => {
+    setVouchProblem(null);
+    setVouchingClaim(claimId);
+    setJudgement("");
+  }, []);
+
+  const saveVouch = useCallback(
+    async (claimId: string) => {
+      const claim = surveyClaims.find((item) => item.id === claimId);
+      if (claim === undefined || chosen === null) return;
+      if (judgement.trim() === "") {
+        setVouchProblem("Write why you know this claim is true before confirming it.");
+        return;
+      }
+      setVouchBusy(true);
+      setVouchProblem(null);
+      try {
+        await vouchClaim(connection, chosen.root ?? chosen.path, claim.id, judgement.trim());
+        await refreshCurrentSurvey();
+        setVouchingClaim(null);
+        setJudgement("");
+      } catch (error) {
+        setVouchProblem(error instanceof ApiError ? error.message : String(error));
+      } finally {
+        setVouchBusy(false);
+      }
+    },
+    [chosen, connection, judgement, refreshCurrentSurvey, surveyClaims],
+  );
+
+  const withdraw = useCallback(
+    async (claimId: string) => {
+      setVouchBusy(true);
+      setVouchProblem(null);
+      try {
+        await withdrawClaimVouch(connection, claimId);
+        await refreshCurrentSurvey();
+      } catch (error) {
+        setVouchProblem(error instanceof ApiError ? error.message : String(error));
+      } finally {
+        setVouchBusy(false);
+      }
+    },
+    [connection, refreshCurrentSurvey],
+  );
 
   const confirm = useCallback(() => {
     if (view?.survey === null || seed === null || busy) return;
@@ -594,10 +654,16 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                   </div>
                   <div style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.62, maxWidth: 640 }}>
                     You built it, so you are the only one who can tell. Dropping a part here is worth
-                    more than any drill, and a claim the gate could not stand behind is kept and drawn
-                    as unverified rather than quietly rewritten.
+                    more than any drill. A claim the gate could not stand behind stays unverified until
+                    you explicitly confirm it; that confirmation remains labelled as yours, not as code proof.
                   </div>
                 </div>
+
+                {vouchProblem !== null && (
+                  <div className="panel" style={{ padding: "11px 14px", borderColor: "rgba(232,141,125,0.3)", color: DANGER }}>
+                    {vouchProblem}
+                  </div>
+                )}
 
                 <div style={{ display: "flex", gap: 12 }}>
                   <Tile
@@ -647,7 +713,7 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                           <span
                             className="m"
                             style={{
-                              width: 82,
+                              width: claim.status === "vouched" ? 126 : 82,
                               flexShrink: 0,
                               fontSize: 9,
                               letterSpacing: "0.1em",
@@ -668,6 +734,11 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                                 ? "no file cited"
                                 : `${claim.path}${claim.fromLine === null ? "" : `:${claim.fromLine}`}`}
                             </span>
+                            {claim.vouched && claim.judgement !== null && (
+                              <span style={{ color: WARNING, fontSize: 11.5, lineHeight: 1.5 }}>
+                                Your confirmation: {claim.judgement}
+                              </span>
+                            )}
                             {claim.status !== "verified" && (
                               <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3, color: STATUS_TONE[claim.status], fontSize: 11.5, lineHeight: 1.5 }}>
                                 {gateReasons(claim).map((reason, index) => (
@@ -676,31 +747,85 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                               </div>
                             )}
                           </div>
-                          {seeds ? (
-                            <button
-                              type="button"
-                              className="m"
-                              style={{ flexShrink: 0, fontSize: 10.5, color: out ? ACCENT : "var(--faint)", paddingTop: 3 }}
-                              onClick={() =>
-                                setDropped((current) => {
-                                  const next = new Set(current);
-                                  if (next.has(claim.id)) next.delete(claim.id);
-                                  else next.add(claim.id);
-                                  return next;
-                                })
-                              }
-                            >
-                              {out ? "Keep" : "Drop"}
-                            </button>
-                          ) : (
-                            <span
-                              className="m"
-                              style={{ flexShrink: 0, fontSize: 10.5, color: "var(--dimmer)", paddingTop: 3 }}
-                              title="only a verified or inferred claim seeds a topic"
-                            >
-                              seeds nothing
-                            </span>
-                          )}
+                          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 7 }}>
+                            {seeds ? (
+                              <button
+                                type="button"
+                                className="m"
+                                style={{ fontSize: 10.5, color: out ? ACCENT : "var(--faint)", paddingTop: 3 }}
+                                onClick={() =>
+                                  setDropped((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(claim.id)) next.delete(claim.id);
+                                    else next.add(claim.id);
+                                    return next;
+                                  })
+                                }
+                              >
+                                {out ? "Keep" : "Drop"}
+                              </button>
+                            ) : (
+                              <span
+                                className="m"
+                                style={{ fontSize: 10.5, color: "var(--dimmer)", paddingTop: 3 }}
+                                title="only a verified, inferred or vouched claim seeds a topic"
+                              >
+                                seeds nothing
+                              </span>
+                            )}
+                            {claim.vouched ? (
+                              <button
+                                type="button"
+                                className="m"
+                                style={{ fontSize: 10.5, color: WARNING }}
+                                disabled={vouchBusy}
+                                onClick={() => void withdraw(claim.id)}
+                              >
+                                Withdraw confirmation
+                              </button>
+                            ) : claim.status !== "verified" && claim.status !== "contradicted" ? (
+                              vouchingClaim === claim.id ? (
+                                <div style={{ width: 220, display: "flex", flexDirection: "column", gap: 7 }}>
+                                  <textarea
+                                    rows={3}
+                                    value={judgement}
+                                    onChange={(event) => setJudgement(event.target.value)}
+                                    placeholder="Why do you know this is true?"
+                                    aria-label={`Why you confirmed ${claim.name}`}
+                                  />
+                                  <div style={{ display: "flex", gap: 7, justifyContent: "flex-end" }}>
+                                    <button
+                                      type="button"
+                                      className="pill go"
+                                      style={{ padding: "5px 9px" }}
+                                      disabled={vouchBusy}
+                                      onClick={() => void saveVouch(claim.id)}
+                                    >
+                                      {vouchBusy ? "Saving" : "Confirm by user"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="pill ghost"
+                                      style={{ padding: "5px 9px" }}
+                                      disabled={vouchBusy}
+                                      onClick={() => setVouchingClaim(null)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="m"
+                                  style={{ fontSize: 10.5, color: WARNING }}
+                                  onClick={() => beginVouch(claim.id)}
+                                >
+                                  Confirm by user
+                                </button>
+                              )
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}

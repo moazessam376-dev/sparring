@@ -94,7 +94,7 @@ export function Hub({
     // card is drawn, but neither can move a node: position depends on the id
     // ordering and the parent chain alone.
     const topicPart = loaded.graph.topics
-      .map((topic) => `${topic.id}>${topic.parent ?? ""}>${topic.name}>${topic.cards > 0 ? "g" : "u"}`)
+      .map((topic) => `${topic.id}>${topic.parent ?? ""}>${topic.name}>${topic.cards > 0 ? "g" : "u"}>${topic.gateStatus ?? ""}>${topic.vouched ? "v" : ""}`)
       .sort()
       .join("|");
     const edgePart = loaded.graph.edges
@@ -258,6 +258,7 @@ export function Hub({
                 if (from === undefined || to === undefined) return null;
                 const on = selectedKey === link.from || selectedKey === link.to;
                 const unverified = !from.verified || !to.verified;
+                const vouched = from.vouched || to.vouched;
                 return (
                   <line
                     key={`${link.from}-${link.to}-${index}`}
@@ -265,9 +266,9 @@ export function Hub({
                     y1={from.y}
                     x2={to.x}
                     y2={to.y}
-                    stroke={on ? "rgba(158,232,125,0.42)" : "rgba(255,255,255,0.07)"}
+                    stroke={on ? "rgba(158,232,125,0.42)" : vouched ? "rgba(232,201,125,0.34)" : "rgba(255,255,255,0.07)"}
                     strokeWidth={on ? 1.4 : 1}
-                    strokeDasharray={unverified ? "4,4" : undefined}
+                    strokeDasharray={vouched ? "2,3" : unverified ? "4,4" : undefined}
                   />
                 );
               })}
@@ -286,14 +287,25 @@ export function Hub({
                     aria-label={node.label}
                   >
                     {on && <circle cx={node.x} cy={node.y} r={node.r + 13} fill="rgba(158,232,125,0.09)" />}
+                    {node.vouched && (
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={node.r + 6}
+                        fill="none"
+                        stroke={WARNING}
+                        strokeWidth={1}
+                        strokeDasharray="2,3"
+                      />
+                    )}
                     <circle
                       cx={node.x}
                       cy={node.y}
                       r={node.r}
                       fill={on ? "rgba(158,232,125,0.09)" : "rgba(255,255,255,0.03)"}
-                      stroke={on ? ACCENT : dim ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.10)"}
+                      stroke={on ? ACCENT : node.vouched ? WARNING : dim ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.10)"}
                       strokeWidth={on ? 1.5 : 1}
-                      strokeDasharray={node.verified ? undefined : "4,3"}
+                      strokeDasharray={node.vouched ? "2,2" : node.verified ? undefined : "4,3"}
                     />
                     {estimate !== null && (
                       <>
@@ -325,7 +337,20 @@ export function Hub({
                     >
                       {node.label}
                     </text>
-                    {!node.verified && (
+                    {node.vouched ? (
+                      <text
+                        className="node-label"
+                        x={node.x}
+                        y={node.y + node.r + 30}
+                        textAnchor="middle"
+                        fill={dim ? "#3a413f" : WARNING}
+                        fontSize={9}
+                        letterSpacing="0.08em"
+                        fontFamily="DM Mono, ui-monospace, monospace"
+                      >
+                        CONFIRMED BY YOU
+                      </text>
+                    ) : !node.verified && (
                       <text
                         className="node-label"
                         x={node.x}
@@ -356,7 +381,7 @@ export function Hub({
             >
               the disc inside a node is the estimate, the pale ring around it the doubt
               <br />
-              dashed means the survey could not ground it
+              dashed means the survey could not ground it; a dotted ring means confirmed by you
             </div>
           </div>
 
@@ -414,7 +439,8 @@ function Detail({
         score: itsRow?.score ?? item.score,
         confidence: itsRow?.confidence ?? item.confidence,
         attempts: itsRow?.attempts ?? attemptsFrom(itsRow?.confidence ?? item.confidence),
-        verified: item.cards > 0,
+        verified: !item.vouched && item.cards > 0 && (item.gateStatus === null || item.gateStatus === undefined || item.gateStatus === "verified"),
+        vouched: item.vouched,
       };
     })
     .sort((left, right) => left.score - right.score)
@@ -435,7 +461,15 @@ function Detail({
     >
       <div className="rise">
         <div className="lbl" style={{ marginBottom: 9 }}>
-          {node.kind === "project" ? "Project" : topic === undefined ? "Topic, unverified" : topic.kind}
+          {node.kind === "project"
+            ? "Project"
+            : topic === undefined
+              ? "Topic, unverified"
+              : node.vouched
+                ? "Topic, confirmed by you"
+                : node.verified
+                  ? topic.kind
+                  : "Topic, unverified"}
         </div>
         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.014em" }}>{node.label}</div>
         <div style={{ marginTop: 9, color: "var(--muted)", lineHeight: 1.6 }}>
@@ -443,9 +477,13 @@ function Detail({
             ? `${project.cards} ${project.cards === 1 ? "card" : "cards"} in this project, ${project.due} due now. Mastery is estimated per topic, never for a project as a whole.`
             : topic === undefined
               ? "A prerequisite names this topic, but the survey returned no topic for it. It is drawn dashed rather than dropped."
+            : node.vouched
+              ? `${topic.cards} ${topic.cards === 1 ? "card" : "cards"} carry this topic, and you confirmed the claim; the gate did not prove it from code.`
               : node.verified
                 ? `${topic.cards} ${topic.cards === 1 ? "card" : "cards"} ground this topic in the repository.`
-                : "No card grounds this topic in the repository, so nothing here has been checked against code."}
+                : topic.cards > 0
+                  ? `${topic.cards} ${topic.cards === 1 ? "card" : "cards"} carry this topic, but the gate did not prove the claim from code.`
+                  : "No card grounds this topic in the repository, so nothing here has been checked against code."}
         </div>
       </div>
 
@@ -505,7 +543,11 @@ function Detail({
               />
               <span className="ellipsis" style={{ flexGrow: 1, fontSize: 12.5 }}>
                 {item.name}
-                {!item.verified && (
+                {item.vouched ? (
+                  <span className="m" style={{ marginLeft: 7, fontSize: 9, color: WARNING }}>
+                    CONFIRMED BY YOU
+                  </span>
+                ) : !item.verified && (
                   <span className="m" style={{ marginLeft: 7, fontSize: 9, color: WARNING }}>
                     UNVERIFIED
                   </span>
