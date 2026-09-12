@@ -93,10 +93,21 @@ const tool = async (name, args) => {
 check('mcp without a token is refused', (await fetch(base + '/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status === 401);
 const mcpEvil = await fetch(base + '/mcp', { method: 'POST', headers: { ...MH, Origin: 'https://evil.example.com' }, body: '{}' });
 check('mcp with a non-loopback Origin is refused', mcpEvil.status === 403, 'got ' + mcpEvil.status);
-const init = await rpc('initialize', { protocolVersion: '2026-07-28', capabilities: {}, clientInfo: { name: 'probe', version: '1' } });
-check('mcp initializes at revision 2026-07-28', init.json?.result?.protocolVersion === '2026-07-28', init.body.slice(0, 200));
+const revisions = ['2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'];
+for (const revision of revisions) {
+  const init = await rpc('initialize', { protocolVersion: revision, capabilities: {}, clientInfo: { name: 'probe', version: '1' } });
+  check(`mcp initializes at revision ${revision}`, init.json?.result?.protocolVersion === revision, init.body.slice(0, 200));
+}
+const newerInit = await rpc('initialize', { protocolVersion: '2099-01-01', capabilities: {}, clientInfo: { name: 'future-probe', version: '1' } });
+check('an unknown newer revision negotiates to the server latest', newerInit.json?.result?.protocolVersion === '2026-07-28' && !newerInit.json?.error, newerInit.body.slice(0, 200));
 const oldInit = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {} });
-check('an unsupported revision is refused with a clear error', oldInit.json?.error?.code === -32602 && oldInit.body.includes('2026-07-28'), oldInit.body.slice(0, 200));
+check('a pre-Streamable-HTTP revision is refused with a clear error',
+  oldInit.json?.error?.code === -32602
+  && /predates Streamable HTTP/.test(oldInit.body)
+  && /HTTP\+SSE transport is not supported/.test(oldInit.body),
+  oldInit.body.slice(0, 240));
+const oldList = await rpc('tools/list', {}, { headers: { 'mcp-protocol-version': '2025-03-26' } });
+check('an older negotiated revision remains usable on subsequent requests', oldList.status === 200 && !oldList.body.includes('"title"'), oldList.body.slice(0, 200));
 const mcpGet = await fetch(base + '/mcp', { headers: H });
 check('the legacy sse stream is not served on GET', mcpGet.status === 405, 'got ' + mcpGet.status);
 const listed = await rpc('tools/list', {});

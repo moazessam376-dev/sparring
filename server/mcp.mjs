@@ -16,10 +16,9 @@ import { verify } from '../survey/verify.mjs';
 import { noteAgent } from './presence.mjs';
 
 // The Model Context Protocol endpoint. Streamable HTTP, JSON-RPC 2.0 over one
-// POST endpoint, protocol revision 2026-07-28. The legacy HTTP+SSE transport of
-// the 2024-11-05 revision is deliberately absent: the transport specification
-// says new implementations should not adopt it. Evidence:
-// docs/research/2026-09-12-desktop-stack.md, finding 6.
+// POST endpoint. Streamable HTTP was introduced by the 2025-03-26 revision;
+// the legacy HTTP+SSE transport of 2024-11-05 is deliberately absent. Evidence
+// for the transport choice: docs/research/2026-09-12-desktop-stack.md, finding 6.
 //
 // The bearer token and the Origin check that server/auth.mjs enforces are
 // applied by server/index.mjs before a request reaches this file, and the
@@ -30,7 +29,13 @@ import { noteAgent } from './presence.mjs';
 // survey export, so a rule that holds in the core holds here too.
 
 export const PROTOCOL_VERSION = '2026-07-28';
-export const SUPPORTED_PROTOCOL_VERSIONS = Object.freeze([PROTOCOL_VERSION]);
+export const STREAMABLE_HTTP_VERSION = '2025-03-26';
+export const SUPPORTED_PROTOCOL_VERSIONS = Object.freeze([
+  STREAMABLE_HTTP_VERSION,
+  '2025-06-18',
+  '2025-11-25',
+  PROTOCOL_VERSION,
+]);
 export const SERVER_INFO = Object.freeze({ name: 'sparring', title: 'Sparring', version: '1' });
 
 const MAX_BODY = 2 * 1024 * 1024;
@@ -51,6 +56,37 @@ const INSTRUCTIONS = [
 ].join(' ');
 
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function isRevisionDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toISOString().slice(0, 10) === value;
+}
+
+function isAtLeastStreamableHttp(value) {
+  return isRevisionDate(value) && value >= STREAMABLE_HTTP_VERSION;
+}
+
+function supportsField(protocolVersion, introducedIn) {
+  return protocolVersion >= introducedIn;
+}
+
+function negotiatedVersion(requested) {
+  if (SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) return requested;
+  if (isAtLeastStreamableHttp(requested)) return PROTOCOL_VERSION;
+  return null;
+}
+
+function unsupportedVersion(id, requested) {
+  const label = typeof requested === 'string' && requested ? requested : 'missing';
+  return failure(
+    id,
+    INVALID_PARAMS,
+    `protocol version ${label} predates Streamable HTTP, which begins at ${STREAMABLE_HTTP_VERSION}; the legacy HTTP+SSE transport is not supported`,
+    { supported: [...SUPPORTED_PROTOCOL_VERSIONS], requested: label },
+  );
+}
 
 function requireObject(args) {
   if (!isRecord(args)) throw new Error('arguments must be an object');
@@ -390,8 +426,12 @@ function checkArguments(schema, args) {
   return args;
 }
 
-export function toolDefinitions() {
-  return TOOLS.map(({ name, title, description, inputSchema }) => ({ name, title, description, inputSchema }));
+export function toolDefinitions(protocolVersion = PROTOCOL_VERSION) {
+  return TOOLS.map(({ name, title, description, inputSchema }) => {
+    const definition = { name, description, inputSchema };
+    if (supportsField(protocolVersion, '2025-06-18')) definition.title = title;
+    return definition;
+  });
 }
 
 function result(id, value) {
@@ -409,7 +449,7 @@ function textContent(value) {
   return [{ type: 'text', text }];
 }
 
-function callTool(state, params, id) {
+function callTool(state, params, id, protocolVersion) {
   if (!isRecord(params)) return failure(id, INVALID_PARAMS, 'params must be an object');
   const name = params.name;
   if (typeof name !== 'string' || !BY_NAME.has(name)) {
@@ -427,15 +467,21 @@ function callTool(state, params, id) {
     return result(id, { content: textContent(error.message || 'tool failed'), isError: true });
   }
   const payload = { content: textContent(value), isError: false };
-  if (isRecord(value)) payload.structuredContent = value;
+  if (supportsField(protocolVersion, '2025-06-18') && isRecord(value)) payload.structuredContent = value;
   return result(id, payload);
+}
+
+function serverInfo(protocolVersion) {
+  const info = { name: SERVER_INFO.name, version: SERVER_INFO.version };
+  if (supportsField(protocolVersion, '2025-06-18')) info.title = SERVER_INFO.title;
+  return info;
 }
 
 /**
  * Dispatch one JSON-RPC message. Returns a response object, or null when the
  * message was a notification and carries no reply.
  */
-export function dispatch(state, message) {
+export function dispatch(state, message, protocolVersion = PROTOCOL_VERSION) {
   // An agent said something. Nothing about what is recorded, and nothing is
   // persisted; the survey screen only has to be able to tell "no agent is
   // connected" from "an agent is working" instead of waiting for ever beside a
@@ -451,21 +497,12 @@ export function dispatch(state, message) {
 
   if (message.method === 'initialize') {
     const requested = isRecord(params) ? params.protocolVersion : undefined;
-    if (typeof requested !== 'string' || !SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) {
-      // Guessing here is the failure mode worth avoiding: an agent speaking a
-      // revision this server does not implement should be told so, not served a
-      // response shaped for a different protocol.
-      return failure(
-        id,
-        INVALID_PARAMS,
-        `unsupported protocol version: ${typeof requested === 'string' ? requested : 'missing'}`,
-        { supported: [...SUPPORTED_PROTOCOL_VERSIONS] },
-      );
-    }
+    const selected = negotiatedVersion(requested);
+    if (!selected) return unsupportedVersion(id, requested);
     return result(id, {
-      protocolVersion: requested,
+      protocolVersion: selected,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { ...SERVER_INFO },
+      serverInfo: serverInfo(selected),
       instructions: INSTRUCTIONS,
     });
   }
@@ -474,8 +511,8 @@ export function dispatch(state, message) {
   if (notification) return null;
 
   if (message.method === 'ping') return result(id, {});
-  if (message.method === 'tools/list') return result(id, { tools: toolDefinitions() });
-  if (message.method === 'tools/call') return callTool(state, params, id);
+  if (message.method === 'tools/list') return result(id, { tools: toolDefinitions(protocolVersion) });
+  if (message.method === 'tools/call') return callTool(state, params, id, protocolVersion);
 
   return failure(id, METHOD_NOT_FOUND, `unknown method: ${message.method}`);
 }
@@ -535,69 +572,121 @@ function accepts(headers, type) {
   return accept.includes(type) || accept.includes('*/*');
 }
 
+function logValue(value, missing = 'unknown') {
+  if (value === undefined) return missing;
+  if (value === null) return 'null';
+  if (typeof value !== 'string') return typeof value;
+  return value.replace(/[^\x20-\x7e]/g, '?').slice(0, 128);
+}
+
+function logRequest(method, requestedVersion, status) {
+  const fields = [`method=${logValue(method)}`];
+  if (method === 'initialize') fields.push(`protocolVersion=${logValue(requestedVersion, 'missing')}`);
+  fields.push(`status=${status}`);
+  try {
+    process.stderr.write(`mcp ${fields.join(' ')}\n`);
+  } catch {
+    // Logging must never prevent the MCP response from reaching the client.
+  }
+}
+
 export async function handle(state, req, res) {
   const headers = req.headers ?? {};
+  let method = 'unknown';
+  let requestedVersion;
+  let responseStatus = 500;
 
-  // No GET stream and no session to delete in this revision, so both are
-  // refused with the method the endpoint does accept.
-  if (req.method !== 'POST') {
-    send(res, 405, failure(null, INVALID_REQUEST, 'the MCP endpoint accepts POST'), { allow: 'POST' });
-    return;
-  }
+  const reply = (status, value, responseHeaders = {}) => {
+    responseStatus = status;
+    send(res, status, value, responseHeaders);
+  };
 
-  const contentType = headers['content-type'] ?? headers['Content-Type'];
-  if (typeof contentType !== 'string' || !contentType.toLowerCase().includes('application/json')) {
-    send(res, 415, failure(null, INVALID_REQUEST, 'content-type must be application/json'));
-    return;
-  }
-
-  const wantsJson = accepts(headers, 'application/json');
-  const wantsEvents = accepts(headers, 'text/event-stream');
-  if (!wantsJson && !wantsEvents) {
-    send(res, 406, failure(null, INVALID_REQUEST, 'accept must allow application/json or text/event-stream'));
-    return;
-  }
-
-  const declared = headers['mcp-protocol-version'] ?? headers['MCP-Protocol-Version'];
-  if (typeof declared === 'string' && declared.trim() !== '' && !SUPPORTED_PROTOCOL_VERSIONS.includes(declared.trim())) {
-    send(res, 400, failure(null, INVALID_PARAMS, `unsupported protocol version: ${declared.trim()}`, { supported: [...SUPPORTED_PROTOCOL_VERSIONS] }));
-    return;
-  }
-
-  let message;
   try {
-    message = await readBody(req);
-  } catch (error) {
-    if (error.parse) {
-      send(res, 400, failure(null, PARSE_ERROR, error.message));
+    // No GET stream and no session to delete in this revision, so both are
+    // refused with the method the endpoint does accept.
+    if (req.method !== 'POST') {
+      reply(405, failure(null, INVALID_REQUEST, 'the MCP endpoint accepts POST'), { allow: 'POST' });
       return;
     }
-    send(res, error.status ?? 400, failure(null, INVALID_REQUEST, error.message || 'bad request'));
-    return;
-  }
 
-  if (Array.isArray(message)) {
-    // JSON-RPC batching is not part of this revision.
-    send(res, 400, failure(null, INVALID_REQUEST, 'send one JSON-RPC message per request; batching is not supported'));
-    return;
-  }
+    const contentType = headers['content-type'] ?? headers['Content-Type'];
+    if (typeof contentType !== 'string' || !contentType.toLowerCase().includes('application/json')) {
+      reply(415, failure(null, INVALID_REQUEST, 'content-type must be application/json'));
+      return;
+    }
 
-  let response;
-  try {
-    response = dispatch(state, message);
-  } catch (error) {
-    send(res, 200, failure(isRecord(message) ? message.id ?? null : null, INTERNAL_ERROR, error.message || 'internal error'));
-    return;
-  }
+    const wantsJson = accepts(headers, 'application/json');
+    const wantsEvents = accepts(headers, 'text/event-stream');
+    if (!wantsJson && !wantsEvents) {
+      reply(406, failure(null, INVALID_REQUEST, 'accept must allow application/json or text/event-stream'));
+      return;
+    }
 
-  if (response === null) {
-    if (res.headersSent) return;
-    res.writeHead(202, {});
-    res.end();
-    return;
-  }
+    let message;
+    try {
+      message = await readBody(req);
+    } catch (error) {
+      if (error.parse) {
+        reply(400, failure(null, PARSE_ERROR, error.message));
+        return;
+      }
+      reply(error.status ?? 400, failure(null, INVALID_REQUEST, error.message || 'bad request'));
+      return;
+    }
 
-  // JSON unless the client asked only for a stream.
-  if (!wantsJson && wantsEvents) sendEvents(res, response);
-  else send(res, 200, response);
+    if (isRecord(message)) {
+      method = typeof message.method === 'string' ? message.method : 'unknown';
+      if (method === 'initialize') {
+        requestedVersion = isRecord(message.params) ? message.params.protocolVersion : undefined;
+      }
+    }
+
+    if (Array.isArray(message)) {
+      // JSON-RPC batching is not part of the single-message transport surface
+      // this server exposes.
+      reply(400, failure(null, INVALID_REQUEST, 'send one JSON-RPC message per request; batching is not supported'));
+      return;
+    }
+
+    const declared = headers['mcp-protocol-version'] ?? headers['MCP-Protocol-Version'];
+    let protocolVersion = PROTOCOL_VERSION;
+    // The body is the source of truth for initialize negotiation. The HTTP
+    // version header is required only on subsequent requests by the legacy
+    // lifecycle revisions, so it must not reject a client's initial offer.
+    if (method !== 'initialize' && typeof declared === 'string' && declared.trim() !== '') {
+      const headerVersion = declared.trim();
+      protocolVersion = negotiatedVersion(headerVersion);
+      if (!protocolVersion) {
+        reply(400, unsupportedVersion(null, headerVersion));
+        return;
+      }
+    }
+
+    let response;
+    try {
+      response = dispatch(state, message, protocolVersion);
+    } catch (error) {
+      responseStatus = 200;
+      send(res, 200, failure(isRecord(message) ? message.id ?? null : null, INTERNAL_ERROR, error.message || 'internal error'));
+      return;
+    }
+
+    if (response === null) {
+      if (res.headersSent) return;
+      responseStatus = 202;
+      res.writeHead(202, {});
+      res.end();
+      return;
+    }
+
+    // JSON unless the client asked only for a stream.
+    if (!wantsJson && wantsEvents) {
+      responseStatus = 200;
+      sendEvents(res, response);
+    } else {
+      reply(200, response);
+    }
+  } finally {
+    logRequest(method, requestedVersion, responseStatus);
+  }
 }

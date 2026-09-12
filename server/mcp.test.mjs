@@ -6,7 +6,13 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { openState } from '../core/index.mjs';
-import { PROTOCOL_VERSION, handle, toolDefinitions } from './mcp.mjs';
+import {
+  PROTOCOL_VERSION,
+  STREAMABLE_HTTP_VERSION,
+  SUPPORTED_PROTOCOL_VERSIONS,
+  handle,
+  toolDefinitions,
+} from './mcp.mjs';
 
 function home() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sparring-mcp-'));
@@ -71,27 +77,41 @@ function seed(state) {
   })();
 }
 
-test('MCP initializes, refuses another protocol revision, and lists every promised tool', async () => {
+test('MCP negotiates every Streamable HTTP revision and lists every promised tool', async () => {
   const state = openState(home());
 
-  const initialized = await rpc(state, 'initialize', {
-    protocolVersion: PROTOCOL_VERSION,
+  for (const revision of SUPPORTED_PROTOCOL_VERSIONS) {
+    const initialized = await rpc(state, 'initialize', {
+      protocolVersion: revision,
+      capabilities: {},
+      clientInfo: { name: 'test', version: '1' },
+    });
+    assert.equal(initialized.status, 200);
+    assert.equal(initialized.body.result.protocolVersion, revision);
+    assert.equal(initialized.body.result.serverInfo.name, 'sparring');
+    assert.ok(initialized.body.result.capabilities.tools);
+  }
+
+  const newer = await rpc(state, 'initialize', {
+    protocolVersion: '2099-01-01',
     capabilities: {},
-    clientInfo: { name: 'test', version: '1' },
+    clientInfo: { name: 'future-test', version: '1' },
   });
-  assert.equal(initialized.status, 200);
-  assert.equal(initialized.body.result.protocolVersion, PROTOCOL_VERSION);
-  assert.equal(initialized.body.result.serverInfo.name, 'sparring');
-  assert.ok(initialized.body.result.capabilities.tools);
+  assert.equal(newer.status, 200);
+  assert.equal(newer.body.error, undefined);
+  assert.equal(newer.body.result.protocolVersion, PROTOCOL_VERSION);
 
   const wrong = await rpc(state, 'initialize', { protocolVersion: '2024-11-05', capabilities: {} });
   assert.equal(wrong.body.error.code, -32602);
-  assert.match(wrong.body.error.message, /unsupported protocol version: 2024-11-05/);
-  assert.deepEqual(wrong.body.error.data.supported, [PROTOCOL_VERSION]);
+  assert.match(wrong.body.error.message, /2024-11-05 predates Streamable HTTP/);
+  assert.match(wrong.body.error.message, /HTTP\+SSE transport is not supported/);
+  assert.equal(wrong.body.error.data.requested, '2024-11-05');
+  assert.deepEqual(wrong.body.error.data.supported, [...SUPPORTED_PROTOCOL_VERSIONS]);
 
   const declared = await rpc(state, 'ping', {}, { headers: { 'mcp-protocol-version': '2024-11-05' } });
   assert.equal(declared.status, 400);
   assert.equal(declared.body.error.code, -32602);
+  assert.match(declared.body.error.message, /predates Streamable HTTP/);
 
   const listed = await rpc(state, 'tools/list', {});
   const names = listed.body.result.tools.map((tool) => tool.name).sort();
@@ -116,6 +136,64 @@ test('MCP initializes, refuses another protocol revision, and lists every promis
   const survey = listed.body.result.tools.find((tool) => tool.name === 'sparring_survey_submit');
   assert.match(survey.description, /never silently dropped/i);
   assert.match(survey.description, /never upgraded/i);
+});
+
+test('older accepted revisions do not receive newer response fields', async () => {
+  const state = openState(home());
+  const old = await rpc(state, 'initialize', {
+    protocolVersion: STREAMABLE_HTTP_VERSION,
+    capabilities: {},
+    clientInfo: { name: 'old-client', version: '1' },
+  });
+  assert.equal(old.body.result.serverInfo.title, undefined);
+
+  const oldListed = await rpc(state, 'tools/list', {}, {
+    headers: { 'mcp-protocol-version': STREAMABLE_HTTP_VERSION },
+  });
+  assert.equal(oldListed.body.result.tools.some((tool) => 'title' in tool), false);
+
+  const oldCall = await callTool(state, 'sparring_add_topics', {
+    topics: [{ topic: 'old-field-test', name: 'old-field-test', parent: null, kind: 'concept' }],
+  }, { headers: { 'mcp-protocol-version': STREAMABLE_HTTP_VERSION } });
+  assert.equal(oldCall.isError, false);
+  assert.equal(oldCall.body.result.structuredContent, undefined);
+
+  const currentCall = await callTool(state, 'sparring_add_topics', {
+    topics: [{ topic: 'current-field-test', name: 'current-field-test', parent: null, kind: 'concept' }],
+  });
+  assert.equal(currentCall.isError, false);
+  assert.deepEqual(currentCall.body.result.structuredContent, { added: 1 });
+});
+
+test('MCP request logs include only method, initialize version and response status', async () => {
+  const state = openState(home());
+  const token = 'Bearer test-token-never-log-this';
+  const secretArgument = 'rubric-and-user-answer-never-log-this';
+  const writes = [];
+  const originalWrite = process.stderr.write;
+  process.stderr.write = (chunk) => {
+    writes.push(String(chunk));
+    return true;
+  };
+  try {
+    await rpc(state, 'initialize', {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: 'log-test', version: '1' },
+    }, { headers: { authorization: token } });
+    await callTool(state, 'sparring_add_topics', {
+      topics: [{ topic: 'logs', name: secretArgument, parent: null, kind: 'concept' }],
+    }, { headers: { authorization: token } });
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+
+  assert.equal(writes.length, 2);
+  assert.match(writes[0], /mcp method=initialize protocolVersion=2026-07-28 status=200/);
+  assert.match(writes[1], /mcp method=tools\/call status=200/);
+  const log = writes.join('');
+  assert.equal(log.includes(token), false);
+  assert.equal(log.includes(secretArgument), false);
 });
 
 test('the MCP queue never carries a rubric and sparring_rubric is the only way to one', async () => {
