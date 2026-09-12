@@ -87,8 +87,43 @@ const HANDLERS = {
     const result = db.prepare('update attempts set grade = ?, contested = 1 where id = ?').run(e.data.userGrade, e.data.attempt);
     if (result.changes === 0) return false;
   },
-  'lesson.completed': () => {
-    // Lesson records are read from the log directly until the lesson system exists.
+  'lesson.completed': (db, e) => {
+    const d = e.data;
+    const status = d.status ?? 'completed';
+    if (status === 'started') {
+      db.prepare(`insert or replace into lesson_runs
+        (id, lesson, at, completed, stopped_at_block) values (?, ?, ?, 0, null)`)
+        .run(d.run, d.lesson, e.at);
+      return;
+    }
+    if (status === 'abandoned') {
+      const result = db.prepare('update lesson_runs set completed = 0, stopped_at_block = ? where id = ? and lesson = ?')
+        .run(d.stoppedAtBlock, d.run, d.lesson);
+      if (result.changes === 0) return false;
+      return;
+    }
+    if (status === 'completed') {
+      const result = db.prepare('update lesson_runs set completed = 1, stopped_at_block = null where id = ? and lesson = ?')
+        .run(d.run, d.lesson);
+      if (result.changes === 0) return false;
+      return;
+    }
+    if (status === 'awaiting' || status === 'stored') {
+      const result = db.prepare(`insert or replace into lesson_answers
+        (id, run, lesson, block, card, answer, status, grade, feedback, at, updated_at)
+        values (?, ?, ?, ?, ?, ?, ?, null, null, ?, ?)`)
+        .run(d.answerId, d.run, d.lesson, d.block, d.card ?? null, d.answer, status, e.at, e.at);
+      if (result.changes === 0) return false;
+      return;
+    }
+    if (status === 'graded') {
+      const result = db.prepare(`update lesson_answers
+        set status = 'graded', grade = ?, feedback = ?, updated_at = ? where id = ?`)
+        .run(d.grade, d.feedback ?? null, e.at, d.answerId);
+      if (result.changes === 0) return false;
+      return;
+    }
+    throw new Error(`lesson event status is unsupported: ${status}`);
   },
   'claim.vouched': (db, e) => {
     const claim = e.data.claim;

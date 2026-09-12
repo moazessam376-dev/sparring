@@ -5,6 +5,16 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import type {
+  DiagramNode,
+  LessonAnswer,
+  LessonBlock,
+  LessonDocument,
+  LessonRun,
+  LessonSummary,
+} from "./lesson/types";
+
+export type { LessonSummary } from "./lesson/types";
 
 export class ApiError extends Error {}
 
@@ -50,6 +60,11 @@ function asNumber(value: unknown, what: string): number {
 function asOptionalNumber(value: unknown, what: string): number | null {
   if (value === null || value === undefined) return null;
   return asNumber(value, what);
+}
+
+function asBoolean(value: unknown, what: string): boolean {
+  if (typeof value !== "boolean") throw new ApiError(`${what} was not a boolean`);
+  return value;
 }
 
 // contexts and source are stored as JSON documents and come back as text on
@@ -422,6 +437,159 @@ export async function card(connection: Connection, id: string): Promise<CardDeta
     }),
     topics: asList(raw.topics, "card topics").map((item, index) => asText(item, `card topic ${index}`)),
   };
+}
+
+/* ---------- lessons ---------- */
+
+function asGrounding(value: unknown, what: string): Grounding {
+  const raw = asRecord(value, what);
+  return {
+    path: asText(raw.path, `${what} path`),
+    line: asNumber(raw.line, `${what} line`),
+    commit: asOptionalText(raw.commit, `${what} commit`),
+  };
+}
+
+function asDiagramNode(value: unknown, what: string): DiagramNode {
+  const raw = asRecord(value, what);
+  return {
+    id: asText(raw.id, `${what} id`),
+    label: asText(raw.label, `${what} label`),
+    sub: asText(raw.sub, `${what} sub`),
+    focal: asBoolean(raw.focal, `${what} focal`),
+  };
+}
+
+function asLessonBlock(value: unknown, what: string): LessonBlock {
+  const raw = asRecord(value, what);
+  const type = asText(raw.type, `${what} type`);
+  if (type === "prose") return { type, heading: asText(raw.heading, `${what} heading`), body: asText(raw.body, `${what} body`), names: asTextList(raw.names, `${what} names`) };
+  if (type === "diagram") {
+    return {
+      type,
+      nodes: asList(raw.nodes, `${what} nodes`).map((item, index) => asDiagramNode(item, `${what} node ${index}`)),
+      edges: asList(raw.edges, `${what} edges`).map((item, index) => { const edge = asRecord(item, `${what} edge ${index}`); return { from: asText(edge.from, "edge from"), to: asText(edge.to, "edge to"), label: asText(edge.label, "edge label") }; }),
+      caption: asText(raw.caption, `${what} caption`),
+    };
+  }
+  if (type === "trace") return { type, steps: asList(raw.steps, `${what} steps`).map((item, index) => { const step = asRecord(item, `${what} step ${index}`); return { text: asText(step.text, "step text"), file: asText(step.file, "step file"), line: asNumber(step.line, "step line") }; }), commit: asText(raw.commit, `${what} commit`) };
+  if (type === "terminal") return { type, lines: asList(raw.lines, `${what} lines`).map((item, index) => { const line = asRecord(item, `${what} line ${index}`); return { cmd: asText(line.cmd, "line command"), out: asText(line.out, "line output") }; }), cwd: asText(raw.cwd, `${what} cwd`) };
+  if (type === "short") {
+    const block: LessonBlock & { type: "short" } = { type, ask: asText(raw.ask, `${what} ask`) };
+    if (raw.rubric !== undefined) block.rubric = asTextList(raw.rubric, `${what} rubric`);
+    if (raw.grounding !== undefined) block.grounding = asGrounding(raw.grounding, `${what} grounding`);
+    return block;
+  }
+  if (type === "code") {
+    const block: LessonBlock & { type: "code" } = { type, ask: asText(raw.ask, `${what} ask`), languages: asTextList(raw.languages, `${what} languages`), starter: asText(raw.starter, `${what} starter`) };
+    if (raw.reviewAgainst !== undefined) { const review = asRecord(raw.reviewAgainst, `${what} reviewAgainst`); block.reviewAgainst = { path: asText(review.path, "review path"), line: asNumber(review.line, "review line") }; }
+    return block;
+  }
+  if (type === "recall") {
+    const block: LessonBlock & { type: "recall" } = { type, situation: asText(raw.situation, `${what} situation`) };
+    if (raw.answer !== undefined) block.answer = asText(raw.answer, `${what} answer`);
+    if (raw.accept !== undefined) block.accept = asTextList(raw.accept, `${what} accept`);
+    return block;
+  }
+  if (type === "lure") return { type, ask: asText(raw.ask, `${what} ask`), options: asList(raw.options, `${what} options`).map((item, index) => { const option = asRecord(item, `${what} option ${index}`); return { text: asText(option.text, "option text"), ...(option.correct === undefined ? {} : { correct: asBoolean(option.correct, "option correct") }), ...(option.why === undefined ? {} : { why: asText(option.why, "option why") }) }; }) };
+  if (type === "order") {
+    const block: LessonBlock & { type: "order" } = { type, ask: asText(raw.ask, `${what} ask`), steps: asTextList(raw.steps, `${what} steps`) };
+    if (raw.order !== undefined) block.order = asList(raw.order, `${what} order`).map((item, index) => asNumber(item, `${what} order ${index}`));
+    return block;
+  }
+  if (type === "blank") return { type, snippet: asText(raw.snippet, `${what} snippet`), blanks: asList(raw.blanks, `${what} blanks`).map((item, index) => { const blank = asRecord(item, `${what} blank ${index}`); return { at: asNumber(blank.at, "blank position"), ...(blank.answer === undefined ? {} : { answer: asText(blank.answer, "blank answer") }), ...(blank.distractors === undefined ? {} : { distractors: asTextList(blank.distractors, "blank distractors") }) }; }), ...(raw.file === undefined ? {} : { file: (() => { const file = asRecord(raw.file, `${what} file`); return { path: asText(file.path, "blank file path"), line: asNumber(file.line, "blank file line") }; })() }) };
+  if (type === "place") return { type, diagram: asText(raw.diagram, `${what} diagram`), place: asList(raw.place, `${what} place`).map((item, index) => { const placed = asRecord(item, `${what} place ${index}`); return { label: asText(placed.label, "place label"), ...(placed.target === undefined ? {} : { target: asText(placed.target, "place target") }) }; }) };
+  if (type === "explainself") return { type, prompt: asText(raw.prompt, `${what} prompt`) };
+  if (type === "schema") return { type, columns: asTextList(raw.columns, `${what} columns`), rows: asList(raw.rows, `${what} rows`).map((row, index) => asTextList(row, `${what} row ${index}`)), highlight: asList(raw.highlight, `${what} highlight`).map((item, index) => asNumber(item, `${what} highlight ${index}`)) };
+  if (type === "timeline") return { type, events: asList(raw.events, `${what} events`).map((item, index) => { const event = asRecord(item, `${what} event ${index}`); return { at: asNumber(event.at, "event at"), label: asText(event.label, "event label"), lane: asText(event.lane, "event lane") }; }), unit: asText(raw.unit, `${what} unit`) };
+  if (type === "reqres") return { type, request: asRecord(raw.request, `${what} request`), response: asRecord(raw.response, `${what} response`), focus: asText(raw.focus, `${what} focus`) };
+  throw new ApiError(`${what} has unknown type ${type}`);
+}
+
+function asLessonSummary(value: unknown, index: number): LessonSummary {
+  const raw = asRecord(value, `lesson ${index}`);
+  const blockCount = typeof raw.blocks === "number" ? asNumber(raw.blocks, `lesson ${index} blocks`) : asList(raw.blocks, `lesson ${index} blocks`).length;
+  const gradableValue = raw.gradable ?? raw.gradableCount;
+  const gradableCount = asNumber(gradableValue, `lesson ${index} gradable`);
+  return {
+    id: asText(raw.id, `lesson ${index} id`),
+    project: asText(raw.project, `lesson ${index} project`),
+    title: asText(raw.title, `lesson ${index} title`),
+    topics: asTextList(raw.topics, `lesson ${index} topics`),
+    blocks: blockCount,
+    gradable: gradableCount,
+    blockCount: asOptionalNumber(raw.blockCount, `lesson ${index} blockCount`) ?? blockCount,
+    gradableCount: asOptionalNumber(raw.gradableCount, `lesson ${index} gradableCount`) ?? gradableCount,
+    created: asText(raw.created, `lesson ${index} created`),
+  };
+}
+
+export async function lessons(connection: Connection): Promise<LessonSummary[]> {
+  return asList(await request(connection, "/api/lessons"), "lessons").map(asLessonSummary);
+}
+
+export async function lesson(connection: Connection, id: string): Promise<LessonDocument> {
+  const raw = asRecord(await request(connection, `/api/lessons/${encodeURIComponent(id)}`), "lesson");
+  const summary = asLessonSummary(raw, 0);
+  return { ...summary, blocks: asList(raw.blocks, "lesson blocks").map((item, index) => asLessonBlock(item, `lesson block ${index}`)) };
+}
+
+function asRun(value: unknown, what: string): LessonRun {
+  const raw = asRecord(value, what);
+  return {
+    id: asText(raw.id, `${what} id`),
+    lesson: asText(raw.lesson, `${what} lesson`),
+    at: asText(raw.at, `${what} at`),
+    completed: asBoolean(raw.completed, `${what} completed`),
+    stoppedAtBlock: asOptionalNumber(raw.stoppedAtBlock, `${what} stoppedAtBlock`),
+    answers: asList(raw.answers ?? [], `${what} answers`).map((item, index) => asLessonAnswer(item, `${what} answer ${index}`)),
+  };
+}
+
+function asGradeValue(value: unknown, what: string): Grade | null {
+  const grade = asOptionalText(value, what);
+  if (grade === null) return null;
+  if (grade === "correct" || grade === "partial" || grade === "wrong") return grade;
+  throw new ApiError(`${what} was ${grade}`);
+}
+
+function asLessonAnswer(value: unknown, what: string): LessonAnswer {
+  const raw = asRecord(value, what);
+  const status = asText(raw.status, `${what} status`);
+  if (status !== "awaiting" && status !== "stored" && status !== "graded") throw new ApiError(`${what} status was ${status}`);
+  return {
+    id: asText(raw.id, `${what} id`), run: asText(raw.run, `${what} run`), lesson: asText(raw.lesson, `${what} lesson`), block: asNumber(raw.block, `${what} block`), card: asOptionalText(raw.card, `${what} card`), answer: asText(raw.answer, `${what} answer`), status, grade: asGradeValue(raw.grade, `${what} grade`), feedback: asOptionalText(raw.feedback, `${what} feedback`), at: asText(raw.at, `${what} at`), updatedAt: asText(raw.updatedAt, `${what} updatedAt`),
+  };
+}
+
+export async function startLesson(connection: Connection, id: string): Promise<LessonRun> {
+  return asRun(await request(connection, `/api/lessons/${encodeURIComponent(id)}/start`, { method: "POST", body: {} }), "lesson run");
+}
+
+export async function abandonLesson(connection: Connection, id: string, run: string, stoppedAtBlock: number): Promise<LessonRun> {
+  return asRun(await request(connection, `/api/lessons/${encodeURIComponent(id)}/abandon`, { method: "POST", body: { run, stoppedAtBlock } }), "lesson run");
+}
+
+export async function completeLesson(connection: Connection, id: string, run: string): Promise<LessonRun> {
+  return asRun(await request(connection, `/api/lessons/${encodeURIComponent(id)}/complete`, { method: "POST", body: { run } }), "lesson run");
+}
+
+export async function revealLessonBlock(connection: Connection, id: string, run: string, block: number): Promise<LessonBlock> {
+  const raw = asRecord(await request(connection, `/api/lessons/${encodeURIComponent(id)}/reveal`, { method: "POST", body: { run, block } }), "lesson reveal");
+  return asLessonBlock(raw.data, "lesson revealed block");
+}
+
+export async function gradeLesson(connection: Connection, answerId: string, grade: Grade, feedback: string | null = null, gap: string | null = null): Promise<LessonAnswer> {
+  const response = await request(connection, "/api/lesson/grade", { method: "POST", body: { answerId, grade, feedback, gap } });
+  return asLessonAnswer(response, "lesson answer");
+}
+
+export async function answerLesson(connection: Connection, id: string, input: { run: string; block: number; answer: string; grade?: Grade; stored?: boolean; card?: string | null; gap?: string | null; feedback?: string | null }): Promise<LessonAnswer> {
+  return asLessonAnswer(await request(connection, `/api/lessons/${encodeURIComponent(id)}/answer`, { method: "POST", body: input }), "lesson answer");
+}
+
+export async function readLessonRun(connection: Connection, id: string, run: string): Promise<LessonRun> {
+  return asRun(await request(connection, `/api/lessons/${encodeURIComponent(id)}/runs/${encodeURIComponent(run)}`), "lesson run");
 }
 
 export type Schedule = {

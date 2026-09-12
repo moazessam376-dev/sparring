@@ -49,6 +49,7 @@ export function validateEvent(event) {
   if (event.id !== `${event.device}:${event.seq}`) throw new Error('event id must be device:seq');
   if (Number.isNaN(Date.parse(event.at || ''))) throw new Error('event at must be a timestamp');
   if (!event.data || typeof event.data !== 'object') throw new Error('event data must be an object');
+  if (event.type === 'lesson.completed') validateLessonEventData(event.data);
   if (event.type === 'claim.vouched') {
     if (!event.data.claim || typeof event.data.claim !== 'object' || Array.isArray(event.data.claim)) {
       throw new Error('vouched event claim must be an object');
@@ -68,6 +69,35 @@ export function validateEvent(event) {
     && (typeof event.data.claim !== 'string' || !event.data.claim.trim())) {
     throw new Error('vouch withdrawal claim must be a non-empty string');
   }
+}
+
+function validateLessonEventData(data) {
+  if (typeof data.run !== 'string' || !data.run.trim()) throw new Error('lesson event run must be a non-empty string');
+  if (typeof data.lesson !== 'string' || !data.lesson.trim()) throw new Error('lesson event lesson must be a non-empty string');
+  const status = data.status ?? 'completed';
+  if (status === 'started' || status === 'completed') return;
+  if (status === 'abandoned') {
+    if (!Number.isInteger(data.stoppedAtBlock) || data.stoppedAtBlock < 0) {
+      throw new Error('lesson abandoned event stoppedAtBlock must be a non-negative integer');
+    }
+    return;
+  }
+  if (status === 'awaiting' || status === 'stored') {
+    if (typeof data.answerId !== 'string' || !data.answerId.trim()) throw new Error('lesson answer event answerId must be a non-empty string');
+    if (!Number.isInteger(data.block) || data.block < 0) throw new Error('lesson answer event block must be a non-negative integer');
+    if (typeof data.answer !== 'string') throw new Error('lesson answer event answer must be a string');
+    if (data.card !== undefined && data.card !== null && (typeof data.card !== 'string' || !data.card.trim())) {
+      throw new Error('lesson answer event card must be a non-empty string or null');
+    }
+    return;
+  }
+  if (status === 'graded') {
+    if (typeof data.answerId !== 'string' || !data.answerId.trim()) throw new Error('lesson grade event answerId must be a non-empty string');
+    if (!['correct', 'partial', 'wrong'].includes(data.grade)) throw new Error('lesson grade event grade must be correct, partial or wrong');
+    if (data.feedback !== undefined && data.feedback !== null && typeof data.feedback !== 'string') throw new Error('lesson grade event feedback must be a string or null');
+    return;
+  }
+  throw new Error(`lesson event status is unsupported: ${status}`);
 }
 
 function deviceFile(home, device) {
