@@ -87,6 +87,7 @@
             <div class="lbl" style="margin-bottom: 12px;">Live</div>
             <sc-if value="{{is.order}}" hint-placeholder-val="{{false}}">
               <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div class="m" style="font-size: 10.5px; color: #626a69; padding-bottom: 3px;">{{orderHint}}</div>
                 <sc-for list="{{orderItems}}" as="o" hint-placeholder-count="4">
                   <button onClick="{{o.pick}}" style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 7px; border: 1px solid {{o.br}}; background: {{o.bg}}; width: 100%;">
                     <span class="m" style="font-size: 10px; color: {{o.n_fg}}; width: 13px;">{{o.n}}</span>
@@ -152,7 +153,7 @@
 </x-dc>
 <script data-dc-script data-props='{}'>
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { sel: 'blank', order: null, lure: null, blank: null }; }
+  constructor(props) { super(props); this.state = { sel: 'blank', order: null, lure: null, blank: null, seq: [2,0,3,1] }; }
   cat() {
     return [
       ['Explain', [
@@ -200,11 +201,23 @@ class Component extends DCLogic {
         grading: grading[sel] ?? 'not a question',
         schema: it[4].map(([key, type]) => ({ key, type })) },
       is: { order: sel === 'order', lure: sel === 'lure', blank: sel === 'blank', recall: sel === 'recall' },
-      orderItems: ['Client emits with a callback','Server receives and joins the room','Adapter publishes on Redis','Second server delivers to its sockets']
-        .map((text, n) => ({ text, n: String(n+1), pick: pick('order', n),
-          br: this.state.order === n ? 'rgba(158,232,125,0.4)' : 'rgba(255,255,255,0.07)',
-          bg: this.state.order === n ? 'rgba(158,232,125,0.07)' : 'rgba(255,255,255,0.02)',
-          n_fg: this.state.order === n ? '#9ee87d' : '#4a5150' })),
+      orderItems: this.state.seq.map((id, n) => {
+        const labels = ['Client emits with a callback','Server receives and joins the room','Adapter publishes on Redis','Second server delivers to its sockets'];
+        const held = this.state.order; const on = held === n;
+        const right = this.state.seq.every((v, i) => v === i);
+        return { text: labels[id], n: String(n+1),
+          pick: () => {
+            if (held === null) { this.setState({ order: n }); return; }
+            if (held === n) { this.setState({ order: null }); return; }
+            const seq = [...this.state.seq];
+            const t = seq[held]; seq[held] = seq[n]; seq[n] = t;
+            this.setState({ seq, order: null });
+          },
+          br: on ? 'rgba(158,232,125,0.5)' : (right ? 'rgba(158,232,125,0.22)' : 'rgba(255,255,255,0.07)'),
+          bg: on ? 'rgba(158,232,125,0.10)' : (right ? 'rgba(158,232,125,0.045)' : 'rgba(255,255,255,0.02)'),
+          n_fg: on ? '#9ee87d' : (right ? '#9ee87d' : '#4a5150') };
+      }),
+      orderHint: this.state.seq.every((v, i) => v === i) ? 'that is the order' : (this.state.order === null ? 'tap two to swap them' : 'now tap where it should go'),
       lures: [['The room object is copied to the second process', false],
               ['Each process keeps its own set of room members', true],
               ['Redis stores the room and both processes read it', false],

@@ -39,3 +39,19 @@ drifts on a 54 second cycle and panels rise once on appearance. Both stop under
 - Nothing is revealed before the candidate commits, the grounding file included.
 - Every estimate is drawn with how little it is worth. The pale band behind a bar is its uncertainty, and on a thinly evidenced topic it is wider than the bar.
 - A part the survey could not verify is drawn dashed and marked, never dropped.
+
+## Two tiers of hairline
+
+Structural edges, between the rail and the content and under the top bar, are
+`rgba(255,255,255,0.06)` to `0.07`. Edges inside a panel, between rows of a list,
+are lighter at `0.04` to `0.055`. That is deliberate: a row separator at the same
+weight as a pane boundary flattens the hierarchy and makes a list read as a grid.
+
+## What the artboards cannot do
+
+Each artboard is its own sandbox and they share no state, so a control whose
+destination is a different screen cannot navigate there. Those stay inert:
+"Open map", "Start drill", "Open" on a grounding file, and the survey rows that
+would hand off to the map. Everything whose behaviour lives inside one screen
+does work, including the typed answer in the drill and the reordering in the
+catalogue.

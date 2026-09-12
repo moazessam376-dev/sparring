@@ -91,7 +91,7 @@
 
           <sc-if value="{{asking}}" hint-placeholder-val="{{true}}">
             <div class="rise" style="display: flex; flex-direction: column; gap: 14px;">
-              <textarea rows="6" placeholder="Answer in your own words. There are no hints, and asking for one is graded as not knowing."></textarea>
+              <textarea rows="6" onInput="{{onType}}" placeholder="Answer in your own words. There are no hints, and asking for one is graded as not knowing."></textarea>
               <div style="display: flex; align-items: center; gap: 10px;">
                 <button onClick="{{commit}}" class="pill go" style="padding: 8px 18px;">Commit answer</button>
                 <button onClick="{{dunno}}" class="pill ghost" style="padding: 8px 14px;">I do not know</button>
@@ -105,7 +105,7 @@
             <div class="rise" style="display: flex; flex-direction: column; gap: 20px;">
               <div class="panel" style="padding: 14px 16px;">
                 <div class="lbl" style="margin-bottom: 7px;">Your answer</div>
-                <div style="color: #979e9d; line-height: 1.62;">The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.</div>
+                <div style="color: #979e9d; line-height: 1.62;">{{answer}}</div>
               </div>
 
               <div style="display: flex; align-items: center; gap: 11px;">
@@ -164,7 +164,7 @@
 </x-dc>
 <script data-dc-script data-props='{"phase":{"editor":"enum","default":"asking","options":["asking","graded","contesting"]}}'>
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { phase: null, grade: 'partial', i: 3 }; }
+  constructor(props) { super(props); this.state = { phase: null, grade: 'partial', i: 3, typed: '' }; }
   renderVals() {
     const phase = this.state.phase ?? this.props.phase ?? 'asking';
     const g = this.state.grade;
@@ -178,7 +178,10 @@ class Component extends DCLogic {
       br: g === id ? G[id].fg : 'rgba(255,255,255,0.09)',
       bg: g === id ? 'rgba(255,255,255,0.05)' : 'transparent',
       fg: g === id ? G[id].fg : '#979e9d' });
+    const typed = this.state.typed.trim();
     return {
+      answer: typed || 'The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.',
+      onType: (e) => this.setState({ typed: e.target.value }),
       asking: phase === 'asking', graded: phase === 'graded', contesting: phase === 'contesting',
       pips: [0,1,2,3,4,5,6,7].map((n) => ({ bg: n < this.state.i ? '#9ee87d' : 'rgba(255,255,255,0.08)' })),
       progress: (this.state.i + 1) + ' of 18', elapsed: '6 min',
@@ -193,12 +196,12 @@ class Component extends DCLogic {
         fill: hit[i] ? '#9ee87d' : 'transparent', fg: hit[i] ? '#626a69' : '#e2e5e4' })),
       again: g === 'correct' ? '4 days' : (g === 'partial' ? '2 days' : 'tomorrow'),
       grades: [chip('correct','Correct'), chip('partial','Partial'), chip('wrong','Wrong')],
-      commit: () => this.setState({ phase: 'graded', grade: 'partial' }),
+      commit: () => this.setState({ phase: 'graded', grade: this.state.typed.trim().length > 90 ? 'correct' : 'partial' }),
       dunno: () => this.setState({ phase: 'graded', grade: 'wrong' }),
       contest: () => this.setState({ phase: 'contesting' }),
       cancel: () => this.setState({ phase: 'graded' }),
-      next: () => this.setState({ phase: 'asking', i: Math.min(7, this.state.i + 1) }),
-      end: () => this.setState({ phase: 'asking', i: 0 }),
+      next: () => this.setState({ phase: 'asking', i: Math.min(7, this.state.i + 1), typed: '' }),
+      end: () => this.setState({ phase: 'asking', i: 0, typed: '' }),
       noop: () => {},
     };
   }
