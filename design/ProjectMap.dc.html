@@ -1,0 +1,209 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <button onClick="{{resurvey}}" class="lbl" style="letter-spacing: 0.1em;">Re-survey</button>
+      </div>
+      <div style="padding: 0 16px 14px;">
+        <div class="lbl" style="margin-bottom: 6px;">Map</div>
+        <div style="font-size: 17px; font-weight: 600;">raptor</div>
+        <div class="m" style="margin-top: 7px; font-size: 10.5px; color: #626a69; line-height: 1.6;">surveyed 2 days ago<br/>8 of 11 parts verified</div>
+      </div>
+      <div class="lbl" style="padding: 8px 16px 8px;">Constraints</div>
+      <sc-for list="{{bandList}}" as="b" hint-placeholder-count="3">
+        <button onClick="{{b.pick}}" style="display: flex; align-items: center; gap: 9px; margin: 0 8px; padding: 7px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{b.bg}};">
+          <span style="width: 3px; height: 14px; border-radius: 2px; background: {{b.bar}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 12.5px; color: {{b.fg}};">{{b.label}}</span>
+        </button>
+      </sc-for>
+      <div class="lbl" style="padding: 18px 16px 8px;">Coverage</div>
+      <div style="padding: 0 16px;">
+        <div style="display: flex; gap: 2px; height: 22px;">
+          <sc-for list="{{coverage}}" as="c" hint-placeholder-count="5">
+            <span style="flex-grow: {{c.w}}; border-radius: 2px; background: {{c.bg}};"></span>
+          </sc-for>
+        </div>
+        <div class="m" style="margin-top: 9px; font-size: 10px; color: #565d5c; line-height: 1.7;">inspected 71% &middot; generated 14%<br/>vendored 9% &middot; not inspected 6%</div>
+      </div>
+      <div style="flex-grow: 1;"></div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex;">
+      <div style="flex-grow: 1; min-width: 0; position: relative;">
+        <svg viewBox="0 0 860 860" style="width: 100%; height: 100%;">
+          <sc-for list="{{bands}}" as="b" hint-placeholder-count="3">
+            <g onClick="{{b.pick}}" style="cursor: pointer;">
+              <rect x="0" y="{{b.y}}" width="860" height="{{b.h}}" fill="{{b.fill}}" stroke="{{b.stroke}}" stroke-width="1" stroke-dasharray="5,5"/>
+              <text x="14" y="{{b.ly}}" fill="{{b.fg}}" font-size="8.5" font-family="DM Mono, monospace" letter-spacing="0.14em">{{b.label}}</text>
+            </g>
+          </sc-for>
+          <sc-for list="{{edges}}" as="e" hint-placeholder-count="12">
+            <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="1"/>
+          </sc-for>
+          <sc-for list="{{nodes}}" as="n" hint-placeholder-count="11">
+            <g onClick="{{n.pick}}" style="cursor: pointer;">
+              <rect x="{{n.x}}" y="{{n.y}}" width="{{n.w}}" height="46" rx="9" fill="{{n.fill}}" stroke="{{n.stroke}}" stroke-width="{{n.sw}}" stroke-dasharray="{{n.dash}}"/>
+              <text x="{{n.cx}}" y="{{n.ty}}" text-anchor="middle" fill="{{n.fg}}" font-size="12" font-weight="500" font-family="Archivo, sans-serif">{{n.name}}</text>
+              <text x="{{n.cx}}" y="{{n.sy}}" text-anchor="middle" fill="{{n.sub_fg}}" font-size="8.5" font-family="DM Mono, monospace">{{n.sub}}</text>
+            </g>
+          </sc-for>
+        </svg>
+      </div>
+
+      <div style="width: 336px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.06); padding: 24px 22px 0; display: flex; flex-direction: column; gap: 18px;">
+        <div class="rise">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 9px;">
+            <span class="lbl">{{sel.kind}}</span>
+            <span class="m" style="font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; border: 1px solid {{sel.vb}}; color: {{sel.vf}};">{{sel.verified}}</span>
+          </div>
+          <div style="font-size: 20px; font-weight: 600; letter-spacing: -0.014em;">{{sel.name}}</div>
+          <div style="margin-top: 9px; color: #979e9d; line-height: 1.62;">{{sel.sentence}}</div>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.055); padding-top: 15px;">
+          <div class="lbl" style="margin-bottom: 9px;">{{sel.label2}}</div>
+          <div style="color: #979e9d; line-height: 1.62; font-size: 12.5px;">{{sel.second}}</div>
+        </div>
+        <div class="panel" style="padding: 12px 14px; display: flex; align-items: center; gap: 9px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#626a69" stroke-width="1.7" stroke-linecap="round"><path d="M4 5h10l6 6v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M14 5v6h6"/></svg>
+          <span class="m" style="font-size: 11px; color: #979e9d; flex-grow: 1;">{{sel.file}}</span>
+          <span class="m" style="font-size: 10px; color: #4a5150;">a3f91c2</span>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom: 9px;">You have been asked about this</div>
+          <div style="display: flex; align-items: baseline; gap: 9px;">
+            <span class="m" style="font-size: 24px; color: {{sel.fg}};">{{sel.score}}</span>
+            <span class="m" style="font-size: 10.5px; color: #626a69;">{{sel.asked}}</span>
+          </div>
+          <div style="margin-top: 9px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+            <span style="position: absolute; left: {{sel.lo}}; width: {{sel.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+            <span style="position: absolute; left: 0; width: {{sel.bar}}; height: 3px; border-radius: 2px; background: {{sel.fg}}; display: block;"></span>
+          </div>
+        </div>
+        <div style="flex-grow: 1;"></div>
+        <div style="display: flex; flex-direction: column; gap: 7px; padding-bottom: 22px;">
+          <button onClick="{{noop}}" class="pill go" style="text-align: center; padding: 9px;">{{sel.cta}}</button>
+          <button onClick="{{noop}}" class="pill ghost" style="text-align: center; padding: 9px;">Drill just this</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'adapter', kind: 'node' }; }
+  nodes() {
+    return [['browser',60,80,160,'coach browser','socket.io-client',1],['mobile',250,80,150,'athlete app','react native',1],
+      ['cdn',640,80,150,'video cdn','signed urls',0],['gateway',150,232,190,'api gateway','express + jwt',1],
+      ['realtime',420,232,180,'realtime hub','socket.io server',1],['jobs',680,232,170,'worker pool','bullmq',0],
+      ['adapter',420,396,180,'redis adapter','pub/sub fan-out',1],['locks',680,396,170,'lock service','SET NX EX',1],
+      ['authz',150,396,190,'policy layer','rls + definer fns',1],['pg',270,572,200,'postgres','supabase',1],['blob',560,572,180,'object store','s3 compatible',0]];
+  }
+  meta() { return {
+    browser:['Where a coach types. Holds no authority: every claim it makes is re-checked at the gateway.','Talks to','The gateway for reads and writes, and the realtime hub for anything live.','web/src/socket.ts:24',1,0.72,6],
+    mobile:['The athlete side. Same API, different session lifetime, and the one client that goes offline for hours.','Talks to','The gateway only. No realtime connection, which is why athletes see updates late.','app/src/api/client.ts:41',1,0.44,3],
+    cdn:['Serves session video through signed URLs that expire in fifteen minutes.','Not verified','Inferred from configuration. No code that signs a URL was found. Treat it as a guess.','infra/cdn.tf:88',0,0,0],
+    gateway:['Every request enters here. Verifies the token, resolves the tenant, passes both down. It does not enforce the boundary.','Why it matters','Because it looks like the security layer and is not. Enforcement is one level lower, in the database.','server/gateway/auth.js:52',1,0.58,4],
+    realtime:['Holds the open sockets and the room membership for one process. Everything it knows dies with that process.','Why it matters','Room membership is a set in memory. The second process you start does not share it.','server/realtime/hub.js:31',1,0.66,5],
+    jobs:['Runs video transcoding and the nightly summary, and does not pass through the gateway.','Not verified','The survey claimed this reads Postgres directly and no import supports it. The part is real; that edge is not.','workers/index.js:19',0,0.35,2],
+    adapter:['Publishes every room message onto a Redis channel so a second process can deliver it to its own sockets.','Why it matters','Without it, two processes silently deliver half the traffic each. It is the only reason scaling out works here.','server/realtime/adapter.js:14',1,0.51,4],
+    locks:['Takes a lock with set-if-absent and an expiry in one command, so a crash cannot strand it.','Why it matters','Two commands instead of one leaves a window where a dead process holds a lock forever.','server/locks/redis.js:22',1,0.79,7],
+    authz:['Row-level security policies, plus the elevated functions that deliberately bypass them.','Why it matters','This is the real tenant boundary. Every elevated function is a hole in it that has to fence itself.','db/policies/sessions.sql:42',1,0.48,5],
+    pg:['The source of truth. Every table carries a tenant column and a policy that reads it.','Why it matters','A query that runs without the tenant context does not fail. It returns everything.','db/schema.sql:1',1,0.62,4],
+    blob:['Session video and exports.','Not verified','The bucket name is in configuration but no code path writes to it. It may be unused.','infra/storage.tf:12',0,0,0] }; }
+  bandData() { return [
+    ['tenant',212,236,'TENANT BOUNDARY','Every read must carry the tenant. The gateway passes it, the database enforces it, and an elevated function has to fence itself by hand.','A missing fence returns another gym\u2019s athletes, with a 200 and no error in any log.','db/policies/sessions.sql:42',0.48,5],
+    ['money',556,112,'BILLING','Session counts drive invoices, so any write that creates or deletes a session is a financial event.','A double write bills a gym twice and you hear it from them, not from a test.','server/billing/usage.js:64',0.29,2],
+    ['realtime',376,112,'DELIVER ONCE','A message crosses processes through Redis exactly once, and nothing retries it.','A dropped publish loses the message with no error anywhere.','server/realtime/adapter.js:14',0.51,4]]; }
+  renderVals() {
+    const A = '#9ee87d'; const sel = this.state.sel; const kind = this.state.kind; const meta = this.meta();
+    const pos = {}; for (const [id,x,y,w] of this.nodes()) pos[id] = { x: x + w/2, y: y + 23 };
+    const tone = (s) => s < 0.6 ? '#e88d7d' : (s > 0.75 ? A : '#e8c97d');
+    const bands = this.bandData().map(([id,y,h,label]) => { const on = kind === 'band' && sel === id;
+      return { y, h, label, ly: y + 16, pick: () => this.setState({ sel: id, kind: 'band' }),
+        fill: on ? 'rgba(158,232,125,0.05)' : 'rgba(255,255,255,0.012)',
+        stroke: on ? 'rgba(158,232,125,0.4)' : 'rgba(255,255,255,0.06)', fg: on ? A : '#3a413f' }; });
+    const el = [['browser','gateway'],['mobile','gateway'],['browser','realtime'],['gateway','authz'],['gateway','realtime'],['realtime','adapter'],['jobs','locks'],['adapter','locks'],['authz','pg'],['jobs','blob'],['cdn','blob'],['adapter','realtime']];
+    const edges = el.map(([a,b]) => ({ x1: pos[a].x, y1: pos[a].y, x2: pos[b].x, y2: pos[b].y,
+      stroke: (kind === 'node' && (sel === a || sel === b)) ? 'rgba(158,232,125,0.4)' : 'rgba(255,255,255,0.055)' }));
+    const nodes = this.nodes().map(([id,x,y,w,name,sub,ver]) => { const on = kind === 'node' && sel === id;
+      return { x, y, w, name, sub, cx: x + w/2, ty: y + 21, sy: y + 36, pick: () => this.setState({ sel: id, kind: 'node' }),
+        fill: on ? 'rgba(158,232,125,0.09)' : 'rgba(255,255,255,0.03)',
+        stroke: on ? A : (ver ? 'rgba(255,255,255,0.10)' : 'rgba(232,201,125,0.32)'),
+        sw: on ? 1.5 : 1, dash: ver ? '0' : '4,3',
+        fg: on ? '#e2e5e4' : (ver ? '#e2e5e4' : '#979e9d'), sub_fg: ver ? '#565d5c' : 'rgba(232,201,125,0.55)' }; });
+    const band = (id) => this.bandData().find((b) => b[0] === id);
+    let p;
+    if (kind === 'band') { const [,,,label,rule,cost,file,score,n] = band(sel); const pct = Math.round(score*100);
+      const width = Math.max(8, Math.round(64/Math.sqrt(n+1))); const lo = Math.max(0, pct - Math.round(width/2));
+      p = { kind: 'Constraint', name: label.toLowerCase(), sentence: rule, label2: 'What forgetting it costs', second: cost,
+        verified: 'verified', vf: A, vb: 'rgba(158,232,125,0.4)', file, score: pct + '%', fg: tone(score),
+        asked: 'across ' + n + ' questions', bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%',
+        cta: 'Teach me this constraint' };
+    } else { const [sentence,label2,second,file,ver,score,n] = meta[sel]; const pct = Math.round(score*100);
+      const width = n === 0 ? 100 : Math.max(8, Math.round(64/Math.sqrt(n+1))); const lo = n === 0 ? 0 : Math.max(0, pct - Math.round(width/2));
+      p = { kind: 'Part of the map', name: this.nodes().find((q) => q[0] === sel)[4], sentence, label2, second, file,
+        verified: ver ? 'verified' : 'unverified', vf: ver ? A : '#e8c97d',
+        vb: ver ? 'rgba(158,232,125,0.4)' : 'rgba(232,201,125,0.4)',
+        score: n === 0 ? '\u2014' : pct + '%', fg: n === 0 ? '#4a5150' : tone(score),
+        asked: n === 0 ? 'never asked' : n + ' answers', bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%',
+        cta: n === 0 ? 'Write a lesson on this' : 'Open the lesson' }; }
+    return { nodes, edges, bands, sel: p, noop: () => {},
+      resurvey: () => this.setState({ sel: 'jobs', kind: 'node' }),
+      bandList: this.bandData().map(([id,,,label,,,,score]) => ({ label: label.toLowerCase(),
+        pick: () => this.setState({ sel: id, kind: 'band' }), bar: tone(score),
+        bg: kind === 'band' && sel === id ? 'rgba(255,255,255,0.055)' : 'transparent',
+        fg: kind === 'band' && sel === id ? '#e2e5e4' : '#979e9d' })),
+      coverage: [[71,'rgba(158,232,125,0.5)'],[14,'rgba(255,255,255,0.12)'],[9,'rgba(255,255,255,0.07)'],[6,'rgba(232,201,125,0.4)']]
+        .map(([w,bg]) => ({ w, bg })) };
+  }
+}
+</script>
+</body>
+</html>

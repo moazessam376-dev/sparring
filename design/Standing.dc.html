@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; color: #9ee87d;">18</span>
+      </div>
+      <div class="lbl" style="padding: 0 16px 8px;">View</div>
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 7px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{t.bg}};">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{t.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 13px; color: {{t.fg}};">{{t.label}}</span>
+          <span class="m" style="font-size: 10px; color: #626a69;">{{t.n}}</span>
+        </button>
+      </sc-for>
+      <div class="lbl" style="padding: 22px 16px 10px;">Is the schedule honest</div>
+      <div style="padding: 0 12px;">
+        <svg viewBox="0 0 226 150" style="width: 100%;">
+          <line x1="26" y1="126" x2="218" y2="126" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+          <line x1="26" y1="12" x2="26" y2="126" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+          <line x1="26" y1="126" x2="218" y2="12" stroke="rgba(255,255,255,0.14)" stroke-width="1" stroke-dasharray="4,4"/>
+          <sc-for list="{{calib}}" as="c" hint-placeholder-count="6">
+            <circle cx="{{c.x}}" cy="{{c.y}}" r="3.6" fill="{{c.fill}}" stroke="{{c.stroke}}" stroke-width="1"/>
+          </sc-for>
+          <text x="26" y="144" fill="#565d5c" font-size="8" font-family="DM Mono, monospace">predicted</text>
+          <text x="218" y="144" text-anchor="end" fill="#565d5c" font-size="8" font-family="DM Mono, monospace">100%</text>
+        </svg>
+        <div class="m" style="margin-top: 6px; font-size: 10px; color: #565d5c; line-height: 1.65;">Above the line means you remember more than it expects, so it is asking too often. Yours sit close.</div>
+      </div>
+      <div style="flex-grow: 1;"></div>
+      <button onClick="{{focus}}" class="pill go" style="margin: 0 12px; text-align: center;">Drill the seven weakest</button>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">{{title}}</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10.5px; color: #565d5c;">{{note}}</span>
+      </div>
+
+      <div style="flex-grow: 1; padding: 26px 28px 0; overflow: hidden; display: flex; flex-direction: column; gap: 22px;">
+        <div style="display: flex; gap: 12px;">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+            <div class="panel" style="flex-grow: 1; padding: 14px 16px;">
+              <div class="lbl" style="margin-bottom: 10px;">{{t.label}}</div>
+              <div class="m" style="font-size: 24px; color: {{t.fg}};">{{t.value}}</div>
+              <div class="m" style="margin-top: 5px; font-size: 10.5px; color: #565d5c;">{{t.note}}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="panel" style="padding: 0; overflow: hidden;">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+            <button onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 15px; padding: 12px 17px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: {{r.dot}}; flex-shrink: 0;"></span>
+              <span style="width: 186px; flex-shrink: 0; display: flex; align-items: baseline; gap: 7px;">
+                <span>{{r.name}}</span>
+                <span class="m" style="font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: {{r.mark_fg}};">{{r.mark}}</span>
+              </span>
+              <span class="m" style="width: 92px; flex-shrink: 0; font-size: 10.5px; color: #626a69;">{{r.project}}</span>
+              <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+                <span style="position: absolute; left: {{r.lo}}; width: {{r.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+                <span style="position: absolute; left: 0; width: {{r.bar}}; height: 3px; border-radius: 2px; background: {{r.dot}}; display: block;"></span>
+              </span>
+              <span class="m" style="width: 42px; text-align: right; flex-shrink: 0; color: {{r.dot}}; font-size: 12px;">{{r.score}}</span>
+              <span class="m" style="width: 78px; text-align: right; flex-shrink: 0; font-size: 10.5px; color: {{r.n_fg}};">{{r.n}}</span>
+              <span class="m" style="width: 62px; text-align: right; flex-shrink: 0; font-size: 10.5px; color: #4a5150;">{{r.last}}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; gap: 26px; align-items: flex-start;">
+          <div class="m" style="flex-grow: 1; font-size: 10.5px; color: #565d5c; line-height: 1.72; max-width: 440px;">The pale band behind each bar is how wrong the estimate could be. A topic with three answers has a band wider than the bar, which is the honest picture and not a rendering fault.</div>
+          <div style="width: 340px; flex-shrink: 0;">
+            <div class="lbl" style="margin-bottom: 10px;">Which question types work on you</div>
+            <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 11px; padding: 5px 0;">
+                <span style="width: 116px; flex-shrink: 0; font-size: 12.5px; color: #979e9d;">{{c.name}}</span>
+                <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+                  <span style="position: absolute; left: {{c.lo}}; width: {{c.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+                  <span style="position: absolute; left: 0; height: 3px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}}; display: block;"></span>
+                </span>
+                <span class="m" style="width: 30px; text-align: right; font-size: 10.5px; color: #626a69;">{{c.v}}</span>
+                <span class="m" style="width: 52px; text-align: right; font-size: 9.5px; color: #4a5150;">{{c.n}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'gaps' }; }
+  all() { return [
+    ['acknowledgements','raptor',0.38,3,'14d',0],['worker pool boundary','raptor',0.35,2,'21d',1],
+    ['definer functions','raptor',0.44,5,'6d',0],['reconnection backoff','raptor',0.52,4,'9d',0],
+    ['policy vs handler','raptor',0.58,5,'12d',0],['redis adapter fan-out','raptor',0.51,4,'8d',0],
+    ['signed url expiry','openreach-tools',0.41,2,'30d',1],['SET NX EX','raptor',0.79,7,'19d',0],
+    ['room membership','raptor',0.74,6,'4d',0],['jwt verification','openreach-tools',0.81,9,'11d',0]]; }
+  renderVals() {
+    const A = '#9ee87d'; const tab = this.state.tab;
+    const tone = (s) => s < 0.6 ? '#e88d7d' : (s > 0.75 ? A : '#e8c97d');
+    let list = this.all();
+    if (tab === 'gaps') list = list.filter((r) => r[2] < 0.6).sort((a,b) => a[2]-b[2]);
+    else if (tab === 'decaying') list = list.filter((r) => parseInt(r[4],10) > 10).sort((a,b) => parseInt(b[4],10)-parseInt(a[4],10));
+    else list = [...list].sort((a,b) => a[2]-b[2]);
+    const titles = { gaps: ['Where you are weakest','sorted by how little you hold, not by how long ago'],
+      decaying: ['Going stale','you held these once and the schedule says they are slipping'],
+      all: ['Every topic','across both surveyed projects, weakest first'] };
+    const counts = { gaps: this.all().filter((r) => r[2] < 0.6).length,
+      decaying: this.all().filter((r) => parseInt(r[4],10) > 10).length, all: this.all().length };
+    const chip = (id, label) => ({ label, n: String(counts[id]), pick: () => this.setState({ tab: id }),
+      bg: tab === id ? 'rgba(255,255,255,0.055)' : 'transparent',
+      fg: tab === id ? '#e2e5e4' : '#979e9d',
+      dot: tab === id ? A : 'rgba(255,255,255,0.14)' });
+    return {
+      tabs: [chip('gaps','Gaps'), chip('decaying','Decaying'), chip('all','Everything')],
+      title: titles[tab][0], note: titles[tab][1], focus: () => this.setState({ tab: 'gaps' }),
+      rows: list.map(([name,project,score,n,last,unver]) => { const pct = Math.round(score*100);
+        const width = Math.max(8, Math.round(64/Math.sqrt(n+1))); const lo = Math.max(0, pct - Math.round(width/2));
+        return { name, project, score: pct + '%', last: last + ' ago', dot: tone(score),
+          bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%',
+          mark: unver ? 'unverified' : '', mark_fg: '#e8c97d',
+          n: n + ' answers', n_fg: n < 4 ? '#e88d7d' : '#626a69', pick: () => this.setState({ tab: 'all' }) }; }),
+      tiles: [['Topics held','31','#e2e5e4','of 74 the surveys found'],
+              ['Weak right now','7','#e88d7d','under 60 with evidence'],
+              ['Never asked','12','#e8c97d','on the map, never drilled'],
+              ['Day streak','9',A,'longest run was 23']]
+        .map(([label,value,fg,note]) => ({ label, value, fg, note })),
+      calib: [[0.15,0.19],[0.3,0.28],[0.45,0.47],[0.6,0.56],[0.78,0.81],[0.92,0.89]]
+        .map(([p,a]) => ({ x: 26 + p*192, y: 126 - a*114,
+          fill: Math.abs(p-a) > 0.06 ? 'rgba(232,141,125,0.25)' : 'rgba(158,232,125,0.25)',
+          stroke: Math.abs(p-a) > 0.06 ? '#e88d7d' : A })),
+      checks: [['Typed short answer','.71',71,A,61],['Exact command','.68',68,A,24],
+               ['Order the steps','.54',54,'#e8c97d',11],['Multiple choice','.31',31,'#e88d7d',7]]
+        .map(([name,v,pct,fg,n]) => { const width = Math.max(6, Math.round(80/Math.sqrt(n+1)));
+          const lo = Math.max(0, pct - Math.round(width/2));
+          return { name, v, fg, n: n + ' asked', bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%' }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

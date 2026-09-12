@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+      </div>
+      <div style="padding: 0 16px 16px;">
+        <div class="lbl" style="margin-bottom: 6px;">Catalogue</div>
+        <div style="font-size: 15px; font-weight: 600; line-height: 1.32;">What an agent can reach for</div>
+      </div>
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+        <div>
+          <div class="lbl" style="padding: 12px 16px 6px;">{{g.name}}</div>
+          <sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
+            <button onClick="{{it.pick}}" style="display: flex; align-items: center; gap: 9px; margin: 0 8px; padding: 6px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{it.bg}};">
+              <span class="m" style="font-size: 9px; color: {{it.num_fg}}; width: 15px; flex-shrink: 0;">{{it.n}}</span>
+              <span style="flex-grow: 1; font-size: 12.5px; color: {{it.fg}};">{{it.name}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="flex-grow: 1;"></div>
+      <div class="panel" style="margin: 0 12px; padding: 12px 13px;">
+        <div class="m" style="font-size: 10.5px; color: #979e9d; line-height: 1.62;">A topic the catalogue cannot express is reported as a gap in the catalogue, not written around in prose.</div>
+      </div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">{{sel.kind}}</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10.5px; color: #565d5c;">{{sel.grading}}</span>
+      </div>
+
+      <div style="flex-grow: 1; padding: 30px 36px 0; overflow: hidden; display: flex; gap: 32px;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px;">
+          <div class="rise">
+            <div style="font-size: 23px; font-weight: 600; letter-spacing: -0.018em;">{{sel.name}}</div>
+            <div style="margin-top: 9px; color: #979e9d; line-height: 1.64; max-width: 540px;">{{sel.what}}</div>
+          </div>
+
+          <div class="panel rise" style="padding: 18px 18px 16px;">
+            <div class="lbl" style="margin-bottom: 12px;">Live</div>
+            <sc-if value="{{is.order}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div class="m" style="font-size: 10.5px; color: #626a69; padding-bottom: 3px;">{{orderHint}}</div>
+                <sc-for list="{{orderItems}}" as="o" hint-placeholder-count="4">
+                  <button onClick="{{o.pick}}" style="display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 7px; border: 1px solid {{o.br}}; background: {{o.bg}}; width: 100%;">
+                    <span class="m" style="font-size: 10px; color: {{o.n_fg}}; width: 13px;">{{o.n}}</span>
+                    <span style="flex-grow: 1; font-size: 13px;">{{o.text}}</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4a5150" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{is.lure}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 7px;">
+                <sc-for list="{{lures}}" as="l" hint-placeholder-count="4">
+                  <button onClick="{{l.pick}}" style="display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; border-radius: 7px; border: 1px solid {{l.br}}; background: {{l.bg}}; width: 100%;">
+                    <span style="flex-shrink: 0; margin-top: 3px; width: 12px; height: 12px; border-radius: 50%; border: 1px solid {{l.ring}}; background: {{l.fill}};"></span>
+                    <span style="flex-grow: 1; font-size: 13px; line-height: 1.5; color: {{l.fg}};">{{l.text}}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{is.blank}}" hint-placeholder-val="{{true}}">
+              <div class="m" style="font-size: 12.5px; line-height: 1.95; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.05); border-radius: 7px; padding: 13px 15px;">
+                <div style="display: flex; gap: 15px;"><span style="color: #343a39; width: 11px; text-align: right;">1</span><span>io.on(<span style="color: #9ee87d;">&apos;connection&apos;</span>, (socket) =&gt; {</span></div>
+                <div style="display: flex; gap: 15px;"><span style="color: #343a39; width: 11px; text-align: right;">2</span><span>&nbsp;&nbsp;socket.<span style="border-bottom: 1px solid #9ee87d; padding: 1px 26px; background: rgba(158,232,125,0.10);">&nbsp;</span>(<span style="color: #9ee87d;">&apos;room:42&apos;</span>);</span></div>
+                <div style="display: flex; gap: 15px;"><span style="color: #343a39; width: 11px; text-align: right;">3</span><span>});</span></div>
+              </div>
+              <div style="margin-top: 11px; display: flex; gap: 7px;">
+                <sc-for list="{{blanks}}" as="b" hint-placeholder-count="4">
+                  <button onClick="{{b.pick}}" class="m pill" style="font-size: 11.5px; border: 1px solid {{b.br}}; background: {{b.bg}}; color: {{b.fg}};">{{b.text}}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{is.recall}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; gap: 9px;">
+                <input placeholder="type the exact command"/>
+                <button onClick="{{noop}}" class="pill go" style="white-space: nowrap; padding: 8px 15px;">Check</button>
+              </div>
+              <div class="m" style="margin-top: 10px; font-size: 10.5px; color: #565d5c;">cued by the situation, never by the command name, because the cue is what you will actually have</div>
+            </sc-if>
+          </div>
+
+          <div>
+            <div class="lbl" style="margin-bottom: 9px;">Why it is in the catalogue</div>
+            <div style="color: #979e9d; line-height: 1.64; max-width: 540px; font-size: 13px;">{{sel.why}}</div>
+          </div>
+        </div>
+
+        <div style="width: 332px; flex-shrink: 0;">
+          <div class="lbl" style="margin-bottom: 11px;">What the agent supplies</div>
+          <div class="panel m" style="padding: 14px 15px; font-size: 11.5px; line-height: 1.85; color: #979e9d;">
+            <sc-for list="{{sel.schema}}" as="f" hint-placeholder-count="6">
+              <div style="display: flex; gap: 10px;">
+                <span style="color: #9ee87d; min-width: 96px;">{{f.key}}</span>
+                <span style="color: #626a69;">{{f.type}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div class="m" style="margin-top: 12px; font-size: 10.5px; color: #565d5c; line-height: 1.7;">Everything else, the layout, the states, the keyboard, the motion, the grading loop, belongs to the application. The agent writes content and never markup.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'blank', order: null, lure: null, blank: null, seq: [2,0,3,1] }; }
+  cat() {
+    return [
+      ['Explain', [
+        ['prose','Prose block','A paragraph with names introduced before they are used.','Because a lesson still needs sentences, and this is the only block that is purely read.', [['heading','string'],['body','markdown'],['names','string[]']]],
+        ['diagram','Diagram','A drawn mechanism, not a picture of one. Nodes, edges and one focal element.','Words plus a picture beat words alone by a wide margin, and the diagram is what later questions test.', [['nodes','{id,label,sub,focal}[]'],['edges','{from,to,label}[]'],['caption','string']]],
+        ['trace','Worked trace','One real path through the code, step by step, with the file at each step.','Novices learn more from a worked example than from solving; the catalogue reverses it once the pattern recurs.', [['steps','{text,file,line}[]'],['commit','string']]],
+        ['terminal','Terminal transcript','A command and what it actually printed, replayed line by line.','Some mechanisms are only visible in output, and a screenshot of one cannot be graded.', [['lines','{cmd,out}[]'],['cwd','string']]],
+      ]],
+      ['Ask', [
+        ['short','Short answer','A typed answer with no options, graded by the agent against a hidden rubric.','Production with feedback retains best. This is the default and everything else is an exception.', [['ask','string'],['rubric','string[]'],['grounding','{path,line,commit}']]],
+        ['code','Code editor','A real editor with language tabs. Saves, and the agent reviews it against the actual file.','Writing the thing is the strongest evidence you hold it, and the review can cite the repository.', [['ask','string'],['languages','string[]'],['starter','string'],['reviewAgainst','{path,line}']]],
+        ['recall','Exact recall','A single field cued by the situation, never by the name of the command.','Retrieval is tied to the cue present, so the cue has to be the one you will actually have.', [['situation','string'],['answer','string'],['accept','string[]']]],
+        ['lure','Pick the misconception','Options where every wrong one is a real misconception, with feedback on each.','Multiple choice only beats short answer when feedback is absent, and only if the lures are real.', [['ask','string'],['options','{text,correct,why}[]']]],
+        ['order','Order the steps','Drag the steps into the order they actually happen in.','It grades exactly, and getting an order wrong is a different gap from not knowing the parts.', [['ask','string'],['steps','string[]'],['order','number[]']]],
+        ['blank','Fill the blank','Real code from the repository with one load-bearing token removed.','It puts the question inside the code rather than beside it, and it grades exactly.', [['snippet','string'],['blanks','{at,answer,distractors}[]'],['file','{path,line}']]],
+        ['place','Place it on the diagram','Drop a node onto the map where it belongs.','Tests the map rather than the vocabulary, which is the altitude most people are weakest at.', [['diagram','ref'],['place','{label,target}[]']]],
+        ['explainself','Self-explanation','A prompt to say why one step must precede another. Stored, never graded.','The benefit is in generating the explanation, so grading it would add cost and no learning.', [['prompt','string']]],
+      ]],
+      ['Show', [
+        ['schema','Schema or table','A table, a type, or a set of rows, rendered rather than described.','Structure read as a table is understood faster than the same structure read as a sentence.', [['columns','string[]'],['rows','string[][]'],['highlight','number[]']]],
+        ['timeline','Timeline','An ordered sequence with durations, for anything where time is the point.','Race conditions and expiry windows are invisible in prose and obvious on a timeline.', [['events','{at,label,lane}[]'],['unit','string']]],
+        ['reqres','Request and response','A paired call and reply, headers and body, with one field marked.','Half of what an engineer must hold about a system is the shape of what crosses its boundary.', [['request','object'],['response','object'],['focus','string']]],
+      ]],
+    ];
+  }
+  flat() { const out = {}; for (const [, items] of this.cat()) for (const it of items) out[it[0]] = it; return out; }
+  renderVals() {
+    const sel = this.state.sel; const all = this.flat(); const it = all[sel];
+    const groups = this.cat().map(([name, items]) => ({ name,
+      items: items.map((q, n) => ({ name: q[1], n: String(n+1).padStart(2,'0'),
+        pick: () => this.setState({ sel: q[0] }),
+        bg: sel === q[0] ? 'rgba(255,255,255,0.055)' : 'transparent',
+        fg: sel === q[0] ? '#e2e5e4' : '#979e9d',
+        num_fg: sel === q[0] ? '#9ee87d' : '#4a5150' })) }));
+    const kinds = { prose:'Explain', diagram:'Explain', trace:'Explain', terminal:'Explain',
+      short:'Ask', code:'Ask', recall:'Ask', lure:'Ask', order:'Ask', blank:'Ask', place:'Ask', explainself:'Ask',
+      schema:'Show', timeline:'Show', reqres:'Show' };
+    const grading = { short:'graded by the agent', code:'reviewed by the agent against the file',
+      recall:'graded exactly', lure:'graded exactly', order:'graded exactly', blank:'graded exactly',
+      place:'graded exactly', explainself:'stored, never graded' };
+    const pick = (key, v) => () => this.setState({ [key]: v });
+    return {
+      groups, noop: () => {},
+      sel: { name: it[1], what: it[2], why: it[3], kind: kinds[sel],
+        grading: grading[sel] ?? 'not a question',
+        schema: it[4].map(([key, type]) => ({ key, type })) },
+      is: { order: sel === 'order', lure: sel === 'lure', blank: sel === 'blank', recall: sel === 'recall' },
+      orderItems: this.state.seq.map((id, n) => {
+        const labels = ['Client emits with a callback','Server receives and joins the room','Adapter publishes on Redis','Second server delivers to its sockets'];
+        const held = this.state.order; const on = held === n;
+        const right = this.state.seq.every((v, i) => v === i);
+        return { text: labels[id], n: String(n+1),
+          pick: () => {
+            if (held === null) { this.setState({ order: n }); return; }
+            if (held === n) { this.setState({ order: null }); return; }
+            const seq = [...this.state.seq];
+            const t = seq[held]; seq[held] = seq[n]; seq[n] = t;
+            this.setState({ seq, order: null });
+          },
+          br: on ? 'rgba(158,232,125,0.5)' : (right ? 'rgba(158,232,125,0.22)' : 'rgba(255,255,255,0.07)'),
+          bg: on ? 'rgba(158,232,125,0.10)' : (right ? 'rgba(158,232,125,0.045)' : 'rgba(255,255,255,0.02)'),
+          n_fg: on ? '#9ee87d' : (right ? '#9ee87d' : '#4a5150') };
+      }),
+      orderHint: this.state.seq.every((v, i) => v === i) ? 'that is the order' : (this.state.order === null ? 'tap two to swap them' : 'now tap where it should go'),
+      lures: [['The room object is copied to the second process', false],
+              ['Each process keeps its own set of room members', true],
+              ['Redis stores the room and both processes read it', false],
+              ['Sticky sessions make the second process unnecessary', false]]
+        .map(([text, ok], n) => { const on = this.state.lure === n;
+          return { text, pick: pick('lure', n),
+            br: on ? (ok ? 'rgba(158,232,125,0.45)' : 'rgba(232,141,125,0.45)') : 'rgba(255,255,255,0.07)',
+            bg: on ? (ok ? 'rgba(158,232,125,0.07)' : 'rgba(232,141,125,0.06)') : 'rgba(255,255,255,0.02)',
+            ring: on ? (ok ? '#9ee87d' : '#e88d7d') : 'rgba(255,255,255,0.16)',
+            fill: on ? (ok ? '#9ee87d' : '#e88d7d') : 'transparent',
+            fg: on ? '#e2e5e4' : '#979e9d' }; }),
+      blanks: ['join','emit','to','in'].map((text, n) => { const on = this.state.blank === n;
+        return { text, pick: pick('blank', n),
+          br: on ? (n === 0 ? 'rgba(158,232,125,0.45)' : 'rgba(232,141,125,0.45)') : 'rgba(255,255,255,0.08)',
+          bg: on ? (n === 0 ? 'rgba(158,232,125,0.10)' : 'rgba(232,141,125,0.08)') : 'transparent',
+          fg: on ? (n === 0 ? '#9ee87d' : '#e88d7d') : '#979e9d' }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

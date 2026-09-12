@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <button onClick="{{end}}" class="lbl" style="letter-spacing: 0.1em;">End</button>
+      </div>
+
+      <div class="lbl" style="padding: 0 16px 9px;">This session</div>
+      <div style="padding: 0 16px 4px; display: flex; gap: 3px;">
+        <sc-for list="{{pips}}" as="p" hint-placeholder-count="8">
+          <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: {{p.bg}};"></span>
+        </sc-for>
+      </div>
+      <div class="m" style="padding: 8px 16px 0; font-size: 10.5px; color: #626a69;">{{progress}} &middot; {{elapsed}}</div>
+
+      <div class="lbl" style="padding: 24px 16px 8px;">Answered</div>
+      <sc-for list="{{history}}" as="h" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{h.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 12.5px; color: #979e9d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.name}}</span>
+          <span class="m" style="font-size: 9.5px; color: #4a5150;">{{h.grade}}</span>
+        </div>
+      </sc-for>
+
+      <div style="flex-grow: 1;"></div>
+      <div class="panel" style="margin: 0 12px 0; padding: 12px 13px;">
+        <div class="lbl" style="margin-bottom: 7px;">Interleaved</div>
+        <div class="m" style="font-size: 10.5px; color: #979e9d; line-height: 1.6;">No two questions in a row come from one project. You have to work out which idea applies before you can answer.</div>
+      </div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">raptor</span>
+        <span class="lbl" style="color: #343a39;">/</span>
+        <span class="lbl">socket.io / acknowledgements</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; padding: 3px 9px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.08); color: #626a69;">mechanism</span>
+      </div>
+
+      <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
+        <div style="width: 700px; padding: 52px 0 30px; display: flex; flex-direction: column; gap: 26px;">
+
+          <div style="font-size: 25px; line-height: 1.36; font-weight: 600; letter-spacing: -0.018em;">A coach sends a session update and the server never calls the acknowledgement back. What does the coach&rsquo;s browser do, and how long does it wait?</div>
+
+          <sc-if value="{{asking}}" hint-placeholder-val="{{true}}">
+            <div class="rise" style="display: flex; flex-direction: column; gap: 14px;">
+              <textarea rows="6" onInput="{{onType}}" placeholder="Answer in your own words. There are no hints, and asking for one is graded as not knowing."></textarea>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button onClick="{{commit}}" class="pill go" style="padding: 8px 18px;">Commit answer</button>
+                <button onClick="{{dunno}}" class="pill ghost" style="padding: 8px 14px;">I do not know</button>
+                <div style="flex-grow: 1;"></div>
+                <span class="m" style="font-size: 10.5px; color: #565d5c;">nothing is revealed until you commit</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{graded}}" hint-placeholder-val="{{false}}">
+            <div class="rise" style="display: flex; flex-direction: column; gap: 20px;">
+              <div class="panel" style="padding: 14px 16px;">
+                <div class="lbl" style="margin-bottom: 7px;">Your answer</div>
+                <div style="color: #979e9d; line-height: 1.62;">{{answer}}</div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: {{grade.fg}}; box-shadow: 0 0 12px {{grade.glow}};"></span>
+                <span style="font-size: 16px; font-weight: 600; color: {{grade.fg}};">{{grade.label}}</span>
+                <span style="color: #626a69;">{{grade.gap}}</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column;">
+                <div class="lbl" style="margin-bottom: 10px;">What the answer had to contain</div>
+                <sc-for list="{{rubric}}" as="r" hint-placeholder-count="3">
+                  <div style="display: flex; gap: 13px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,0.055);">
+                    <span style="flex-shrink: 0; margin-top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid {{r.ring}}; background: {{r.fill}};"></span>
+                    <span style="flex-grow: 1; color: {{r.fg}}; line-height: 1.6;">{{r.text}}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div class="panel" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#626a69" stroke-width="1.7" stroke-linecap="round"><path d="M4 5h10l6 6v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M14 5v6h6"/></svg>
+                <span class="m" style="font-size: 11.5px; color: #979e9d;">server/realtime/session.js:118</span>
+                <span class="m" style="font-size: 10.5px; color: #4a5150;">a3f91c2</span>
+                <div style="flex-grow: 1;"></div>
+                <button onClick="{{noop}}" class="m" style="font-size: 11px; color: #9ee87d;">Open</button>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button onClick="{{next}}" class="pill go" style="padding: 8px 18px;">Next question</button>
+                <button onClick="{{contest}}" class="pill ghost" style="padding: 8px 14px;">This grade is wrong</button>
+                <div style="flex-grow: 1;"></div>
+                <span class="m" style="font-size: 10.5px; color: #565d5c;">again in {{again}}</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{contesting}}" hint-placeholder-val="{{false}}">
+            <div class="rise panel" style="padding: 20px; border-color: rgba(158,232,125,0.3); display: flex; flex-direction: column; gap: 15px;">
+              <div>
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px;">What should this have been graded?</div>
+                <div class="m" style="color: #626a69; line-height: 1.55; font-size: 11.5px;">The grader agrees with a human marker about two times in three. Your correction is kept beside its grade, never instead of it.</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <sc-for list="{{grades}}" as="g" hint-placeholder-count="3">
+                  <button onClick="{{g.pick}}" class="pill" style="padding: 7px 16px; border: 1px solid {{g.br}}; background: {{g.bg}}; color: {{g.fg}};">{{g.label}}</button>
+                </sc-for>
+                <div style="flex-grow: 1;"></div>
+                <button onClick="{{cancel}}" class="lbl" style="letter-spacing: 0.1em;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"phase":{"editor":"enum","default":"asking","options":["asking","graded","contesting"]}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { phase: null, grade: 'partial', i: 3, typed: '' }; }
+  renderVals() {
+    const phase = this.state.phase ?? this.props.phase ?? 'asking';
+    const g = this.state.grade;
+    const G = {
+      correct: { label: 'Correct', fg: '#9ee87d', glow: 'rgba(158,232,125,0.5)', gap: 'Held under the follow-up.' },
+      partial: { label: 'Partial', fg: '#e8c97d', glow: 'rgba(232,201,125,0.45)', gap: 'You named the symptom, not the mechanism.' },
+      wrong:   { label: 'Wrong', fg: '#e88d7d', glow: 'rgba(232,141,125,0.45)', gap: 'The enforcement point is not where you said.' },
+    };
+    const hit = { correct: [1,1,1], partial: [1,0,0], wrong: [0,0,0] }[g];
+    const chip = (id, label) => ({ label, pick: () => this.setState({ grade: id, phase: 'graded' }),
+      br: g === id ? G[id].fg : 'rgba(255,255,255,0.09)',
+      bg: g === id ? 'rgba(255,255,255,0.05)' : 'transparent',
+      fg: g === id ? G[id].fg : '#979e9d' });
+    const typed = this.state.typed.trim();
+    return {
+      answer: typed || 'The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.',
+      onType: (e) => this.setState({ typed: e.target.value }),
+      asking: phase === 'asking', graded: phase === 'graded', contesting: phase === 'contesting',
+      pips: [0,1,2,3,4,5,6,7].map((n) => ({ bg: n < this.state.i ? '#9ee87d' : 'rgba(255,255,255,0.08)' })),
+      progress: (this.state.i + 1) + ' of 18', elapsed: '6 min',
+      history: [['SET NX EX','correct','#9ee87d'],['room membership','correct','#9ee87d'],['policy vs handler','partial','#e8c97d']]
+        .map(([name,grade,dot]) => ({ name, grade, dot })),
+      grade: G[g],
+      rubric: [
+        'The callback the sender passed is never invoked, so the sender waits forever',
+        'Socket.io has no built-in acknowledgement timeout, so the timer is the caller\u2019s job',
+        'A reconnect does not replay the acknowledgement, so the message is lost silently',
+      ].map((text, i) => ({ text, ring: hit[i] ? '#9ee87d' : 'rgba(255,255,255,0.14)',
+        fill: hit[i] ? '#9ee87d' : 'transparent', fg: hit[i] ? '#626a69' : '#e2e5e4' })),
+      again: g === 'correct' ? '4 days' : (g === 'partial' ? '2 days' : 'tomorrow'),
+      grades: [chip('correct','Correct'), chip('partial','Partial'), chip('wrong','Wrong')],
+      commit: () => this.setState({ phase: 'graded', grade: this.state.typed.trim().length > 90 ? 'correct' : 'partial' }),
+      dunno: () => this.setState({ phase: 'graded', grade: 'wrong' }),
+      contest: () => this.setState({ phase: 'contesting' }),
+      cancel: () => this.setState({ phase: 'graded' }),
+      next: () => this.setState({ phase: 'asking', i: Math.min(7, this.state.i + 1), typed: '' }),
+      end: () => this.setState({ phase: 'asking', i: 0, typed: '' }),
+      noop: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>

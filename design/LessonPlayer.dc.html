@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 16px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+      </div>
+      <div style="padding: 0 16px 16px;">
+        <div class="lbl" style="margin-bottom: 6px;">Lesson &middot; raptor</div>
+        <div style="font-size: 15px; font-weight: 600; line-height: 1.32;">How a message reaches the other browser</div>
+      </div>
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+        <button onClick="{{s.pick}}" style="display: flex; gap: 11px; align-items: flex-start; margin: 0 8px; padding: 8px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{s.bg}};">
+          <span style="flex-shrink: 0; margin-top: 2px; width: 15px; height: 15px; border-radius: 50%; border: 1px solid {{s.ring}}; background: {{s.fill}}; display: flex; align-items: center; justify-content: center;">
+            <span style="width: 5px; height: 5px; border-radius: 50%; background: {{s.core}};"></span>
+          </span>
+          <span style="flex-grow: 1; font-size: 12.5px; line-height: 1.42; color: {{s.fg}};">{{s.label}}</span>
+        </button>
+      </sc-for>
+      <div style="flex-grow: 1;"></div>
+      <div style="padding: 0 16px;">
+        <div style="height: 3px; border-radius: 2px; background: rgba(255,255,255,0.07);">
+          <span style="display: block; height: 3px; border-radius: 2px; width: {{pct}}; background: #9ee87d;"></span>
+        </div>
+        <div class="m" style="margin-top: 9px; font-size: 10.5px; color: #626a69;">{{pct}} through &middot; {{mins}} left</div>
+      </div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">part {{num}} of 6</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10.5px; color: #565d5c;">{{kind}}</span>
+      </div>
+
+      <div style="flex-grow: 1; padding: 34px 40px 0; overflow: hidden; display: flex; flex-direction: column; gap: 22px;">
+        <div class="rise">
+          <div style="font-size: 25px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.24;">{{title}}</div>
+          <div style="margin-top: 12px; color: #979e9d; line-height: 1.66; max-width: 680px; font-size: 14px;">{{body}}</div>
+        </div>
+
+        <div class="panel" style="padding: 22px 20px;">
+          <svg viewBox="0 0 660 150" style="width: 100%; height: auto;">
+            <sc-for list="{{edges}}" as="e" hint-placeholder-count="3">
+              <g>
+                <line x1="{{e.x1}}" y1="74" x2="{{e.x2}}" y2="74" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+                <text x="{{e.lx}}" y="66" text-anchor="middle" fill="#626a69" font-size="8.5" font-family="DM Mono, monospace" letter-spacing="0.06em">{{e.label}}</text>
+              </g>
+            </sc-for>
+            <sc-for list="{{boxes}}" as="b" hint-placeholder-count="4">
+              <g>
+                <rect x="{{b.x}}" y="52" width="{{b.w}}" height="44" rx="8" fill="{{b.fill}}" stroke="{{b.stroke}}" stroke-width="1"/>
+                <text x="{{b.cx}}" y="76" text-anchor="middle" fill="{{b.fg}}" font-size="12" font-weight="500" font-family="Archivo, sans-serif">{{b.name}}</text>
+                <text x="{{b.cx}}" y="90" text-anchor="middle" fill="#565d5c" font-size="8.5" font-family="DM Mono, monospace">{{b.sub}}</text>
+              </g>
+            </sc-for>
+          </svg>
+        </div>
+
+        <div class="panel" style="padding: 0; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.055);">
+            <span class="lbl" style="letter-spacing: 0.1em; color: {{checkFg}};">{{checkLabel}}</span>
+            <div style="flex-grow: 1;"></div>
+            <sc-for list="{{langs}}" as="l" hint-placeholder-count="4">
+              <button onClick="{{l.pick}}" class="m" style="font-size: 10px; padding: 3px 9px; border-radius: 5px; background: {{l.bg}}; color: {{l.fg}};">{{l.name}}</button>
+            </sc-for>
+          </div>
+          <div style="padding: 15px 16px 13px;">
+            <div style="font-size: 14.5px; font-weight: 500; line-height: 1.45; margin-bottom: 13px;">{{ask}}</div>
+            <div class="m" style="font-size: 12.5px; line-height: 1.85; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.05); border-radius: 7px; padding: 12px 14px; min-height: 76px;">
+              <sc-for list="{{code}}" as="c" hint-placeholder-count="3">
+                <div style="display: flex; gap: 15px;">
+                  <span style="color: #343a39; width: 11px; text-align: right; flex-shrink: 0;">{{c.n}}</span>
+                  <span style="color: {{c.fg}};">{{c.text}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 0 14px 12px;">
+            <button onClick="{{review}}" class="pill go">Send for review</button>
+            <span class="m" style="font-size: 10.5px; color: #565d5c;">{{reviewNote}}</span>
+          </div>
+          <sc-if value="{{reviewed}}" hint-placeholder-val="{{false}}">
+            <div class="rise" style="display: flex; gap: 11px; align-items: flex-start; padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.055); background: rgba(158,232,125,0.035);">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: #9ee87d; margin-top: 6px; flex-shrink: 0; box-shadow: 0 0 10px rgba(158,232,125,0.55);"></span>
+              <div style="flex-grow: 1;">
+                <div style="line-height: 1.6;">{{why}}</div>
+                <div class="m" style="margin-top: 7px; font-size: 10.5px; color: #565d5c;">graded by claude code against server/locks/redis.js:22 &middot; you can contest this</div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button onClick="{{prev}}" class="pill ghost" style="padding: 8px 15px;">Back</button>
+          <button onClick="{{next}}" class="pill go" style="padding: 8px 18px;">{{nextLabel}}</button>
+          <div style="flex-grow: 1;"></div>
+          <span class="m" style="font-size: 10.5px; color: #565d5c;">every part ends with one question; skipping it is the part that does not work</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#9ee87d","options":["#9ee87d","#7dd3e8","#e8c97d"]}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { i: 4, lang: 'redis', reviewed: false }; }
+  parts() {
+    return [
+      ['The two browsers never speak to each other','Every message a coach sends goes to the server first. There is no direct path between one browser and another, which is why a message can be lost in a place neither person can see.','Name the two places a message can die.','ordering'],
+      ['A room is a label, not a place','Joining a room adds a string to a set held on one server process. Nothing is allocated and nothing is moved, which is why a room stops working the moment there are two processes.','You start a second process and half the messages stop. Why?','short answer'],
+      ['Redis is what makes two servers behave like one','Server A publishes the message on a Redis channel, server B is subscribed and delivers to its own sockets. The adapter is the only reason a second process does not silently drop half your traffic.','Redis goes down but both processes stay up. What does a coach see?','short answer'],
+      ['An acknowledgement is a callback with no timer','The sender passes a function and the server invokes it. If the server never does, nothing fires and nothing errors. The timeout is yours to write.','The server never calls back. How long does the client wait?','short answer'],
+      ['A lock is how two servers avoid doing the same work twice','The set-if-absent-with-expiry command is one operation for a reason. Two operations leave a gap where a crash strands a lock forever.','Write the command that takes a lock only if nobody holds it, and gives it up after thirty seconds even if you crash.','code'],
+      ['What breaks first when you scale','Sticky sessions, the adapter, and any state you kept in a module-level variable. In that order, and usually on the day you add the second process.','Which of those three fails silently?','pick the lure'],
+    ];
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#9ee87d';
+    const i = this.state.i; const parts = this.parts(); const p = parts[i];
+    const bodies = {
+      redis:  [['SET lock:session:42 $token NX EX 30','#e2e5e4']],
+      python: [['r.set("lock:session:42", token,','#e2e5e4'],['      nx=True, ex=30)','#e2e5e4']],
+      node:   [['await redis.set(`lock:session:${id}`, token, {','#e2e5e4'],['  NX: true, EX: 30,','#e2e5e4'],['});','#e2e5e4']],
+      go:     [['ok, err := rdb.SetNX(ctx, key, token,','#e2e5e4'],['    30*time.Second).Result()','#e2e5e4']],
+    };
+    const steps = parts.map((q, n) => {
+      const on = n === i; const done = n < i;
+      return { label: q[0], pick: () => this.setState({ i: n, reviewed: false }),
+        bg: on ? 'rgba(255,255,255,0.055)' : 'transparent',
+        ring: on ? accent : (done ? 'rgba(158,232,125,0.35)' : 'rgba(255,255,255,0.12)'),
+        fill: done ? 'rgba(158,232,125,0.18)' : 'transparent',
+        core: done ? accent : (on ? accent : 'transparent'),
+        fg: on ? '#e2e5e4' : (done ? '#979e9d' : '#626a69') };
+    });
+    const boxes = [[10,140,'coach browser','socket.io-client',0],[190,130,'server A','node process',0],[360,130,'redis','pub/sub',1],[520,130,'server B','node process',0]]
+      .map(([x,w,name,sub,focal]) => ({ x, w, name, sub, cx: x + w/2,
+        fill: focal ? 'rgba(158,232,125,0.10)' : 'rgba(255,255,255,0.03)',
+        stroke: focal ? accent : 'rgba(255,255,255,0.10)', fg: focal ? accent : '#e2e5e4' }));
+    const edges = [[150,190,'emit'],[320,360,'publish'],[490,520,'deliver']]
+      .map(([x1,x2,label]) => ({ x1, x2, label, lx: (x1+x2)/2 }));
+    const pct = Math.round(((i+1)/parts.length)*100);
+    return {
+      steps, boxes, edges, num: i + 1, kind: p[3], title: p[0], body: p[1], ask: p[2],
+      pct: pct + '%', mins: Math.max(1, (parts.length - i - 1) * 2) + ' min',
+      langs: ['redis','python','node','go'].map((name) => ({ name,
+        pick: () => this.setState({ lang: name, reviewed: false }),
+        bg: this.state.lang === name ? 'rgba(158,232,125,0.14)' : 'transparent',
+        fg: this.state.lang === name ? accent : '#626a69' })),
+      code: bodies[this.state.lang].map(([text,fg],n) => ({ text, fg, n: String(n+1) })),
+      reviewed: this.state.reviewed,
+      checkLabel: this.state.reviewed ? 'Checked' : 'Before you move on',
+      checkFg: this.state.reviewed ? accent : '#e8c97d',
+      reviewNote: this.state.reviewed ? 'reviewed against the real file' : 'your agent reads it against the real file',
+      why: 'Right, and the ordering is the point. Setting the value and the expiry as two commands leaves a window where the process can die holding a lock that never expires.',
+      review: () => this.setState({ reviewed: true }),
+      nextLabel: i === parts.length - 1 ? 'Finish and take the quiz' : 'Next part',
+      next: () => this.setState({ i: Math.min(parts.length-1, i+1), reviewed: false }),
+      prev: () => this.setState({ i: Math.max(0, i-1), reviewed: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>
