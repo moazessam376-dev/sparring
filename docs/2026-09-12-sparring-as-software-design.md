@@ -52,7 +52,19 @@ The reason is the notification. Retrieval that arrives when you were not asking 
 
 Two costs come with it. The webview differs on each platform, and the Linux one is the weak link, so the project needs a stated Linux support matrix rather than a claim that it works everywhere. And the notification plugin fires immediately rather than on a schedule, so recurring reminders need either the resident process to own the timer or the operating system's own scheduler.
 
-### 3.7 The rest of the stack
+### 3.7 Distribution
+
+The application is not signed with an Apple Developer ID, because that costs 99 US dollars a year and this project must cost nothing to keep alive. Windows signing is free through the SignPath Foundation for qualifying open-source projects, and Linux has no equivalent gate, so macOS is the only platform where this decision has consequences.
+
+Those consequences got worse during 2026. The Control-click bypass was removed in macOS Sequoia, so a quarantined application now needs a trip through System Settings and an admin password. Homebrew dropped the flag that skipped the check and began removing casks that fail it on 1 September 2026.
+
+So the primary macOS route is a terminal install command that places the application directly. Files placed that way never receive the quarantine flag, because that flag is set by the browser rather than by the download, so the application opens normally with no warning and no settings trip. The build is still ad-hoc signed, which is free and is all Apple silicon requires in order to execute.
+
+A disk image is published as well, for people who would rather drag an icon, with the System Settings steps documented beside it. On Windows the installer is signed, and a new application still trips the reputation warning until it has been installed cleanly a few hundred times. On Linux the lead format is AppImage, because the updater is built around it, with a Debian package alongside.
+
+This is a deliberate tradeoff rather than the industry norm. Comparable desktop applications from funded companies pay for notarisation and ship a disk image that opens on the first double click.
+
+### 3.8 The rest of the stack
 
 Settled by the desktop research, with the versions that were current on 2026-09-12.
 
@@ -120,15 +132,19 @@ This is the entry point for the entire product. A new user installs the applicat
 
 ## 7. Privacy and telemetry
 
-Nothing is sent before consent. The first-run screen defaults to off with no pre-ticked box, the settings toggle stops collection the moment it flips, the install identifier can be rotated, and a deletion request works without an account.
+Nothing leaves the machine. The application ships no collector and no analytics endpoint.
 
-The opt-in payload carries typed events with numbers, an install identifier, the application version, the operating system and which agent was connected. It never carries topic names, project names, repository paths, file paths, code, questions, answers or any free text. That constraint lives in the schema itself so a contributor cannot casually add a leaking field, and the schema lives in the repository so anyone can audit what is claimed against what is sent. The collector is self-hosted rather than a third-party analytics vendor.
+This was decided against the alternative of a self-hosted collector, on the grounds that every mature option is a server with a recurring bill and a patching burden, and this project must cost nothing to keep alive. It also removes the largest privacy surface in the design, since the data in question is a record of what a named engineer does not understand about their employer's codebase.
 
-Contributing a lesson back is a separate, explicit action that shows the exact payload before anything leaves the machine.
+Instead the application keeps a diagnostic log on the machine and processes it properly. This is a design requirement rather than a byproduct: the log has to be structured well enough that the analyses which would have justified telemetry can be run against it. Calibration of the scheduler against actual recall, where in a lesson people stop, grade distribution by check type, which topics are decaying, and how often a lesson failed validation and which agent authored it.
 
-Every self-hostable collector worth using is a server the maintainer has to run and pay for, which conflicts with the constraint that this project costs nothing to keep alive. That conflict is unresolved and is listed in section 10.
+Those analyses are shown to the user first, because they are the person who benefits from knowing and the only person entitled to the data.
 
-On the legal side, consent must be demonstrable, specific, informed and as easy to withdraw as to give, and the notice has to state purpose, basis, recipients, retention and rights. Separately, storing or reading anything on the user's machine that is not necessary for a service they asked for raises the terminal-equipment rule, which is not limited to websites or to cookies, so an installation identifier written to disk for analytics counts. The conservative implementation is the one described above, and it should be reviewed against the law of the user's own member state rather than treated as settled by this record.
+Sending a log to the project is an action the user takes, never something the application does. It opens the exact file, says what is in it, and lets the user redact before anything is attached to an issue. Because the log was designed for analysis rather than dumped from an application's internals, one volunteered log is genuinely useful rather than noise, which is what makes feedback-driven improvement work without a collector.
+
+The accepted cost is that the project cannot measure itself across users. Improvement comes from volunteered logs and reported experience rather than from a population. That is slower, and it biases toward people who already like the application enough to help.
+
+Because nothing is transmitted automatically and no identifier is created for analytics, the consent and terminal-equipment rules that would otherwise apply do not arise. A log a user chooses to attach to a public issue is their disclosure, not the project's collection.
 
 ## 8. Open source shape
 
@@ -146,7 +162,6 @@ The contributor guide has to cover two audiences. Code contributors need the bui
 ## 10. Open questions
 
 - **Whether to pay for macOS signing.** Notarised distribution needs the Apple Developer Program at 99 US dollars a year, and there is no free route to it. Unsigned is free and gives every macOS user a security warning and a right-click ritual on first launch. Windows is solved: code signing is free for qualifying open-source projects through the SignPath Foundation, although a brand-new application still triggers the reputation warning until it has been installed cleanly a few hundred times. Linux has no equivalent gate. This is a decision about the project's budget, not about engineering.
-- **Whether to collect any telemetry at all.** Every mature self-hostable collector is a server with a bill attached, which the project cannot carry. The alternatives are to collect nothing and compute the same analyses locally so the user sees their own calibration, or to make contribution an explicit export that the user attaches to a public issue, which costs nothing and is fully auditable but yields sparse and biased data. Collecting nothing is the cheapest and the most private, and it is also the option that leaves the application unable to tell whether it teaches well.
 - **Whether to depend on T3 Code** rather than write five agent integrations. It is MIT, TypeScript, at 22,500 stars, and already normalises the event streams of Codex, Claude Code, Cursor, Grok Build, OpenCode and Antigravity into one interface. Reading it is not optional. Depending on it is a real choice with a real coupling cost.
 - **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently.
 - **Event log limits.** No safe event-log size, snapshot interval or merge policy has been established for this design. Those numbers need a prototype tested against offline use and divergent history, not a literature answer.
