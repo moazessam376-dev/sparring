@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #08090a; color: #f2f0ed;
+      font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #e2543a; } a:hover { color: #f2f0ed; }
+    .m { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    .lbl { font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: #4d5459; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    .r { display: flex; align-items: center; gap: 10px; padding: 5px 16px; width: 100%; }
+    .r:hover { background: #0e1011; }
+  </style>
+</helmet>
+
+<div style="width: 1280px; height: 820px; display: flex; background: #08090a;">
+
+  <div style="width: 212px; flex-shrink: 0; border-right: 1px solid #15181a; display: flex; flex-direction: column; padding: 14px 0;">
+    <div class="m" style="padding: 0 16px 18px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #f2f0ed;">sparring<span style="color: #e2543a;">_</span></div>
+    <div class="lbl" style="padding: 0 16px 7px;">Projects</div>
+    <sc-for list="{{projects}}" as="p" hint-placeholder-count="3">
+      <button onClick="{{p.pick}}" class="r">
+        <span class="m" style="width: 13px; font-size: 10px; color: {{p.num_fg}};">{{p.num}}</span>
+        <span style="flex-grow: 1; color: {{p.fg}}; font-size: 12.5px;">{{p.name}}</span>
+        <span class="m" style="font-size: 10px; color: {{p.due_fg}};">{{p.due}}</span>
+      </button>
+    </sc-for>
+    <div class="lbl" style="padding: 22px 16px 7px;">Due now</div>
+    <sc-for list="{{queue}}" as="q" hint-placeholder-count="4">
+      <button class="r" style="padding: 4px 16px;">
+        <span style="width: 3px; height: 12px; background: {{q.bar}}; flex-shrink: 0;"></span>
+        <span style="flex-grow: 1; color: #7d8489; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{q.name}}</span>
+      </button>
+    </sc-for>
+    <div style="flex-grow: 1;"></div>
+    <div class="m" style="padding: 0 16px; font-size: 10px; color: #35393c; line-height: 1.7;">18 due<br/>31 of 74 held<br/>9 day streak</div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0;">
+    <div style="height: 38px; flex-shrink: 0; border-bottom: 1px solid #15181a; display: flex; align-items: center; padding: 0 20px; gap: 14px;">
+      <span class="m" style="font-size: 11px; color: #7d8489;">raptor</span>
+      <span class="m" style="font-size: 11px; color: #2a2e31;">/</span>
+      <span class="m" style="font-size: 11px; color: #7d8489;">socket.io/acknowledgements</span>
+      <div style="flex-grow: 1;"></div>
+      <sc-for list="{{pips}}" as="p" hint-placeholder-count="8">
+        <span style="width: 12px; height: 2px; background: {{p.bg}};"></span>
+      </sc-for>
+      <span class="m" style="font-size: 10px; color: #4d5459; margin-left: 6px;">04/18</span>
+    </div>
+
+    <div style="flex-grow: 1; padding: 44px 20px 0; display: flex; justify-content: center; overflow: hidden;">
+      <div style="width: 640px; display: flex; flex-direction: column; gap: 22px;">
+        <div class="lbl">Question 04 &middot; mechanism</div>
+        <div style="font-size: 21px; line-height: 1.45; font-weight: 450; letter-spacing: -0.005em;">A coach sends a session update and the server never calls the acknowledgement back. What does the coach's browser do, and how long does it wait?</div>
+
+        <sc-if value="{{asking}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="border: 1px solid #15181a; background: #0b0c0d; padding: 13px 15px; min-height: 108px;">
+              <span class="m" style="color: #e2543a; font-size: 12px;">&gt;</span>
+              <span class="m" style="color: #35393c; font-size: 12px;"> answer in your own words</span>
+            </div>
+            <div style="display: flex; gap: 9px; align-items: center;">
+              <button onClick="{{commit}}" class="m" style="padding: 7px 15px; border: 1px solid #e2543a; color: #e2543a; font-size: 11px; letter-spacing: 0.04em;">COMMIT</button>
+              <button onClick="{{commit}}" class="m" style="padding: 7px 15px; border: 1px solid #15181a; color: #7d8489; font-size: 11px; letter-spacing: 0.04em;">I DO NOT KNOW</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{graded}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="m" style="border-left: 1px solid #15181a; padding-left: 14px; color: #7d8489; font-size: 12px; line-height: 1.65;">The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.</div>
+
+            <div style="display: flex; align-items: baseline; gap: 12px;">
+              <span class="m" style="font-size: 11px; letter-spacing: 0.2em; color: #e2543a;">PARTIAL</span>
+              <span style="color: #5c6368; font-size: 12.5px;">You named the symptom, not the mechanism.</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0;">
+              <sc-for list="{{rubric}}" as="r" hint-placeholder-count="3">
+                <div style="display: flex; gap: 13px; padding: 9px 0; border-top: 1px solid #15181a;">
+                  <span class="m" style="font-size: 10px; color: {{r.fg}}; width: 14px; flex-shrink: 0; padding-top: 3px;">{{r.n}}</span>
+                  <span style="flex-grow: 1; color: {{r.text_fg}}; line-height: 1.6; font-size: 13px;">{{r.text}}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div class="m" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: #5c6368; border-top: 1px solid #15181a; padding-top: 14px;">
+              <span style="color: #35393c;">&#9634;</span>
+              <span>server/realtime/session.js:118</span>
+              <span style="color: #2a2e31;">a3f91c2</span>
+              <div style="flex-grow: 1;"></div>
+              <span style="color: #35393c;">next in 2 days</span>
+            </div>
+
+            <div style="display: flex; gap: 9px;">
+              <button onClick="{{next}}" class="m" style="padding: 7px 15px; border: 1px solid #e2543a; color: #e2543a; font-size: 11px; letter-spacing: 0.04em;">NEXT</button>
+              <button class="m" style="padding: 7px 15px; border: 1px solid #15181a; color: #7d8489; font-size: 11px; letter-spacing: 0.04em;">CONTEST GRADE</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div class="m" style="height: 26px; flex-shrink: 0; border-top: 1px solid #15181a; display: flex; align-items: center; padding: 0 20px; gap: 18px; font-size: 10px; color: #35393c;">
+      <span>claude code</span><span>connected</span><div style="flex-grow: 1;"></div><span>fsrs-6</span><span>90% target</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"phase":{"editor":"enum","default":"graded","options":["asking","graded"]}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { phase: null }; }
+  renderVals() {
+    const phase = this.state.phase ?? this.props.phase ?? 'graded';
+    const hit = [1, 0, 0];
+    return {
+      asking: phase === 'asking', graded: phase === 'graded',
+      commit: () => this.setState({ phase: 'graded' }),
+      next: () => this.setState({ phase: 'asking' }),
+      projects: [
+        ['raptor', '12', true], ['openreach-tools', '04', false], ['sparring', '02', false],
+      ].map(([name, due, on], i) => ({ name, due, num: String(i + 1).padStart(2, '0'),
+        fg: on ? '#f2f0ed' : '#7d8489', num_fg: on ? '#e2543a' : '#2a2e31',
+        due_fg: on ? '#e2543a' : '#35393c', pick: () => {} })),
+      queue: [['acknowledgements', '#e2543a'], ['definer functions', '#e2543a'], ['redis adapter', '#5c6368'], ['room membership', '#2a2e31']]
+        .map(([name, bar]) => ({ name, bar })),
+      pips: [0,1,2,3,4,5,6,7].map((n) => ({ bg: n < 3 ? '#e2543a' : '#1c2023' })),
+      rubric: [
+        'The callback the sender passed is never invoked, so the sender waits forever',
+        'Socket.io has no built-in ack timeout, so the timer is the caller’s job',
+        'A reconnect does not replay the ack, so the message is lost silently',
+      ].map((text, i) => ({ text, n: hit[i] ? '█' : '░',
+        fg: hit[i] ? '#e2543a' : '#2a2e31', text_fg: hit[i] ? '#5c6368' : '#f2f0ed' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

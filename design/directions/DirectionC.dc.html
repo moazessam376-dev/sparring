@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    /* Navigation glass: thin, lets the ground through, this is the layer Apple
+       reserves for sidebars and bars. */
+    .glass { background: rgba(24, 26, 27, 0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    /* Content glass: the same material, much denser. The ground still moves
+       behind it so the panes read as one surface, but nothing competes with the
+       text you are trying to encode. */
+    .glass-content { background: rgba(21, 23, 24, 0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%, 1.5%, 0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .ground { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1280px; height: 820px; position: relative; overflow: hidden; background: #080b0d;">
+
+  <div style="position: absolute; inset: 0; background: #0b0c0c;"></div>
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+
+  <div style="position: relative; height: 100%; display: flex;">
+
+    <div class="glass hair" style="width: 246px; flex-shrink: 0; display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24);">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 18px 20px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35);"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; color: #9ee87d;">18</span>
+      </div>
+
+      <div class="lbl" style="padding: 0 18px 8px;">Projects</div>
+      <sc-for list="{{projects}}" as="p" hint-placeholder-count="3">
+        <button onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 7px 10px; border-radius: 7px; background: {{p.bg}}; width: calc(100% - 16px);">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{p.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; color: {{p.fg}}; font-size: 13px;">{{p.name}}</span>
+          <span class="m" style="font-size: 10px; color: #626a69;">{{p.due}}</span>
+        </button>
+      </sc-for>
+
+      <div class="lbl" style="padding: 20px 18px 8px;">This lesson</div>
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 6px 18px;">
+          <span style="width: 14px; height: 14px; border-radius: 50%; border: 1px solid {{s.ring}}; background: {{s.fill}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 12.5px; color: {{s.fg}};">{{s.name}}</span>
+        </div>
+      </sc-for>
+
+      <div style="flex-grow: 1;"></div>
+      <div class="panel" style="margin: 0 12px; padding: 12px 13px;">
+        <div class="lbl" style="margin-bottom: 8px;">Holding</div>
+        <div style="display: flex; align-items: baseline; gap: 7px;">
+          <span class="m" style="font-size: 22px; color: #e2e5e4;">41%</span>
+          <span class="lbl" style="letter-spacing: 0.06em;">of socket.io</span>
+        </div>
+        <div style="margin-top: 9px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+          <span style="position: absolute; left: 22%; width: 38%; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.14); display: block;"></span>
+          <span style="position: absolute; left: 0; width: 41%; height: 3px; border-radius: 2px; background: #9ee87d; display: block;"></span>
+        </div>
+        <div class="lbl" style="margin-top: 8px; letter-spacing: 0.04em; text-transform: none; font-size: 10px; color: #565d5c;">9 answers. the pale band is the doubt.</div>
+      </div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">raptor</span>
+        <span class="lbl" style="color: #343a39;">/</span>
+        <span class="lbl">redis locking</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; color: #626a69;">part 5 of 6</span>
+      </div>
+
+      <div style="flex-grow: 1; padding: 30px 34px 0; overflow: hidden; display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <div class="lbl" style="margin-bottom: 9px; color: #9ee87d;">Part five</div>
+          <div style="font-size: 24px; font-weight: 600; letter-spacing: -0.017em; line-height: 1.25;">A lock is how two servers avoid doing the same work twice</div>
+          <div style="margin-top: 11px; color: #979e9d; line-height: 1.65; max-width: 640px;">The set-if-absent-with-expiry command is one operation for a reason. Two operations leave a gap where a crash strands a lock forever.</div>
+        </div>
+
+        <div class="panel" style="padding: 0; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 9px 13px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.014);">
+            <span class="lbl" style="letter-spacing: 0.1em;">Write it</span>
+            <div style="flex-grow: 1;"></div>
+            <sc-for list="{{langs}}" as="l" hint-placeholder-count="4">
+              <button onClick="{{l.pick}}" class="m" style="font-size: 10px; padding: 3px 9px; border-radius: 5px; background: {{l.bg}}; color: {{l.fg}};">{{l.name}}</button>
+            </sc-for>
+          </div>
+          <div class="m" style="padding: 14px 16px; font-size: 12.5px; line-height: 1.8; min-height: 118px;">
+            <sc-for list="{{code}}" as="c" hint-placeholder-count="4">
+              <div style="display: flex; gap: 16px;">
+                <span style="color: #343a39; width: 12px; text-align: right; flex-shrink: 0;">{{c.n}}</span>
+                <span style="color: {{c.fg}};">{{c.text}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-top: 1px solid rgba(255,255,255,0.05);">
+            <button onClick="{{review}}" style="padding: 5px 13px; border-radius: 6px; background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; font-size: 12px;">Send for review</button>
+            <span class="lbl" style="letter-spacing: 0.04em; text-transform: none; font-size: 10.5px;">{{reviewNote}}</span>
+          </div>
+        </div>
+
+        <sc-if value="{{reviewed}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #9ee87d; margin-top: 6px; flex-shrink: 0; box-shadow: 0 0 10px rgba(158,232,125,0.55);"></span>
+            <div style="flex-grow: 1;">
+              <div style="color: #e2e5e4; line-height: 1.6;">Right, and the ordering is the point. Setting the value and the expiry as two commands leaves a window where the process can die holding a lock that never expires.</div>
+              <div class="lbl" style="margin-top: 8px; letter-spacing: 0.04em; text-transform: none; font-size: 10.5px;">graded by claude code &middot; you can contest this</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#9ee87d","options":["#9ee87d","#7dd3e8","#e8c97d","#e88d7d"]}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { lang: 'redis', reviewed: false }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#9ee87d';
+    const lang = this.state.lang;
+    const bodies = {
+      redis:  [['SET lock:session:42 $token NX EX 30', '#e2e5e4']],
+      python: [['r.set("lock:session:42", token,', '#e2e5e4'], ['      nx=True, ex=30)', '#e2e5e4']],
+      node:   [['await redis.set(`lock:session:${id}`, token, {', '#e2e5e4'], ['  NX: true, EX: 30,', '#e2e5e4'], ['});', '#e2e5e4']],
+      go:     [['ok, err := rdb.SetNX(ctx, key, token,', '#e2e5e4'], ['    30*time.Second).Result()', '#e2e5e4']],
+    };
+    const lines = bodies[lang];
+    return {
+      projects: [['raptor', '12', true], ['openreach-tools', '4', false], ['sparring', '2', false]]
+        .map(([name, due, on]) => ({ name, due, pick: () => {},
+          bg: on ? 'rgba(255,255,255,0.055)' : 'transparent',
+          fg: on ? '#e2e5e4' : '#979e9d', dot: on ? accent : '#343a39' })),
+      steps: [['Two browsers never speak', 1], ['A room is a label', 1], ['Redis joins two servers', 1], ['An ack has no timer', 1], ['A lock, done once', 2], ['What breaks at scale', 0]]
+        .map(([name, s]) => ({ name,
+          ring: s === 2 ? accent : (s === 1 ? 'rgba(158,232,125,0.4)' : '#343a39'),
+          fill: s === 1 ? 'rgba(158,232,125,0.4)' : 'transparent',
+          fg: s === 2 ? '#e2e5e4' : (s === 1 ? '#979e9d' : '#626a69') })),
+      langs: ['redis', 'python', 'node', 'go'].map((name) => ({ name,
+        pick: () => this.setState({ lang: name, reviewed: false }),
+        bg: lang === name ? 'rgba(158,232,125,0.14)' : 'transparent',
+        fg: lang === name ? accent : '#626a69' })),
+      code: lines.map(([text, fg], i) => ({ text, fg, n: String(i + 1) })),
+      reviewed: this.state.reviewed,
+      reviewNote: this.state.reviewed ? 'reviewed against server/locks/redis.js:22' : 'your agent reads it against the real file',
+      review: () => this.setState({ reviewed: true }),
+    };
+  }
+}
+</script>
+</body>
+</html>
