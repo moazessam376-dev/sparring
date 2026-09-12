@@ -16,6 +16,10 @@ export function stateHome() {
   return process.env.SPARRING_HOME || path.join(os.homedir(), '.sparring');
 }
 
+// How long a shutdown waits for requests that are still in flight before it
+// cuts their connections. The database still closes either way.
+const CLOSE_GRACE = 2000;
+
 function sendError(res, status, message) {
   if (res.headersSent) return;
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -98,7 +102,13 @@ export async function start({ home, port = 4517 } = {}) {
       if (closed) return Promise.resolve();
       closed = true;
       return new Promise((resolve, reject) => {
+        // close() waits for connections that are still in flight. A request
+        // that never finishes would otherwise be enough to keep an orphaned
+        // sidecar alive, so anything still open at the grace period is cut.
+        const cut = setTimeout(() => server.closeAllConnections(), CLOSE_GRACE);
+        cut.unref();
         server.close((error) => {
+          clearTimeout(cut);
           try { state.db.close(); } catch (closeError) { if (!error) error = closeError; }
           if (error) reject(error);
           else resolve();
@@ -106,6 +116,52 @@ export async function start({ home, port = 4517 } = {}) {
       });
     },
   };
+}
+
+// How often the sidecar checks that the application that started it is still
+// there. A second is cheap: one signal-zero syscall, nothing allocated.
+export const PARENT_POLL_INTERVAL = 1000;
+
+// The application kills this process on every exit path it can observe, but it
+// cannot observe its own crash or a SIGKILL. An orphaned sidecar holds the
+// state directory open and keeps answering an authenticated loopback port that
+// nothing owns any more, so the sidecar watches its parent as well.
+//
+// `linked` says the caller confirmed at startup that this process really is a
+// child of `pid`. Only then is reparenting meaningful: when the parent dies the
+// kernel hands the orphan to init, so our own parent link stops pointing at the
+// recorded pid. That check is the one that survives pid reuse, where signalling
+// the recorded pid would find whatever process inherited the number.
+export function parentGone(pid, { linked = false, ppid = process.ppid } = {}) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (linked && ppid !== pid) return true;
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    // EPERM means the process is alive and simply not ours to signal.
+    return error.code === 'ESRCH';
+  }
+}
+
+// Returns the timer so a caller can stop watching, or null when there is no
+// parent to watch. A sidecar run by hand carries no parent id and must never
+// exit on its own, which is what the tests depend on too.
+export function watchParent(pid, onGone, interval = PARENT_POLL_INTERVAL) {
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  const linked = process.ppid === pid;
+  const timer = setInterval(() => {
+    if (parentGone(pid, { linked })) onGone();
+  }, interval);
+  // The HTTP server already holds the loop open; this timer must never be the
+  // reason the process stays up.
+  timer.unref();
+  return timer;
+}
+
+export function parentPid(env = process.env) {
+  const value = Number(env.SPARRING_PARENT_PID);
+  return Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function isEntryPoint() {
@@ -128,11 +184,13 @@ export async function main() {
   const server = await start({ home: stateHome() });
   process.stdout.write(`sparring listening on http://127.0.0.1:${server.port}\n`);
   let stopping = false;
+  let watch = null;
   const stop = (code) => {
     if (stopping) return;
     stopping = true;
-    // A half-closed database is how a derived cache gets corrupted, so the
-    // signal waits for close() rather than letting the process fall over.
+    if (watch) clearInterval(watch);
+    // A half-closed database is how a derived cache gets corrupted, so every
+    // way out waits for close() rather than letting the process fall over.
     server.close().then(
       () => process.exit(code),
       (error) => {
@@ -143,6 +201,12 @@ export async function main() {
   };
   process.on('SIGINT', () => stop(130));
   process.on('SIGTERM', () => stop(0));
+  // The parent-gone path takes the same exit as a signal, closing the database
+  // rather than calling process.exit directly.
+  watch = watchParent(parentPid(), () => {
+    process.stderr.write('sparring: the application that started this server is gone; shutting down\n');
+    stop(0);
+  });
   return server;
 }
 
