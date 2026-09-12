@@ -136,6 +136,22 @@ The hub renders that as the project map: a graph with one sentence per node and 
 
 The survey also proposes the project's topics and an initial card set, which is how the graph and the bank come to exist without anyone authoring them by hand. The user confirms rather than accepts silently, because a survey is a claim.
 
+### How it handles a repository too large to read
+
+Answered by `research/2026-09-12-large-repository-survey.md`. The short version is that coverage is not the target, evidence is, and the gate is mechanical.
+
+- **Nothing is omitted unlabelled.** Every path in the repository is classified as inspected, excluded by rule, generated, binary, unresolved or pending. A directory that was skipped is a labelled region, never an absence.
+- **Structure comes before reading.** Entry points are found from the build and configuration files, then import and call graphs are built with real parsers rather than inferred from prose. Dynamic dispatch, reflection and plugin loading stay as explicit unknown edges rather than being guessed into certainty.
+- **Reading budget is spent on evidence, not on popularity.** Centrality measures triage what to read; they do not label anything as architecture. Cluster representatives, bridges, public surfaces and entry-point-reachable code come first.
+- **A constraint has to be found across the graph**, not assigned to whichever file first mentioned the word. Targeted queries go looking for the usual bands: authentication, tenancy, transactions, error handling, feature flags, serialization.
+- **Every sentence on the map is an atomic claim with provenance**: a stable identifier, a status, the path and line range, the surveyed commit, a hash of the span, which tool produced it, and which edges were left unresolved. Cards are seeded only from claims that passed.
+- **A mechanical gate runs before a learner sees anything.** Does the path and line range exist at that commit. Does a claimed module boundary match actual import edges. Does a claimed call path exist in the graph. Does a claimed constraint have a searchable enforcement point. A claim that fails is downgraded or its sentence is dropped, never shown as fact.
+- **The twelve-node budget never forces a bad cut.** When no defensible split exists, the map gains a second level instead of being squeezed.
+- **Uncovered regions are drawn.** Dashed or hatched, labelled "not inspected", with counts and scope. A skipped directory must never render as an empty module, and finding no match in the inspected scope must never render as "no such mechanism exists".
+- **Rejection is evidence, not an edit.** When the user says a part is wrong, the counterexample is stored and the survey re-runs targeted retrieval for it. It does not quietly rewrite the sentence to agree.
+
+The durable product of a survey is the map together with its evidence and its coverage boundary. The picture alone is the part that can lie.
+
 This is the entry point for the entire product. A new user installs the application, points it at a repository they built with an agent, and within one pass has a map of it, a set of topics, and a first question. The map is also the honest test of whether the survey was any good, because a wrong map is obvious to the person who built the thing.
 
 ## 7. Privacy and telemetry
@@ -170,7 +186,6 @@ The contributor guide has to cover two audiences. Code contributors need the bui
 ## 10. Open questions
 
 - **Whether to pay for macOS signing.** Notarised distribution needs the Apple Developer Program at 99 US dollars a year, and there is no free route to it. Unsigned is free and gives every macOS user a security warning and a right-click ritual on first launch. Windows is solved: code signing is free for qualifying open-source projects through the SignPath Foundation, although a brand-new application still triggers the reputation warning until it has been installed cleanly a few hundred times. Linux has no equivalent gate. This is a decision about the project's budget, not about engineering.
-- **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently. Being researched separately.
 
 Deliberately left unanswered: **the event log's size, snapshot interval and merge policy.** No safe numbers exist for this design and none can be read out of the literature. They come from running the thing against real repositories and real work, including offline use and divergent history, so no limit is set until there is something to measure.
 
