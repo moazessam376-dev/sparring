@@ -81,6 +81,10 @@ export async function readStateDirectory(): Promise<string> {
   return asText(await invoke("state_dir"), "state_dir");
 }
 
+export async function readSkillResourceDirectory(): Promise<string> {
+  return asText(await invoke("skill_resource_dir"), "skill_resource_dir");
+}
+
 let cachedToken: string | null = null;
 
 async function token(): Promise<string> {

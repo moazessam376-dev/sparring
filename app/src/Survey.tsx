@@ -24,6 +24,7 @@ import {
   type ClaimStatus,
   type Connection,
   type Repository,
+  type SurveyClaim,
   type SurveyView,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
@@ -89,6 +90,36 @@ const STATUS_WORD: Record<ClaimStatus, string> = {
   contradicted: "contradicted",
 };
 
+function gateReasons(claim: SurveyClaim): string[] {
+  const failed = claim.reasons
+    .filter((reason) => reason.status !== "verified" && reason.status !== "note")
+    .map((reason) => reason.detail.trim())
+    .filter((detail) => detail !== "");
+  if (failed.length > 0) return failed;
+  const checked = claim.reasons
+    .filter((reason) => reason.status !== "note")
+    .map((reason) => reason.detail.trim())
+    .filter((detail) => detail !== "");
+  return checked.length > 0 ? checked : ["the gate recorded no additional evidence for this claim"];
+}
+
+export function resubmissionInstructionFor(path: string, claims: SurveyClaim[]): string {
+  const rows = claims.map((claim, index) => {
+    const reasons = gateReasons(claim);
+    const missing = reasons.length === 0 ? "the gate recorded no additional evidence" : reasons.join(" ");
+    return [
+      `${index + 1}. ${claim.name} (${claim.id}): ${claim.sentence}`,
+      `   Missing evidence reported by the gate: ${missing}`,
+    ].join("\n");
+  });
+  return [
+    `Re-survey the repository at ${path} with sparring.`,
+    "Follow the sparring skill's survey procedure and call sparring_survey_submit again after adding the missing evidence below.",
+    "Do not lower the verification bar or mark a claim verified without the evidence the gate checks.",
+    rows.length > 0 ? rows.join("\n") : "No claims arrived; submit the claims you can ground in the repository.",
+  ].join("\n\n");
+}
+
 export function Survey({ connection, onDone, onConnect }: Props) {
   const [stage, setStage] = useState<Stage>("pick");
   const [typed, setTyped] = useState("");
@@ -102,6 +133,7 @@ export function Survey({ connection, onDone, onConnect }: Props) {
   const [busy, setBusy] = useState(false);
   const [dropped, setDropped] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [copiedResubmission, setCopiedResubmission] = useState(false);
   const [written, setWritten] = useState<{ topics: number; cards: number } | null>(null);
 
   // Repositories that have been surveyed before, so the list can say which of
@@ -237,7 +269,27 @@ export function Survey({ connection, onDone, onConnect }: Props) {
       .catch(() => setPickerFailure("The clipboard refused. Select the instruction and copy it by hand."));
   }, [chosen]);
 
+  const copyResubmissionInstruction = useCallback(() => {
+    if (chosen === null || view?.survey === null || view?.survey === undefined) return;
+    const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard;
+    if (clipboard === undefined) {
+      setProblem("This window has no clipboard. Select the instruction and copy it by hand.");
+      return;
+    }
+    const claims = view.survey.claims.filter((claim) => claim.status !== "verified");
+    void clipboard
+      .writeText(resubmissionInstructionFor(chosen.root ?? chosen.path, claims))
+      .then(() => {
+        setCopiedResubmission(true);
+        window.setTimeout(() => setCopiedResubmission(false), 1600);
+      })
+      .catch(() => setProblem("The clipboard refused. Select the instruction and copy it by hand."));
+  }, [chosen, view]);
+
   const seed = view?.seed ?? null;
+  const surveyClaims = view?.survey?.claims ?? [];
+  const verifiedClaims = surveyClaims.filter((claim) => claim.status === "verified");
+  const resubmissionClaims = surveyClaims.filter((claim) => claim.status !== "verified");
   const keptTopics = useMemo(
     () => (seed?.topics ?? []).filter((topic) => !dropped.has(topic.claim)),
     [seed, dropped],
@@ -246,6 +298,7 @@ export function Survey({ connection, onDone, onConnect }: Props) {
     () => (seed?.cards ?? []).filter((card) => !dropped.has(card.claim)),
     [seed, dropped],
   );
+  const needsEvidence = (seed?.topics.length ?? 0) === 0 && verifiedClaims.length === 0;
 
   const confirm = useCallback(() => {
     if (view?.survey === null || seed === null || busy) return;
@@ -614,8 +667,14 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                               {claim.path === null
                                 ? "no file cited"
                                 : `${claim.path}${claim.fromLine === null ? "" : `:${claim.fromLine}`}`}
-                              {claim.reasons.length > 0 ? ` · ${claim.reasons[0]?.detail ?? ""}` : ""}
                             </span>
+                            {claim.status !== "verified" && (
+                              <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3, color: STATUS_TONE[claim.status], fontSize: 11.5, lineHeight: 1.5 }}>
+                                {gateReasons(claim).map((reason, index) => (
+                                  <span key={`${claim.id}-reason-${index}`}>Gate: {reason}.</span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {seeds ? (
                             <button
@@ -648,26 +707,55 @@ export function Survey({ connection, onDone, onConnect }: Props) {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="pill go"
-                    style={{ padding: "9px 20px" }}
-                    disabled={busy || keptTopics.length === 0}
-                    onClick={confirm}
-                  >
-                    Save the map and start
-                  </button>
-                  <button type="button" className="pill ghost" style={{ padding: "9px 15px" }} onClick={() => setStage("read")}>
-                    Survey again
-                  </button>
-                  <div className="grow" />
-                  <span className="m" style={{ fontSize: 10.5, color: "var(--dim)", textAlign: "right" }}>
-                    {keptTopics.length === 0
-                      ? "nothing here is verified enough to seed a topic, so there is nothing to save"
-                      : `writes ${keptTopics.length} topics and ${keptCards.length} opening questions into ${seed.project}`}
-                  </span>
-                </div>
+                {needsEvidence ? (
+                  <div className="panel" style={{ padding: "15px 17px", borderColor: "rgba(232,201,125,0.3)", background: "rgba(232,201,125,0.045)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <AlertIcon size={14} stroke={WARNING} />
+                      <span style={{ fontWeight: 500 }}>Nothing is ready to save</span>
+                    </div>
+                    <div style={{ marginTop: 8, color: "var(--muted)", lineHeight: 1.6 }}>
+                      The gate did not verify any claim, so it will not seed a topic and there is nothing
+                      safe to save. No unverified claim can be accepted here. Give this instruction to
+                      your agent, add the evidence it names, and have it submit the claims again.
+                    </div>
+                    <pre className="code" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
+                      {resubmissionInstructionFor(chosen === null ? view.repo : chosen.root ?? chosen.path, resubmissionClaims)}
+                    </pre>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 11 }}>
+                      <button type="button" className="pill ghost" style={{ padding: "7px 14px", display: "flex", alignItems: "center", gap: 6 }} onClick={copyResubmissionInstruction}>
+                        {copiedResubmission ? <CheckIcon size={12} stroke={ACCENT} /> : null}
+                        {copiedResubmission ? "Copied" : "Copy the instruction"}
+                      </button>
+                      <button type="button" className="pill ghost" style={{ padding: "7px 14px" }} onClick={() => setStage("read")}>
+                        Survey again
+                      </button>
+                      <span className="m" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                        better evidence is the way forward; the check stays the same
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="pill go"
+                      style={{ padding: "9px 20px" }}
+                      disabled={busy || keptTopics.length === 0}
+                      onClick={confirm}
+                    >
+                      Save the map and start
+                    </button>
+                    <button type="button" className="pill ghost" style={{ padding: "9px 15px" }} onClick={() => setStage("read")}>
+                      Survey again
+                    </button>
+                    <div className="grow" />
+                    <span className="m" style={{ fontSize: 10.5, color: "var(--dim)", textAlign: "right" }}>
+                      {keptTopics.length === 0
+                        ? "nothing here is verified enough to seed a topic, so there is nothing to save"
+                        : `writes ${keptTopics.length} topics and ${keptCards.length} opening questions into ${seed.project}`}
+                    </span>
+                  </div>
+                )}
 
                 {written !== null && (
                   <div className="m" style={{ fontSize: 10.5, color: ACCENT }}>

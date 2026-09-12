@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import {
   agentPresence,
   mcpEndpoint,
+  readSkillResourceDirectory,
   type AgentPresence,
   type Connection,
 } from "./api";
@@ -32,7 +33,22 @@ type Agent = {
   block: string;
   verify: string;
   note?: string;
+  skillVerification: string;
 };
+
+type SkillResourceState =
+  | { kind: "loading" }
+  | { kind: "ready"; path: string }
+  | { kind: "missing"; message: string };
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function skillInstallCommand(agentId: string, skillDirectory: string): string | null {
+  if (agentId !== "claude-code" && agentId !== "codex" && agentId !== "cursor") return null;
+  return `sh ${shellQuote(`${skillDirectory}/install.sh`)} --no-test`;
+}
 
 /** The five agents skill/CONNECT.md carries, in its order. */
 export function configurations(port: number, token: string): Agent[] {
@@ -54,6 +70,8 @@ export function configurations(port: number, token: string): Agent[] {
   }
 }`,
       verify: "claude mcp get sparring, or /mcp inside a session",
+      skillVerification:
+        "It worked when the installer prints a link for ~/.claude/skills/sparring; then ask Claude Code to be drilled or use /sparring.",
     },
     {
       id: "codex",
@@ -68,6 +86,8 @@ url = "${url}"
 bearer_token_env_var = "SPARRING_TOKEN"`,
       verify: "codex mcp list",
       note: "Codex reads the token from the environment, so the file itself never holds it.",
+      skillVerification:
+        "It worked when the installer prints a link for ~/.codex/skills/sparring and updates ~/.codex/AGENTS.md; then ask Codex to be drilled.",
     },
     {
       id: "cursor",
@@ -84,6 +104,8 @@ bearer_token_env_var = "SPARRING_TOKEN"`,
   }
 }`,
       verify: "restart Cursor, then read its MCP log",
+      skillVerification:
+        "It worked when the installer prints a link for ~/.cursor/skills/sparring; then ask Cursor to be drilled.",
     },
     {
       id: "opencode",
@@ -103,6 +125,8 @@ bearer_token_env_var = "SPARRING_TOKEN"`,
   }
 }`,
       verify: "restart OpenCode and list its servers",
+      skillVerification:
+        "The repository does not document an OpenCode skill directory or install command, so it cannot say whether the skill is available. Verify the MCP connection above, then use OpenCode's own skill installation documentation.",
     },
     {
       id: "devin",
@@ -120,6 +144,8 @@ bearer_token_env_var = "SPARRING_TOKEN"`,
   }
 }`,
       verify: "devin mcp get sparring",
+      skillVerification:
+        "The repository does not document a Devin skill directory or install command, so it cannot say whether the skill is available. Verify the MCP connection above, then use Devin's own skill installation documentation.",
     },
   ];
 }
@@ -139,6 +165,26 @@ export function Connect({ connection, stateDirectory, chrome }: Props) {
   const [copied, setCopied] = useState<string | null>(null);
   const [clipboardFailure, setClipboardFailure] = useState<string | null>(null);
   const [presence, setPresence] = useState<AgentPresence | null>(null);
+  const [skillDirectory, setSkillDirectory] = useState<SkillResourceState>({ kind: "loading" });
+
+  useEffect(() => {
+    let dropped = false;
+    void readSkillResourceDirectory()
+      .then((path) => {
+        if (!dropped) setSkillDirectory({ kind: "ready", path });
+      })
+      .catch((error: unknown) => {
+        if (!dropped) {
+          setSkillDirectory({
+            kind: "missing",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    return () => {
+      dropped = true;
+    };
+  }, []);
 
   useEffect(() => {
     let dropped = false;
@@ -199,6 +245,19 @@ export function Connect({ connection, stateDirectory, chrome }: Props) {
               point it at, the answers you give it are graded against a rubric and recorded here, and
               the schedule decides what you are asked next. Without an agent connected, this window
               can show you what it already knows, but nothing new can arrive.
+            </div>
+          </div>
+
+          <div className="panel" style={{ padding: "15px 17px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontWeight: 500 }}>Tools and method are separate</div>
+            <div style={{ color: "var(--muted)", lineHeight: 1.62 }}>
+              Connecting gives your agent Sparring&apos;s tools. The sparring skill gives it the method
+              for using them: how to survey, teach and drill. Both are needed before a repository can
+              become a project here.
+            </div>
+            <div className="m" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
+              Each agent below has its MCP configuration and the repository&apos;s verified skill install
+              command, when one exists. The command runs from the bundled <span className="m">skill</span> resource.
             </div>
           </div>
 
@@ -290,6 +349,50 @@ export function Connect({ connection, stateDirectory, chrome }: Props) {
                   <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
                     {agent.note === undefined ? "" : `${agent.note} `}
                     verify with {agent.verify}
+                  </div>
+                  <div style={{ marginTop: 14, paddingTop: 13, borderTop: "1px solid var(--hairline-inner)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="lbl">Sparring skill</span>
+                      <span className="m" style={{ fontSize: 10.5, color: "var(--faint)" }}>
+                        the method
+                      </span>
+                      <div className="grow" />
+                      {skillDirectory.kind === "ready" && skillInstallCommand(agent.id, skillDirectory.path) !== null && (
+                        <button
+                          type="button"
+                          className="pill ghost"
+                          style={{ display: "flex", alignItems: "center", gap: 6 }}
+                          onClick={() => {
+                            const command = skillInstallCommand(agent.id, skillDirectory.path);
+                            if (command !== null) copy(`skill-${agent.id}`, command);
+                          }}
+                        >
+                          {copied === `skill-${agent.id}` ? <CheckIcon size={12} stroke={ACCENT} /> : null}
+                          {copied === `skill-${agent.id}` ? "Copied" : "Copy install command"}
+                        </button>
+                      )}
+                    </div>
+                    {skillDirectory.kind === "ready" ? (
+                      skillInstallCommand(agent.id, skillDirectory.path) === null ? (
+                        <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--warning)", lineHeight: 1.6 }}>
+                          No verified install command is included for {agent.name}; the bundled installer only
+                          installs Claude Code, Codex CLI and Cursor.
+                        </div>
+                      ) : (
+                        <pre className="code" style={{ marginTop: 9 }}>{skillInstallCommand(agent.id, skillDirectory.path)}</pre>
+                      )
+                    ) : skillDirectory.kind === "loading" ? (
+                      <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)" }}>
+                        finding the bundled skill resource…
+                      </div>
+                    ) : (
+                      <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--warning)", lineHeight: 1.6 }}>
+                        No install command is available in this build: {skillDirectory.message}
+                      </div>
+                    )}
+                    <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
+                      {agent.skillVerification}
+                    </div>
                   </div>
                 </div>
               ))}
