@@ -413,3 +413,305 @@ export async function gaps(connection: Connection, days: number): Promise<GapAtt
   }
   return attempts;
 }
+
+/* ---------- connecting an agent ---------- */
+
+/** The one address an agent is given. The token never goes in it. */
+export function mcpEndpoint(connection: Connection): string {
+  return `http://127.0.0.1:${connection.port}/mcp`;
+}
+
+export type AgentPresence = { connected: boolean; lastSeen: string | null; windowSeconds: number };
+
+export async function agentPresence(connection: Connection): Promise<AgentPresence> {
+  const raw = asRecord(await request(connection, "/api/agent"), "agent");
+  return {
+    connected: raw.connected === true,
+    lastSeen: asOptionalText(raw.lastSeen, "agent lastSeen"),
+    windowSeconds: asOptionalNumber(raw.windowSeconds, "agent window") ?? 120,
+  };
+}
+
+/* ---------- the survey ---------- */
+
+export type Repository = {
+  path: string;
+  exists: boolean;
+  git: boolean;
+  root: string | null;
+  name: string;
+  head: string | null;
+  files: number;
+  language: string | null;
+};
+
+function asRepository(value: unknown): Repository {
+  const raw = asRecord(value, "repository");
+  return {
+    path: asText(raw.path, "repository path"),
+    exists: raw.exists === true,
+    git: raw.git === true,
+    root: asOptionalText(raw.root, "repository root"),
+    name: asText(raw.name, "repository name"),
+    head: asOptionalText(raw.head, "repository head"),
+    files: asOptionalNumber(raw.files, "repository files") ?? 0,
+    language: asOptionalText(raw.language, "repository language"),
+  };
+}
+
+export async function repository(connection: Connection, path: string): Promise<Repository> {
+  return asRepository(await request(connection, `/api/repository?path=${encodeURIComponent(path)}`));
+}
+
+export const CLAIM_STATUSES = ["verified", "inferred", "stale", "unchecked", "contradicted"] as const;
+
+export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
+
+function asClaimStatus(value: unknown): ClaimStatus {
+  const status = asText(value, "claim status");
+  const found = CLAIM_STATUSES.find((candidate) => candidate === status);
+  if (found === undefined) throw new ApiError(`claim status was ${status}`);
+  return found;
+}
+
+export type ClaimReason = { check: string; status: string; detail: string };
+
+export type SurveyClaim = {
+  id: string;
+  type: string;
+  status: ClaimStatus;
+  declaredStatus: string | null;
+  name: string;
+  sentence: string;
+  path: string | null;
+  fromLine: number | null;
+  toLine: number | null;
+  reasons: ClaimReason[];
+};
+
+export type Coverage = {
+  inspected: number;
+  excluded: number;
+  generated: number;
+  binary: number;
+  unresolved: number;
+  pending: number;
+};
+
+export type SurveySummary = {
+  commit: string | null;
+  claims: number;
+  shownAsFact: number;
+  shownQualified: number;
+  dropped: number;
+  trackedFiles: number;
+};
+
+export type SeedTopic = {
+  claim: string;
+  topic: string;
+  name: string;
+  parent: string | null;
+  kind: TopicKind;
+  project: string;
+};
+
+export type SeedCard = {
+  claim: string;
+  id: string;
+  project: string;
+  concept: string;
+  ask: string;
+  rubric: string[];
+  altitude: string;
+  topics: string[];
+  grounding: Grounding[];
+};
+
+export type Seed = { project: string; topics: SeedTopic[]; cards: SeedCard[] };
+
+export type SurveyView = {
+  repo: string;
+  repository: Repository;
+  survey: {
+    at: string | null;
+    summary: SurveySummary;
+    coverage: Coverage | null;
+    claims: SurveyClaim[];
+  } | null;
+  seed: Seed | null;
+};
+
+function asCoverage(value: unknown): Coverage | null {
+  if (value === null || value === undefined) return null;
+  const raw = asRecord(value, "coverage");
+  const count = (name: keyof Coverage): number => asOptionalNumber(raw[name], `coverage ${name}`) ?? 0;
+  return {
+    inspected: count("inspected"),
+    excluded: count("excluded"),
+    generated: count("generated"),
+    binary: count("binary"),
+    unresolved: count("unresolved"),
+    pending: count("pending"),
+  };
+}
+
+function asSeed(value: unknown): Seed | null {
+  if (value === null || value === undefined) return null;
+  const raw = asRecord(value, "seed");
+  return {
+    project: asText(raw.project, "seed project"),
+    topics: asList(raw.topics, "seed topics").map((item, index) => {
+      const topic = asRecord(item, `seed topic ${index}`);
+      return {
+        claim: asText(topic.claim, "seed topic claim"),
+        topic: asText(topic.topic, "seed topic id"),
+        name: asText(topic.name, "seed topic name"),
+        parent: asOptionalText(topic.parent, "seed topic parent"),
+        kind: asKind(topic.kind),
+        project: asText(topic.project, "seed topic project"),
+      };
+    }),
+    cards: asList(raw.cards, "seed cards").map((item, index) => {
+      const card = asRecord(item, `seed card ${index}`);
+      return {
+        claim: asText(card.claim, "seed card claim"),
+        id: asText(card.id, "seed card id"),
+        project: asText(card.project, "seed card project"),
+        concept: asText(card.concept, "seed card concept"),
+        ask: asText(card.ask, "seed card ask"),
+        rubric: asList(card.rubric, "seed card rubric").map((line, at) => asText(line, `rubric ${at}`)),
+        altitude: asText(card.altitude, "seed card altitude"),
+        topics: asList(card.topics, "seed card topics").map((topic, at) => asText(topic, `card topic ${at}`)),
+        grounding: asList(card.grounding, "seed card grounding").map((ground, at) => {
+          const where = asRecord(ground, `grounding ${at}`);
+          return {
+            path: asText(where.path, "grounding path"),
+            line: asNumber(where.line, "grounding line"),
+            commit: asOptionalText(where.commit, "grounding commit"),
+          };
+        }),
+      };
+    }),
+  };
+}
+
+export async function surveyOf(connection: Connection, repo: string): Promise<SurveyView> {
+  const raw = asRecord(await request(connection, `/api/survey?repo=${encodeURIComponent(repo)}`), "survey");
+  const survey = raw.survey;
+  return {
+    repo: asText(raw.repo, "survey repo"),
+    repository: asRepository(raw.repository),
+    survey:
+      survey === null || survey === undefined
+        ? null
+        : (() => {
+            const found = asRecord(survey, "survey body");
+            const summary = asRecord(found.summary, "survey summary");
+            return {
+              at: asOptionalText(found.at, "survey at"),
+              summary: {
+                commit: asOptionalText(summary.commit, "survey commit"),
+                claims: asOptionalNumber(summary.claims, "survey claims") ?? 0,
+                shownAsFact: asOptionalNumber(summary.shownAsFact, "survey shownAsFact") ?? 0,
+                shownQualified: asOptionalNumber(summary.shownQualified, "survey shownQualified") ?? 0,
+                dropped: asOptionalNumber(summary.dropped, "survey dropped") ?? 0,
+                trackedFiles: asOptionalNumber(summary.trackedFiles, "survey trackedFiles") ?? 0,
+              },
+              coverage: asCoverage(found.coverage),
+              claims: asList(found.claims, "survey claims").map((item, index) => {
+                const claim = asRecord(item, `claim ${index}`);
+                return {
+                  id: asText(claim.id, "claim id"),
+                  type: asText(claim.type, "claim type"),
+                  status: asClaimStatus(claim.status),
+                  declaredStatus: asOptionalText(claim.declaredStatus, "claim declared status"),
+                  name: asText(claim.name, "claim name"),
+                  sentence: asText(claim.sentence, "claim sentence"),
+                  path: asOptionalText(claim.path, "claim path"),
+                  fromLine: asOptionalNumber(claim.fromLine, "claim fromLine"),
+                  toLine: asOptionalNumber(claim.toLine, "claim toLine"),
+                  reasons: asList(claim.reasons, "claim reasons").map((reason, at) => {
+                    const line = asRecord(reason, `reason ${at}`);
+                    return {
+                      check: asText(line.check, "reason check"),
+                      status: asText(line.status, "reason status"),
+                      detail: asText(line.detail, "reason detail"),
+                    };
+                  }),
+                };
+              }),
+            };
+          })(),
+    seed: asSeed(raw.seed),
+  };
+}
+
+export type SurveyedRepository = { repo: string; commit: string | null; at: string | null; claims: number };
+
+export async function surveys(connection: Connection): Promise<SurveyedRepository[]> {
+  return asList(await request(connection, "/api/surveys"), "surveys").map((item, index) => {
+    const raw = asRecord(item, `survey ${index}`);
+    return {
+      repo: asText(raw.repo, "survey repo"),
+      commit: asOptionalText(raw.commit, "survey commit"),
+      at: asOptionalText(raw.at, "survey at"),
+      claims: asOptionalNumber(raw.claims, "survey claims") ?? 0,
+    };
+  });
+}
+
+/* ---------- writing a confirmed survey through the ordinary routes ---------- */
+
+export async function createProject(
+  connection: Connection,
+  project: { project: string; name: string; remote: string | null },
+): Promise<void> {
+  await request(connection, "/api/projects", { method: "POST", body: project });
+}
+
+export async function createTopics(connection: Connection, entries: SeedTopic[]): Promise<number> {
+  const payload = entries.map((entry) => ({
+    topic: entry.topic,
+    name: entry.name,
+    parent: entry.parent,
+    kind: entry.kind,
+    project: entry.project,
+  }));
+  const answer = await request(connection, "/api/topics", { method: "POST", body: payload });
+  return asNumber(answer, "topics added");
+}
+
+export async function createCards(connection: Connection, cards: SeedCard[]): Promise<string[]> {
+  const payload = cards.map((card) => ({
+    id: card.id,
+    project: card.project,
+    concept: card.concept,
+    ask: card.ask,
+    rubric: card.rubric,
+    altitude: card.altitude,
+    topics: card.topics,
+    grounding: card.grounding,
+    source: { type: "survey", ref: card.claim },
+  }));
+  const answer = await request(connection, "/api/cards", { method: "POST", body: payload });
+  return asList(answer, "cards added").map((item, index) => asText(item, `card id ${index}`));
+}
+
+/* ---------- the window itself ---------- */
+
+/**
+ * Which window conventions this build runs under. macOS keeps its decorations
+ * and overlays the real traffic lights on the left; Windows and Linux keep the
+ * frameless window and the interface draws its own controls on the right.
+ */
+export type WindowChrome = { platform: string; overlayTitleBar: boolean; drawsOwnControls: boolean };
+
+export async function readWindowChrome(): Promise<WindowChrome> {
+  const raw = asRecord(await invoke("window_chrome"), "window_chrome");
+  return {
+    platform: asText(raw.platform, "window platform"),
+    overlayTitleBar: raw.overlayTitleBar === true,
+    drawsOwnControls: raw.drawsOwnControls === true,
+  };
+}

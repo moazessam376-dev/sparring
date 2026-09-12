@@ -363,6 +363,34 @@ fn state_dir(state: State<'_, SidecarManager>) -> String {
     state.state_dir().display().to_string()
 }
 
+/// Which window conventions this build is running under.
+///
+/// macOS puts the window controls on the left and expects them to be the real
+/// ones, so on macOS the window keeps its decorations and the title bar is an
+/// overlay: the native traffic lights sit over the interface's own top bar and
+/// the glass runs to the edge behind them. Windows and Linux keep the frameless
+/// window and the interface's own controls on the right, which is their
+/// convention. The interface asks rather than sniffing the user agent.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowChrome {
+    pub platform: String,
+    /// True when the system draws the window controls over the interface.
+    pub overlay_title_bar: bool,
+    /// True when the interface must draw its own minimise, maximise and close.
+    pub draws_own_controls: bool,
+}
+
+#[tauri::command]
+fn window_chrome() -> WindowChrome {
+    let overlay = cfg!(target_os = "macos");
+    WindowChrome {
+        platform: std::env::consts::OS.to_string(),
+        overlay_title_bar: overlay,
+        draws_own_controls: !overlay,
+    }
+}
+
 #[tauri::command]
 fn notify(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
     use tauri_plugin_notification::NotificationExt;
@@ -672,6 +700,7 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .manage(manager.clone())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
@@ -683,6 +712,7 @@ pub fn run() {
             sidecar_status,
             sidecar_token,
             state_dir,
+            window_chrome,
             notify,
             open_path
         ])

@@ -3,6 +3,11 @@
  * rail. It also holds the three states the application can honestly be in
  * before there is anything to show: the sidecar starting, the sidecar failed,
  * and Node missing entirely.
+ *
+ * The window itself follows the platform. On macOS it keeps its decorations
+ * and uses an overlay title bar, so the traffic lights are the real ones, on
+ * the left, over glass that still runs to the edge. Elsewhere it stays
+ * frameless and draws its own controls on the right.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,17 +19,24 @@ import {
   projects as fetchProjects,
   readStateDirectory,
   readStatus,
+  readWindowChrome,
   type Connection,
   type Project,
   type QueueCard,
   type SidecarStatus,
+  type WindowChrome,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
-import { AlertIcon, CloseIcon, MaximiseIcon, MinimiseIcon, PlusIcon } from "./Icons";
+import { AlertIcon, PlugIcon, PlusIcon } from "./Icons";
+import { ChromeContext, NO_CHROME, TrafficLightGap, WindowButtons } from "./Chrome";
 import { Hub } from "./Hub";
 import { Drill } from "./Drill";
+import { Connect } from "./Connect";
+import { Survey } from "./Survey";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+type Screen = "hub" | "drill" | "connect" | "survey";
 
 type Shell =
   | { name: "starting" }
@@ -43,42 +55,17 @@ function shellFrom(status: SidecarStatus, connection: Connection | null): Shell 
   return { name: "ready", connection };
 }
 
-function WindowButtons() {
-  if (!inTauri) return null;
-  const act = (action: "minimise" | "maximise" | "close") => {
-    void (async () => {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const current = getCurrentWindow();
-      if (action === "minimise") await current.minimize();
-      else if (action === "maximise") await current.toggleMaximize();
-      else await current.close();
-    })();
-  };
-  return (
-    <div className="window-buttons" style={{ marginLeft: 10 }}>
-      <button type="button" aria-label="Minimise" onClick={() => act("minimise")}>
-        <MinimiseIcon size={11} stroke="currentColor" />
-      </button>
-      <button type="button" aria-label="Maximise" onClick={() => act("maximise")}>
-        <MaximiseIcon size={10} stroke="currentColor" />
-      </button>
-      <button type="button" className="close" aria-label="Close" onClick={() => act("close")}>
-        <CloseIcon size={11} stroke="currentColor" />
-      </button>
-    </div>
-  );
-}
-
 export function App() {
   const [status, setStatus] = useState<SidecarStatus>({ running: false, port: null, error: null });
   const [connection, setConnection] = useState<Connection | null>(null);
   const [detached, setDetached] = useState<string | null>(null);
   const [stateDirectory, setStateDirectory] = useState<string | null>(null);
+  const [chrome, setChrome] = useState<WindowChrome>(NO_CHROME);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [queue, setQueue] = useState<QueueCard[] | null>(null);
   const [dataFailure, setDataFailure] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [screen, setScreen] = useState<"hub" | "drill">("hub");
+  const [screen, setScreen] = useState<Screen>("hub");
   const [generation, setGeneration] = useState(0);
 
   // The sidecar is polled until it answers, then watched more slowly. A failure
@@ -140,6 +127,11 @@ export function App() {
     void readStateDirectory()
       .then(setStateDirectory)
       .catch(() => setStateDirectory(null));
+    // Which window conventions to follow. Asked once, from Rust, rather than
+    // guessed from the user agent.
+    void readWindowChrome()
+      .then(setChrome)
+      .catch(() => setChrome(NO_CHROME));
   }, []);
 
   useEffect(() => {
@@ -178,179 +170,225 @@ export function App() {
     [projects, selectedProject],
   );
   const dueTotal = (projects ?? []).reduce((sum, item) => sum + item.due, 0);
+  const nothingDue = (queue ?? []).length === 0;
 
   return (
-    <div className="window">
-      <div className="window-sheen">
-        <div className="window-ground" />
-        <div className="window-grain" />
-      </div>
-      <div className="window-body">
-        {shell.name === "ready" && screen === "drill" ? (
-          <Drill
-            connection={shell.connection}
-            chrome={<WindowButtons />}
-            onEnd={() => {
-              refresh();
-              setScreen("hub");
-            }}
-            onRecorded={refresh}
-          />
-        ) : (
-          <>
-            <div className="glass rail rail-shell">
-              <div className="rail-head" data-tauri-drag-region>
-                <span className="mark" />
-                <span className="wordmark">sparring</span>
-                <div className="grow" />
-                {shell.name === "ready" && (
-                  <span className="m" style={{ fontSize: 10, color: ACCENT }}>
-                    {dueTotal}
-                  </span>
-                )}
-              </div>
+    <ChromeContext.Provider value={chrome}>
+      <div className="window" data-chrome={chrome.overlayTitleBar ? "overlay" : "own"}>
+        <div className="window-sheen">
+          <div className="window-ground" />
+          <div className="window-grain" />
+        </div>
+        <div className="window-body">
+          {shell.name === "ready" && screen === "drill" ? (
+            <Drill
+              connection={shell.connection}
+              chrome={<WindowButtons />}
+              onEnd={() => {
+                refresh();
+                setScreen("hub");
+              }}
+              onRecorded={refresh}
+            />
+          ) : shell.name === "ready" && screen === "survey" ? (
+            <Survey
+              connection={shell.connection}
+              onConnect={() => setScreen("connect")}
+              onDone={(surveyed) => {
+                refresh();
+                if (surveyed !== null) setSelectedProject(surveyed);
+                setScreen("hub");
+              }}
+            />
+          ) : (
+            <>
+              <div className="glass rail rail-shell">
+                <TrafficLightGap />
+                <div className="rail-head" data-tauri-drag-region="deep">
+                  <span className="mark" />
+                  <span className="wordmark">sparring</span>
+                  <div className="grow" />
+                  {shell.name === "ready" && (
+                    <span className="m" style={{ fontSize: 10, color: ACCENT }}>
+                      {dueTotal}
+                    </span>
+                  )}
+                </div>
 
-              {shell.name === "ready" ? (
-                <>
-                  <div className="lbl" style={{ padding: "0 16px 7px" }}>
-                    Projects
-                  </div>
-                  <div className="scroll" style={{ maxHeight: 230 }}>
-                    {(projects ?? []).length === 0 ? (
-                      <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--dim)" }}>
-                        none yet
-                      </div>
-                    ) : (
-                      (projects ?? []).map((item) => {
-                        const on = item.id === selectedProject;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="rail-row"
-                            onClick={() => setSelectedProject(item.id)}
-                            style={{ background: on ? "rgba(255,255,255,0.055)" : "transparent" }}
-                          >
+                {shell.name === "ready" ? (
+                  <>
+                    <div className="lbl" style={{ padding: "0 16px 7px" }}>
+                      Projects
+                    </div>
+                    <div className="scroll" style={{ maxHeight: 210 }}>
+                      {(projects ?? []).length === 0 ? (
+                        <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--dim)" }}>
+                          none yet
+                        </div>
+                      ) : (
+                        (projects ?? []).map((item) => {
+                          const on = item.id === selectedProject && screen === "hub";
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className="rail-row"
+                              onClick={() => {
+                                setSelectedProject(item.id);
+                                setScreen("hub");
+                              }}
+                              style={{ background: on ? "rgba(255,255,255,0.055)" : "transparent" }}
+                            >
+                              <span
+                                style={{
+                                  flexShrink: 0,
+                                  width: 5,
+                                  height: 5,
+                                  borderRadius: "50%",
+                                  background: on ? ACCENT : "rgba(255,255,255,0.14)",
+                                }}
+                              />
+                              <span
+                                className="ellipsis"
+                                style={{ flexGrow: 1, color: on ? "var(--text)" : "var(--muted)", fontSize: 13 }}
+                              >
+                                {item.name}
+                              </span>
+                              <span className="m" style={{ fontSize: 10, color: "var(--faint)" }}>
+                                {item.due}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="rail-row"
+                      onClick={() => setScreen("survey")}
+                      style={{ marginTop: 8, color: "var(--muted)", fontSize: 12.5, gap: 8 }}
+                    >
+                      <PlusIcon size={12} stroke="currentColor" />
+                      Survey a repository
+                    </button>
+                    <button
+                      type="button"
+                      className="rail-row"
+                      onClick={() => setScreen("connect")}
+                      style={{
+                        color: screen === "connect" ? "var(--text)" : "var(--muted)",
+                        background: screen === "connect" ? "rgba(255,255,255,0.055)" : "transparent",
+                        fontSize: 12.5,
+                        gap: 8,
+                      }}
+                    >
+                      <PlugIcon size={12} stroke="currentColor" />
+                      Connect an agent
+                    </button>
+
+                    <div className="lbl" style={{ padding: "22px 16px 8px" }}>
+                      Due now
+                    </div>
+                    <div className="scroll" style={{ flexShrink: 1 }}>
+                      {nothingDue ? (
+                        <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--dim)" }}>
+                          nothing due
+                        </div>
+                      ) : (
+                        (queue ?? []).map((item) => (
+                          <div key={item.id} className="rail-queue-row">
                             <span
                               style={{
                                 flexShrink: 0,
-                                width: 5,
-                                height: 5,
-                                borderRadius: "50%",
-                                background: on ? ACCENT : "rgba(255,255,255,0.14)",
+                                width: 3,
+                                height: 13,
+                                borderRadius: 2,
+                                background:
+                                  item.lastGrade === "wrong"
+                                    ? DANGER
+                                    : item.lastGrade === "partial"
+                                      ? WARNING
+                                      : "rgba(255,255,255,0.14)",
                               }}
                             />
                             <span
                               className="ellipsis"
-                              style={{ flexGrow: 1, color: on ? "var(--text)" : "var(--muted)", fontSize: 13 }}
+                              style={{ flexGrow: 1, fontSize: 12.5, color: "var(--muted)" }}
                             >
-                              {item.name}
+                              {item.concept}
                             </span>
-                            <span className="m" style={{ fontSize: 10, color: "var(--faint)" }}>
-                              {item.due}
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="rail-row"
-                    disabled
-                    style={{ marginTop: 8, color: "var(--faint)", fontSize: 12.5, gap: 8 }}
-                  >
-                    <PlusIcon size={12} />
-                    Survey a repository
-                  </button>
-                  <div className="m" style={{ padding: "4px 17px 0", fontSize: 10, color: "var(--dim)" }}>
-                    the survey screen comes in a later round
-                  </div>
-
-                  <div className="lbl" style={{ padding: "22px 16px 8px" }}>
-                    Due now
-                  </div>
-                  <div className="scroll" style={{ flexShrink: 1 }}>
-                    {(queue ?? []).length === 0 ? (
-                      <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--dim)" }}>
-                        nothing due
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="grow" />
+                    <button
+                      type="button"
+                      className="pill go"
+                      style={{ margin: "0 12px", textAlign: "center" }}
+                      onClick={() => setScreen("drill")}
+                      disabled={nothingDue}
+                    >
+                      Start drill
+                    </button>
+                    {nothingDue && (
+                      <div
+                        className="m"
+                        style={{ padding: "7px 14px 0", fontSize: 10, color: "var(--dim)", lineHeight: 1.5 }}
+                      >
+                        {(projects ?? []).length === 0
+                          ? "no cards yet; survey a repository first"
+                          : "nothing is due, so there is nothing to ask"}
                       </div>
-                    ) : (
-                      (queue ?? []).map((item) => (
-                        <div key={item.id} className="rail-queue-row">
-                          <span
-                            style={{
-                              flexShrink: 0,
-                              width: 3,
-                              height: 13,
-                              borderRadius: 2,
-                              background:
-                                item.lastGrade === "wrong"
-                                  ? DANGER
-                                  : item.lastGrade === "partial"
-                                    ? WARNING
-                                    : "rgba(255,255,255,0.14)",
-                            }}
-                          />
-                          <span
-                            className="ellipsis"
-                            style={{ flexGrow: 1, fontSize: 12.5, color: "var(--muted)" }}
-                          >
-                            {item.concept}
-                          </span>
-                        </div>
-                      ))
                     )}
-                  </div>
-                  <div className="grow" />
-                  <button
-                    type="button"
-                    className="pill go"
-                    style={{ margin: "0 12px", textAlign: "center" }}
-                    onClick={() => setScreen("drill")}
-                    disabled={(queue ?? []).length === 0}
-                  >
-                    Start drill
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="lbl" style={{ padding: "0 16px 7px" }}>
-                    Status
-                  </div>
-                  <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--faint)", lineHeight: 1.7 }}>
-                    {shell.name === "starting" ? "starting the local server" : "the local server is not running"}
-                  </div>
-                  <div className="grow" />
-                </>
-              )}
-            </div>
-
-            {shell.name === "ready" ? (
-              <Hub
-                connection={shell.connection}
-                project={project}
-                projects={projects}
-                shellFailure={dataFailure}
-                chrome={<WindowButtons />}
-                onStartDrill={() => setScreen("drill")}
-              />
-            ) : (
-              <div className="glass-content content">
-                <div className="glass hair topbar" data-tauri-drag-region>
-                  <span className="lbl">sparring</span>
-                  <div className="grow" />
-                  <WindowButtons />
-                </div>
-                <div className="centre">
-                  <ShellNotice shell={shell} stateDirectory={stateDirectory} />
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="lbl" style={{ padding: "0 16px 7px" }}>
+                      Status
+                    </div>
+                    <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--faint)", lineHeight: 1.7 }}>
+                      {shell.name === "starting" ? "starting the local server" : "the local server is not running"}
+                    </div>
+                    <div className="grow" />
+                  </>
+                )}
               </div>
-            )}
-          </>
-        )}
+
+              {shell.name === "ready" && screen === "connect" ? (
+                <Connect
+                  connection={shell.connection}
+                  stateDirectory={stateDirectory}
+                  chrome={<WindowButtons />}
+                />
+              ) : shell.name === "ready" ? (
+                <Hub
+                  connection={shell.connection}
+                  project={project}
+                  projects={projects}
+                  shellFailure={dataFailure}
+                  chrome={<WindowButtons />}
+                  nothingDue={nothingDue}
+                  onStartDrill={() => setScreen("drill")}
+                  onSurvey={() => setScreen("survey")}
+                />
+              ) : (
+                <div className="glass-content content">
+                  <div className="glass hair topbar" data-tauri-drag-region="deep">
+                    <span className="lbl">sparring</span>
+                    <div className="grow" />
+                    <WindowButtons />
+                  </div>
+                  <div className="centre">
+                    <ShellNotice shell={shell} stateDirectory={stateDirectory} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </ChromeContext.Provider>
   );
 }
 

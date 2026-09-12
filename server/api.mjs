@@ -11,6 +11,8 @@ import {
   standing,
   topics,
 } from '../core/index.mjs';
+import { inspectRepository, listSurveys, surveyState } from '../survey/store.mjs';
+import { presence } from './presence.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
 
@@ -94,6 +96,24 @@ export async function handle(state, req, res) {
     }
     if (req.method === 'GET' && url.pathname === '/api/gaps') {
       send(res, 200, gaps(state, { days: url.searchParams.get('days') ?? undefined }));
+      return;
+    }
+    // Whether a coding agent is talking to this server. The survey waits for
+    // one, so the interface has to be able to say that none is there.
+    if (req.method === 'GET' && url.pathname === '/api/agent') {
+      send(res, 200, presence());
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/surveys') {
+      send(res, 200, listSurveys(state.home));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/repository') {
+      send(res, 200, inspectRepository(url.searchParams.get('path') ?? ''));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/survey') {
+      send(res, 200, surveyState(state.home, url.searchParams.get('repo') ?? ''));
       return;
     }
 

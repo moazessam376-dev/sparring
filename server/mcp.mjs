@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -12,7 +11,9 @@ import {
   topics,
 } from '../core/index.mjs';
 import { validate } from '../lesson/validate.mjs';
+import { storeSurvey } from '../survey/store.mjs';
 import { verify } from '../survey/verify.mjs';
+import { noteAgent } from './presence.mjs';
 
 // The Model Context Protocol endpoint. Streamable HTTP, JSON-RPC 2.0 over one
 // POST endpoint, protocol revision 2026-07-28. The legacy HTTP+SSE transport of
@@ -78,15 +79,6 @@ function storeLesson(home, doc) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${doc.id}.json`);
   fs.writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`);
-  return file;
-}
-
-function storeSurvey(home, repo, result) {
-  const dir = path.join(home, 'surveys');
-  fs.mkdirSync(dir, { recursive: true });
-  const key = crypto.createHash('sha256').update(`${repo}\u0000${result.summary.commit ?? ''}`, 'utf8').digest('hex').slice(0, 16);
-  const file = path.join(dir, `${key}.json`);
-  fs.writeFileSync(file, `${JSON.stringify(result, null, 2)}\n`);
   return file;
 }
 
@@ -444,6 +436,11 @@ function callTool(state, params, id) {
  * message was a notification and carries no reply.
  */
 export function dispatch(state, message) {
+  // An agent said something. Nothing about what is recorded, and nothing is
+  // persisted; the survey screen only has to be able to tell "no agent is
+  // connected" from "an agent is working" instead of waiting for ever beside a
+  // window nothing is attached to.
+  noteAgent();
   if (!isRecord(message)) return failure(null, INVALID_REQUEST, 'a JSON-RPC message must be an object');
   if (message.jsonrpc !== '2.0') return failure(message.id ?? null, INVALID_REQUEST, 'jsonrpc must be "2.0"');
   if (typeof message.method !== 'string') return failure(message.id ?? null, INVALID_REQUEST, 'method must be a string');
