@@ -4,7 +4,9 @@ import { CONSTRAINT_QUERIES, QUERY_VERSION } from './queries.mjs';
 import { CLAIM_STATUSES, COVERAGE_LABELS, validateClaim, worst } from './claim.mjs';
 import {
   codeOnly,
+  importResolution,
   sourceClass,
+  pathSensitiveConstraint,
   searchCode,
   fileAt,
   filesAt,
@@ -121,6 +123,13 @@ function resolveSpec(fromPath, spec, tracked) {
     }
     return null;
   }
+  if (spec.startsWith('/')) {
+    const stem = normalise(spec).replace(/^\/+/, '');
+    for (const suffix of JS_CANDIDATE_SUFFIXES) {
+      if (tracked.has(`${stem}${suffix}`)) return `${stem}${suffix}`;
+    }
+    return null;
+  }
   const stem = normalise(spec);
   for (const suffix of JS_CANDIDATE_SUFFIXES) {
     if (tracked.has(`${stem}${suffix}`)) return `${stem}${suffix}`;
@@ -186,7 +195,7 @@ function checkBoundary(repo, commit, claim, tracked, record, context) {
   }
   claim.unparsed = all.filter((path) => !supportsImports(path) && (under(path, boundary.dir)
     || /\.(?:go|rs|java|rb|c|cc|cpp|h|cs|php|swift|kt|scala|sh|vue|svelte|jsx|tsx)$/i.test(path)));
-  const internal = [], crossing = [], unknown = [], seen = new Set();
+  const internal = [], crossing = [], external = [], unknown = [], seen = new Set();
   for (const path of paths) {
     if (Date.now() > context.deadline) throw new Error('verification time budget exceeded');
     let parsed = context.imports.get(path);
@@ -198,6 +207,12 @@ function checkBoundary(repo, commit, claim, tracked, record, context) {
     unknown.push(...parsed.unknown);
     for (const imported of parsed.imports) {
       const target = resolveSpec(path, imported.spec, tracked);
+      const resolution = importResolution(imported.spec, path, target);
+      if (resolution === 'external') {
+        external.push({ kind: 'external-import', path, spec: imported.spec, line: imported.line,
+          reason: imported.spec.startsWith('node:') ? 'platform module' : 'package or runtime dependency outside the repository' });
+        continue;
+      }
       if (target === null) {
         unknown.push({ kind: 'import', path, spec: imported.spec, reason: 'unresolved module specifier' });
         continue;
@@ -220,7 +235,12 @@ function checkBoundary(repo, commit, claim, tracked, record, context) {
     internalPossible, crossingPossible, internalDensity, crossingDensity,
     unexplainedCrossings: unexplained.length, unresolvedEdges: unknown.length,
     insideFiles: inside.length, outsideFiles: outside.length };
+  // Keep the long-standing zero-external metrics shape stable for consumers;
+  // when external imports exist, their count and the concrete edges are
+  // explicitly present in the evidence rather than being folded into unknown.
+  if (external.length) claim.boundaryMetrics.externalEdges = external.length;
   claim.edges = [...internal, ...crossing].slice(0, 50);
+  claim.external = external.slice(0, 100);
   claim.unresolved.push(...unknown.slice(0, 100));
   const missingNeighbours = boundary.neighbours.filter((nb) => !crossing.some((edge) => under(edge.from, nb) || under(edge.to, nb)));
   for (const nb of missingNeighbours) claim.unresolved.push({ kind: 'boundary', from: boundary.dir, to: nb, reason: 'no import edge found' });
@@ -278,13 +298,35 @@ function checkConstraint(repo, commit, claim, record, context) {
   claim.weakEnforcementHits = enforcement.weak;
   claim.falsifierHits = falsifier.hits;
   claim.weakFalsifierHits = falsifier.weak;
-  if (!enforcement.hits.length) {
+  if (query.structure === 'validation-before-write') {
+    // The validator hit identifies the policy-bearing flow to inspect. The
+    // writer query still searches repository-wide for bypass evidence, but
+    // unrelated writers in other subsystems must not turn a lesson-specific
+    // path claim into a claim about every persistence operation in the tree.
+    claim.structuralEvidence = pathSensitiveConstraint(repo, commit, query.enforcement, query.falsifier, {
+      ...context,
+      paths: claim.path
+        ? [claim.path]
+        : [...new Set(enforcement.hits.map((hit) => hit.path))],
+      focus: claim.path && claim.fromLine !== null
+        ? { path: claim.path, fromLine: claim.fromLine, toLine: claim.toLine }
+        : null,
+    });
+    if (!claim.structuralEvidence.verified) {
+      record('enforcement', 'contradicted', 'the gate-owned validator is not on every path to a gate-owned write');
+    } else {
+      record('enforcement', 'verified', 'a gate-owned validator reaches every gate-owned write on every analysed path');
+    }
+  } else if (!enforcement.hits.length) {
     record('enforcement', 'contradicted', 'no production code matches the gate-owned enforcement query');
   } else {
     record('enforcement', 'inferred', `${enforcement.hits.length} enforcement candidate(s); lexical matches do not prove a runtime invariant`);
   }
   // Falsifiers are candidates as well: a write may be inside a transaction.
-  record('contradiction', falsifier.hits.length ? 'inferred' : 'note',
+  // For the ordered validator query, writes are the events whose paths were
+  // just analysed, so their presence is expected evidence rather than a
+  // downgrade. They remain visible, but are only a note.
+  record('contradiction', query.structure ? 'note' : falsifier.hits.length ? 'inferred' : 'note',
     `${falsifier.hits.length} gate-owned bypass candidate(s); absence is not proof`);
 }
 
@@ -311,6 +353,7 @@ function checkProposition(repo, commit, claim, record) {
   const evidencePaths = new Set([...(span ? [claim.path] : []),
     ...Object.values(claim.ends ?? {}).filter((end) => end.evidence?.mentioned).map((end) => end.path),
     ...(claim.enforcementHits ?? []).map((hit) => hit.path),
+    ...(claim.falsifierHits ?? []).map((hit) => hit.path),
     ...(claim.edges ?? []).flatMap((edge) => [edge.from, edge.to])]);
   // Recover obvious code identifiers even if an agent leaves them off its list.
   const mentioned = claim.sentence.match(/\b[A-Za-z_$][\w$]*(?:[A-Z][\w$]*|_[\w$]+)\b/g) ?? [];
@@ -326,6 +369,7 @@ function checkProposition(repo, commit, claim, record) {
       const texts = span ? [spanCode] : [
         ...Object.values(claim.ends ?? {}).filter((end) => end.evidence?.mentioned && end.symbol === item.name).map(() => item.name),
         ...(claim.enforcementHits ?? []).map((hit) => hit.text),
+        ...(claim.falsifierHits ?? []).map((hit) => hit.text),
       ];
       found = matchTexts(pattern, texts).some((matches) => matches.length);
     } else if (item.kind === 'path') found = evidencePaths.has(item.name);
@@ -349,8 +393,26 @@ function checkProposition(repo, commit, claim, record) {
   } else if (claim.type === 'part' && claim.predicate === 'boundary' && claim.boundary
       && includes('module', claim.boundary.dir) && claim.boundary.neighbours.every((nb) => includes('module', nb))) {
     expected = `\`${claim.boundary.dir}\` has denser internal imports than crossing imports.`;
+  } else if (claim.type === 'constraint') {
+    const controlled = {
+      'validation-before-persistence': 'Lesson documents are validated before storage.',
+      'validation-before-storage': 'Lesson documents are validated before storage.',
+      'authentication-before-handler': 'Authentication precedes every handler.',
+      transactions: 'Every write is wrapped in a transaction.',
+      idempotency: 'Repeated requests are handled idempotently.',
+      'rate-limiting': 'Requests are rate limited.',
+      tenancy: 'Every read is scoped to a tenant.',
+      'tenant-scoping': 'Every read is scoped to a tenant.',
+      'tenant-scoped-read': 'Every read is scoped to a tenant.',
+      'input-sanitisation': 'Input is sanitised before use.',
+      'input-sanitisation-before-use': 'Input is sanitised before use.',
+    }[claim.constraintKind];
+    if (controlled) expected = controlled;
   }
-  if (expected === null || claim.sentence !== expected) record('proposition', 'unchecked', 'sentence is outside the mechanically checkable proposition vocabulary');
+  const normaliseSentence = (sentence) => sentence.trim().replace(/[.!?]+$/, '').toLowerCase();
+  if (expected === null || normaliseSentence(claim.sentence) !== normaliseSentence(expected)) {
+    record('proposition', 'unchecked', 'sentence is outside the mechanically checkable proposition vocabulary');
+  }
   else record('proposition', 'verified', 'sentence exactly states the checked proposition');
 }
 
@@ -542,7 +604,7 @@ export const MAX_RUN_MS = 30000;
 
 export function verify(repo, commit, claims, options = {}) {
   if (!Array.isArray(claims ?? []) || (claims?.length ?? 0) > MAX_CLAIMS) throw new Error(`verification accepts at most ${MAX_CLAIMS} claims`);
-  const context = { deadline: Date.now() + MAX_RUN_MS, cache: new Map(), imports: new Map() };
+  const context = { deadline: Date.now() + MAX_RUN_MS, cache: new Map(), sources: new Map(), imports: new Map() };
   const resolved = resolveCommit(repo, commit);
   const tracked = new Set(resolved === null ? filesUnder(repo, '.') : filesAt(repo, resolved, '.'));
   const inventory = resolved === null ? [] : treeAt(repo, resolved);
