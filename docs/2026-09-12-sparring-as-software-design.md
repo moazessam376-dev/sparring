@@ -52,7 +52,15 @@ The reason is the notification. Retrieval that arrives when you were not asking 
 
 Two costs come with it. The webview differs on each platform, and the Linux one is the weak link, so the project needs a stated Linux support matrix rather than a claim that it works everywhere. And the notification plugin fires immediately rather than on a schedule, so recurring reminders need either the resident process to own the timer or the operating system's own scheduler.
 
-### 3.7 Distribution
+### 3.7 T3 Code is a reference, not a dependency
+
+T3 Code normalises six agents into one event model, and the question was whether to depend on it. The answer, from reading its source, is no. Its canonical event union is not published: the contracts package is marked private, provider registration is compiled in rather than loadable, and no subscription on its public interface carries the normalised provider event. It does write an event log to disk, but that log is best-effort and drops the transient events, so reading it would be a private and lossy integration. Consuming the real stream would mean running its whole server and pinning internals it does not promise to keep, in a project at version 0.x with several thousand commits and nightly builds landing during the week this was written. It also has no driver for Devin.
+
+What is worth taking is the shape rather than the code: provider-specific acquisition behind adapters, raw provenance retained alongside the normalised event, a canonical union, and projections built from it. Its handling of the Codex app server, the Claude Agent SDK, the agent client protocol used by Cursor and Grok, and the OpenCode server is a strong reference for writing ours.
+
+An optional connector for people who already run T3 Code is reasonable later, behind a flag. It cannot be the foundation, because sparring has to work when T3 Code is not installed. Its licence permits copying source with the notices preserved, which does not extend to the third-party libraries those adapters depend on.
+
+### 3.8 Distribution
 
 The application is not signed with an Apple Developer ID, because that costs 99 US dollars a year and this project must cost nothing to keep alive. Windows signing is free through the SignPath Foundation for qualifying open-source projects, and Linux has no equivalent gate, so macOS is the only platform where this decision has consequences.
 
@@ -64,7 +72,7 @@ A disk image is published as well, for people who would rather drag an icon, wit
 
 This is a deliberate tradeoff rather than the industry norm. Comparable desktop applications from funded companies pay for notarisation and ship a disk image that opens on the first double click.
 
-### 3.8 The rest of the stack
+### 3.9 The rest of the stack
 
 Settled by the desktop research, with the versions that were current on 2026-09-12.
 
@@ -162,7 +170,6 @@ The contributor guide has to cover two audiences. Code contributors need the bui
 ## 10. Open questions
 
 - **Whether to pay for macOS signing.** Notarised distribution needs the Apple Developer Program at 99 US dollars a year, and there is no free route to it. Unsigned is free and gives every macOS user a security warning and a right-click ritual on first launch. Windows is solved: code signing is free for qualifying open-source projects through the SignPath Foundation, although a brand-new application still triggers the reputation warning until it has been installed cleanly a few hundred times. Linux has no equivalent gate. This is a decision about the project's budget, not about engineering.
-- **Whether to depend on T3 Code** rather than write five agent integrations. It is MIT, TypeScript, at 22,500 stars, and already normalises the event streams of Codex, Claude Code, Cursor, Grok Build, OpenCode and Antigravity into one interface. Reading it is not optional. Depending on it is a real choice with a real coupling cost.
 - **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently. Being researched separately.
 
 Deliberately left unanswered: **the event log's size, snapshot interval and merge policy.** No safe numbers exist for this design and none can be read out of the literature. They come from running the thing against real repositories and real work, including offline use and divergent history, so no limit is set until there is something to measure.
