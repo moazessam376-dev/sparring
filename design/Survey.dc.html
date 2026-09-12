@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 20px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600;">sparring</span>
+      </div>
+      <div class="lbl" style="padding: 0 16px 10px;">Survey</div>
+      <sc-for list="{{stages}}" as="s" hint-placeholder-count="3">
+        <button onClick="{{s.pick}}" style="display: flex; align-items: center; gap: 11px; margin: 0 8px; padding: 8px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{s.bg}};">
+          <span style="flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; border: 1px solid {{s.ring}}; background: {{s.fill}}; display: flex; align-items: center; justify-content: center;">
+            <span style="width: 5px; height: 5px; border-radius: 50%; background: {{s.core}};"></span>
+          </span>
+          <span style="flex-grow: 1; font-size: 13px; color: {{s.fg}};">{{s.label}}</span>
+        </button>
+      </sc-for>
+      <div style="flex-grow: 1;"></div>
+      <div class="panel" style="margin: 0 12px; padding: 12px 13px;">
+        <div class="lbl" style="margin-bottom: 7px;">Local only</div>
+        <div class="m" style="font-size: 10.5px; color: #979e9d; line-height: 1.62;">Nothing leaves your machine. Sparring reads only what your coding agent can already see.</div>
+      </div>
+    </div>
+
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; justify-content: center; overflow: hidden;">
+      <div style="width: 820px; padding: 48px 0 30px; display: flex; flex-direction: column; gap: 24px;">
+
+        <sc-if value="{{is.pick}}" hint-placeholder-val="{{false}}">
+          <div class="rise" style="display: flex; flex-direction: column; gap: 22px;">
+            <div>
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Which repository?</div>
+              <div style="margin-top: 10px; color: #979e9d; line-height: 1.62; max-width: 600px;">Sparring reads the code to build a map of it. This is the only thing you have to do before the rest of the application has anything to say.</div>
+            </div>
+            <input value="~/Projects/raptor"/>
+            <div>
+              <div class="lbl" style="margin-bottom: 10px;">Or one it already found</div>
+              <div class="panel" style="padding: 0; overflow: hidden;">
+                <sc-for list="{{repos}}" as="r" hint-placeholder-count="4">
+                  <button onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 13px; padding: 12px 15px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.045);">
+                    <span class="m" style="flex-grow: 1; font-size: 12.5px;">{{r.path}}</span>
+                    <span class="m" style="font-size: 10.5px; color: #626a69;">{{r.lang}}</span>
+                    <span class="m" style="font-size: 10.5px; color: #4a5150;">{{r.size}}</span>
+                    <span class="m" style="font-size: 10.5px; color: {{r.fg}};">{{r.state}}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button onClick="{{start}}" class="pill go" style="padding: 9px 20px;">Survey it</button>
+              <span class="m" style="font-size: 10.5px; color: #565d5c;">a few minutes on a repository this size, and you can leave it running</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.running}}" hint-placeholder-val="{{false}}">
+          <div class="rise" style="display: flex; flex-direction: column; gap: 24px;">
+            <div>
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Reading raptor</div>
+              <div style="margin-top: 10px; color: #979e9d; line-height: 1.62;">Claude Code is doing the reading. Sparring is checking each claim against the code before it reaches the map.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+              <sc-for list="{{phases}}" as="p" hint-placeholder-count="6">
+                <div class="panel" style="display: flex; align-items: center; gap: 13px; padding: 12px 16px; border-color: {{p.br}}; background: {{p.bg}};">
+                  <span style="flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; border: 1px solid {{p.ring}}; background: {{p.fill}};"></span>
+                  <span style="flex-grow: 1; color: {{p.fg}};">{{p.label}}</span>
+                  <span class="m" style="font-size: 10.5px; color: #626a69;">{{p.detail}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div class="panel" style="padding: 15px 17px;">
+              <div class="lbl" style="margin-bottom: 9px;">Checks that failed, and what happens to them</div>
+              <div style="color: #979e9d; line-height: 1.62; font-size: 13px;">Two claims did not survive. The agent said the worker pool reads Postgres directly, and no import supports it. That part appears on the map drawn as unverified rather than dropped, because a gap you can see is worth more than a tidy map that is wrong.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.review}}" hint-placeholder-val="{{true}}">
+          <div class="rise" style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Does this look like your codebase?</div>
+              <div style="margin-top: 10px; color: #979e9d; line-height: 1.62; max-width: 640px;">You built it, so you are the only one who can tell. Correcting a part here is worth more than any drill, and a rejection is kept as evidence rather than used to quietly rewrite the sentence.</div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+              <sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+                <div class="panel" style="flex-grow: 1; padding: 14px 16px;">
+                  <div class="lbl" style="margin-bottom: 9px;">{{t.label}}</div>
+                  <div class="m" style="font-size: 22px; color: {{t.fg}};">{{t.value}}</div>
+                  <div class="m" style="margin-top: 5px; font-size: 10.5px; color: #565d5c;">{{t.note}}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div>
+              <div class="lbl" style="margin-bottom: 10px;">Confirm each part, or fix it</div>
+              <div class="panel" style="padding: 0; overflow: hidden;">
+                <sc-for list="{{claims}}" as="c" hint-placeholder-count="5">
+                  <div style="display: flex; align-items: flex-start; gap: 13px; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.045); background: {{c.bg}};">
+                    <span class="m" style="width: 70px; flex-shrink: 0; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: {{c.tag_fg}}; padding-top: 3px;">{{c.tag}}</span>
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-weight: 500;">{{c.name}}</span>
+                      <span style="color: #979e9d; font-size: 12.5px; line-height: 1.55;">{{c.sentence}}</span>
+                      <span class="m" style="font-size: 10.5px; color: #4a5150;">{{c.file}}</span>
+                    </div>
+                    <button onClick="{{c.fix}}" class="m" style="flex-shrink: 0; font-size: 10.5px; color: #9ee87d; padding-top: 3px;">{{c.action}}</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button onClick="{{done}}" class="pill go" style="padding: 9px 20px;">Save the map and start</button>
+              <button onClick="{{again}}" class="pill ghost" style="padding: 9px 15px;">Survey again</button>
+              <div style="flex-grow: 1;"></div>
+              <span class="m" style="font-size: 10.5px; color: #565d5c;">seeds 24 questions, drawn only from the parts that passed</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"stage":{"editor":"enum","default":"review","options":["pick","running","review"]}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { stage: null }; }
+  renderVals() {
+    const A = '#9ee87d';
+    const stage = this.state.stage ?? this.props.stage ?? 'pick';
+    const order = ['pick','running','review']; const at = order.indexOf(stage);
+    return {
+      is: { pick: stage === 'pick', running: stage === 'running', review: stage === 'review' },
+      stages: [['pick','Choose a repository'],['running','Read it'],['review','Confirm what it found']]
+        .map(([id,label], i) => ({ label, pick: () => this.setState({ stage: id }),
+          bg: i === at ? 'rgba(255,255,255,0.055)' : 'transparent',
+          ring: i <= at ? A : 'rgba(255,255,255,0.12)',
+          fill: i < at ? 'rgba(158,232,125,0.18)' : 'transparent',
+          core: i <= at ? A : 'transparent',
+          fg: i === at ? '#e2e5e4' : (i < at ? '#979e9d' : '#626a69') })),
+      repos: [['~/Projects/raptor','JavaScript','312 files','surveyed 2d ago',A],
+              ['~/Projects/openreach-tools','Python','96 files','surveyed 3w ago','#e8c97d'],
+              ['~/Projects/sparring','JavaScript','18 files','never','#626a69'],
+              ['~/Projects/portfolio','TypeScript','204 files','never','#626a69']]
+        .map(([path,lang,size,state,fg]) => ({ path, lang, size, state, fg, pick: () => this.setState({ stage: 'running' }) })),
+      phases: [['done','Entry points from the build and the configuration','4 found'],
+               ['done','Import and call graph','312 files, 1,840 edges'],
+               ['done','Clustering into parts a person can hold','11 parts'],
+               ['work','Finding the constraints that cross everything','3 so far'],
+               ['todo','Checking each claim against the code',''],
+               ['todo','Proposing topics and first questions','']]
+        .map(([s,label,detail]) => ({ label, detail,
+          ring: s === 'done' ? A : (s === 'work' ? A : 'rgba(255,255,255,0.14)'),
+          fill: s === 'done' ? A : (s === 'work' ? 'rgba(158,232,125,0.45)' : 'transparent'),
+          fg: s === 'todo' ? '#626a69' : '#e2e5e4',
+          br: s === 'work' ? 'rgba(158,232,125,0.3)' : 'rgba(255,255,255,0.06)',
+          bg: s === 'work' ? 'rgba(158,232,125,0.045)' : 'rgba(255,255,255,0.028)' })),
+      tiles: [['Parts found','11','#e2e5e4','8 verified against imports and calls'],
+              ['Constraints','3','#9ee87d','each with an enforcement point'],
+              ['Not inspected','6%','#e8c97d','plus 23% generated and vendored']]
+        .map(([label,value,fg,note]) => ({ label, value, fg, note })),
+      claims: [['verified','realtime hub','Holds the open sockets and the room membership for one process. Everything it knows dies with that process.','server/realtime/hub.js:31'],
+               ['verified','policy layer','Row-level security policies, plus the elevated functions that deliberately bypass them.','db/policies/sessions.sql:42'],
+               ['constraint','tenant boundary','Every read must carry the tenant. The gateway passes it, the database enforces it.','db/policies/sessions.sql:42'],
+               ['unverified','worker pool','Claimed to read Postgres directly. No import or call supports that.','workers/index.js:19'],
+               ['unverified','video cdn','Inferred from configuration. No code that signs a URL was found.','infra/cdn.tf:88']]
+        .map(([tag,name,sentence,file]) => ({ tag, name, sentence, file,
+          action: tag === 'unverified' ? 'Fix or drop' : 'Edit',
+          tag_fg: tag === 'verified' ? A : (tag === 'constraint' ? '#e8c97d' : '#e88d7d'),
+          bg: tag === 'unverified' ? 'rgba(232,141,125,0.035)' : 'transparent',
+          fix: () => this.setState({ stage: 'running' }) })),
+      start: () => this.setState({ stage: 'running' }),
+      done: () => this.setState({ stage: 'pick' }),
+      again: () => this.setState({ stage: 'running' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

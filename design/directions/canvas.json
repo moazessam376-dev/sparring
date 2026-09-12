@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "DirectionA.dc.html", "x": 0,    "y": 0, "w": 1280, "h": 820, "title": "A · Terminal", "is_interactive": true },
+    { "file": "DirectionB.dc.html", "x": 1400, "y": 0, "w": 1280, "h": 820, "title": "B · Press", "is_interactive": true },
+    { "file": "DirectionC.dc.html", "x": 2800, "y": 0, "w": 1280, "h": 820, "title": "C · Instrument", "is_interactive": true }
+  ],
+  "annotations": [
+    { "id": "note-a", "x": 0,    "y": -230, "w": 400, "text": "A · TERMINAL\n\nMonospace-forward, hairlines only, not one card or rounded box anywhere. Dense and precise, closest to the Codex app you showed me.\n\nAccent is a single vermilion used almost nowhere, so where it appears it means something.\n\nAgainst it: this is the direction most likely to read as a developer tool rather than something you learn in." },
+    { "id": "note-b", "x": 1400, "y": -230, "w": 400, "text": "B · PRESS\n\nThe question is set like a printed page. Serif at 34px, a wide measure, warm near-black, and rules instead of boxes. The layout is asymmetric on purpose.\n\nAccent is a printing red.\n\nAgainst it: serif at that size eats room, and the density you want in a graph or a code editor fights this." },
+    { "id": "note-c", "x": 2800, "y": -230, "w": 400, "text": "C · INSTRUMENT\n\nThe glassy one. A blurred, saturated sidebar over a lit ground, fine grain over everything, soft panels with a one-pixel top highlight.\n\nThis one also shows the component idea: a real code editor with language tabs, sent to your agent for review against the actual file.\n\nAgainst it: glass costs performance in a webview, and it is the direction closest to what everyone else is shipping." },
+    { "id": "note-ask", "x": 1400, "y": 900, "w": 460, "text": "Same question, same content, three visual languages. Pick one and I will rebuild all six screens in it.\n\nYou can also take parts: A's density with C's glass, or B's typography on A's chrome. Say which and I will make that the fourth." }
+  ],
+  "launch": { "view": "canvas" }
+}
