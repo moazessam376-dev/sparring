@@ -15,6 +15,8 @@ export const EVENT_TYPES = [
   'attempt.recorded',
   'grade.contested',
   'lesson.completed',
+  'claim.vouched',
+  'claim.vouch.withdrawn',
 ];
 
 const TYPES = new Set(EVENT_TYPES);
@@ -47,6 +49,25 @@ export function validateEvent(event) {
   if (event.id !== `${event.device}:${event.seq}`) throw new Error('event id must be device:seq');
   if (Number.isNaN(Date.parse(event.at || ''))) throw new Error('event at must be a timestamp');
   if (!event.data || typeof event.data !== 'object') throw new Error('event data must be an object');
+  if (event.type === 'claim.vouched') {
+    if (!event.data.claim || typeof event.data.claim !== 'object' || Array.isArray(event.data.claim)) {
+      throw new Error('vouched event claim must be an object');
+    }
+    if (typeof event.data.claim.id !== 'string' || !event.data.claim.id.trim()) {
+      throw new Error('vouched event claim id must be a non-empty string');
+    }
+    if (typeof event.data.claim.status !== 'string' || !event.data.claim.status.trim()) {
+      throw new Error('vouched event claim status must be a non-empty string');
+    }
+    if (typeof event.data.judgement !== 'string' || !event.data.judgement.trim()) {
+      throw new Error('vouched event judgement must be a non-empty string');
+    }
+    if (event.data.judgement.length > 4096) throw new Error('vouched event judgement exceeds 4096 characters');
+  }
+  if (event.type === 'claim.vouch.withdrawn'
+    && (typeof event.data.claim !== 'string' || !event.data.claim.trim())) {
+    throw new Error('vouch withdrawal claim must be a non-empty string');
+  }
 }
 
 function deviceFile(home, device) {

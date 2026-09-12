@@ -1,3 +1,14 @@
+import { canVouchClaim, validateClaim } from '../survey/claim.mjs';
+
+function validateVouchClaim(claim) {
+  try {
+    validateClaim(claim);
+  } catch (error) {
+    throw new Error(`vouched claim is invalid: ${error.message}`);
+  }
+  if (!canVouchClaim(claim.status)) throw new Error(`claim status ${claim.status} cannot be vouched`);
+}
+
 const HANDLERS = {
   'project.added': (db, e) => {
     db.prepare('insert or replace into projects (id, name, remote, added) values (?, ?, ?, ?)')
@@ -6,6 +17,15 @@ const HANDLERS = {
   'topic.added': (db, e) => {
     db.prepare('insert or replace into topics (id, name, parent, kind) values (?, ?, ?, ?)')
       .run(e.data.topic, e.data.name, e.data.parent ?? null, e.data.kind ?? 'technology');
+    const gateStatus = e.data.gateStatus ?? e.data.claimStatus;
+    const hasClaim = e.data.claim !== undefined && e.data.claim !== null;
+    const hasGateStatus = gateStatus !== undefined && gateStatus !== null;
+    if (hasClaim || hasGateStatus) {
+      if (typeof e.data.claim !== 'string' || !e.data.claim.trim()) throw new Error('topic claim must be a non-empty string');
+      if (typeof gateStatus !== 'string' || !gateStatus.trim()) throw new Error('topic gateStatus must be a non-empty string');
+      db.prepare('insert or replace into topic_claims (topic, gate_status) values (?, ?)')
+        .run(e.data.topic, gateStatus);
+    }
   },
   'topic.linked': (db, e) => {
     db.prepare('insert or ignore into topic_projects (topic, project) values (?, ?)').run(e.data.topic, e.data.project);
@@ -69,6 +89,16 @@ const HANDLERS = {
   },
   'lesson.completed': () => {
     // Lesson records are read from the log directly until the lesson system exists.
+  },
+  'claim.vouched': (db, e) => {
+    const claim = e.data.claim;
+    validateVouchClaim(claim);
+    db.prepare('insert or replace into vouches (claim, claim_json, judgement, vouched_at) values (?, ?, ?, ?)')
+      .run(claim.id, JSON.stringify(claim), e.data.judgement, e.at);
+  },
+  'claim.vouch.withdrawn': (db, e) => {
+    const result = db.prepare('delete from vouches where claim = ?').run(e.data.claim);
+    if (result.changes === 0) return false;
   },
 };
 

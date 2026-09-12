@@ -211,6 +211,8 @@ export type Topic = {
   cards: number;
   score: number;
   confidence: number;
+  gateStatus: string | null;
+  vouched: boolean;
 };
 
 export type TopicEdge = { topic: string; requires: string };
@@ -237,6 +239,8 @@ export async function topics(connection: Connection, project: string | null): Pr
         cards: asNumber(topic.cards, "topic cards"),
         score: asNumber(topic.score, "topic score"),
         confidence: asNumber(topic.confidence, "topic confidence"),
+        gateStatus: asOptionalText(topic.gateStatus, "topic gate status"),
+        vouched: topic.vouched === true,
       };
     }),
     edges: asList(raw.edges, "topic edges").map((item, index) => {
@@ -366,6 +370,94 @@ export async function contestGrade(
   await request(connection, "/api/contest", { method: "POST", body: { attempt, userGrade } });
 }
 
+export type VouchResult = {
+  claim: string;
+  status: "vouched";
+  gateStatus: string | null;
+  judgement: string | null;
+  at: string | null;
+};
+
+export type ClaimForVouch = {
+  id: string;
+  type: string;
+  status: Exclude<ClaimStatus, "vouched">;
+  sentence: string;
+  path: string | null;
+  fromLine: number | null;
+  toLine: number | null;
+  commit: string | null;
+  spanHash: string | null;
+  extractor: string;
+  unresolved: unknown[];
+  coverage: string[];
+  boundary: unknown;
+  ends: unknown;
+  enforcement: unknown;
+  falsifier: unknown;
+  constraintKind: string | null;
+  identifiers: unknown;
+  predicate: string | null;
+};
+
+function asGateClaimStatus(value: unknown): Exclude<ClaimStatus, "vouched"> {
+  const status = asClaimStatus(value);
+  if (status === "vouched") throw new ApiError("the embedded gate claim was vouched");
+  return status;
+}
+
+function asClaimForVouch(value: unknown, fallback: Record<string, unknown>): ClaimForVouch {
+  const raw = value === undefined || value === null
+    ? { ...fallback, status: fallback.gateStatus ?? fallback.status }
+    : asRecord(value, "claim evidence");
+  return {
+    id: asText(raw.id, "claim evidence id"),
+    type: asText(raw.type, "claim evidence type"),
+    status: asGateClaimStatus(raw.status),
+    sentence: asText(raw.sentence, "claim evidence sentence"),
+    path: asOptionalText(raw.path, "claim evidence path"),
+    fromLine: asOptionalNumber(raw.fromLine, "claim evidence fromLine"),
+    toLine: asOptionalNumber(raw.toLine, "claim evidence toLine"),
+    commit: asOptionalText(raw.commit, "claim evidence commit"),
+    spanHash: asOptionalText(raw.spanHash, "claim evidence spanHash"),
+    extractor: asText(raw.extractor, "claim evidence extractor"),
+    unresolved: asList(raw.unresolved ?? [], "claim evidence unresolved"),
+    coverage: asTextList(raw.coverage ?? [], "claim evidence coverage"),
+    boundary: raw.boundary ?? null,
+    ends: raw.ends ?? null,
+    enforcement: raw.enforcement ?? null,
+    falsifier: raw.falsifier ?? null,
+    constraintKind: asOptionalText(raw.constraintKind, "claim evidence constraintKind"),
+    identifiers: raw.identifiers ?? null,
+    predicate: asOptionalText(raw.predicate, "claim evidence predicate"),
+  };
+}
+
+export async function vouchClaim(
+  connection: Connection,
+  repo: string,
+  claimId: string,
+  judgement: string,
+): Promise<VouchResult> {
+  const raw = asRecord(
+    await request(connection, "/api/vouch", { method: "POST", body: { repo, claimId, judgement } }),
+    "vouch",
+  );
+  const status = asText(raw.status, "vouch status");
+  if (status !== "vouched") throw new ApiError(`vouch status was ${status}`);
+  return {
+    claim: asText(raw.claim, "vouch claim"),
+    status,
+    gateStatus: asOptionalText(raw.gateStatus, "vouch gate status"),
+    judgement: asOptionalText(raw.judgement, "vouch judgement"),
+    at: asOptionalText(raw.at, "vouch at"),
+  };
+}
+
+export async function withdrawClaimVouch(connection: Connection, claim: string): Promise<void> {
+  await request(connection, "/api/vouch/withdraw", { method: "POST", body: { claim } });
+}
+
 export type StandingTopic = {
   topic: string;
   score: number;
@@ -467,7 +559,7 @@ export async function repository(connection: Connection, path: string): Promise<
   return asRepository(await request(connection, `/api/repository?path=${encodeURIComponent(path)}`));
 }
 
-export const CLAIM_STATUSES = ["verified", "inferred", "stale", "unchecked", "contradicted"] as const;
+export const CLAIM_STATUSES = ["verified", "inferred", "stale", "unchecked", "contradicted", "vouched"] as const;
 
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
@@ -484,6 +576,10 @@ export type SurveyClaim = {
   id: string;
   type: string;
   status: ClaimStatus;
+  gateStatus: Exclude<ClaimStatus, "vouched"> | null;
+  vouched: boolean;
+  judgement: string | null;
+  vouchedAt: string | null;
   declaredStatus: string | null;
   name: string;
   sentence: string;
@@ -491,6 +587,7 @@ export type SurveyClaim = {
   fromLine: number | null;
   toLine: number | null;
   reasons: ClaimReason[];
+  claim: ClaimForVouch;
 };
 
 export type Coverage = {
@@ -518,6 +615,7 @@ export type SeedTopic = {
   parent: string | null;
   kind: TopicKind;
   project: string;
+  gateStatus: Exclude<ClaimStatus, "vouched">;
 };
 
 export type SeedCard = {
@@ -574,6 +672,7 @@ function asSeed(value: unknown): Seed | null {
         parent: asOptionalText(topic.parent, "seed topic parent"),
         kind: asKind(topic.kind),
         project: asText(topic.project, "seed topic project"),
+        gateStatus: asGateClaimStatus(topic.gateStatus),
       };
     }),
     cards: asList(raw.cards, "seed cards").map((item, index) => {
@@ -629,6 +728,12 @@ export async function surveyOf(connection: Connection, repo: string): Promise<Su
                   id: asText(claim.id, "claim id"),
                   type: asText(claim.type, "claim type"),
                   status: asClaimStatus(claim.status),
+                  gateStatus: claim.gateStatus === null || claim.gateStatus === undefined
+                    ? null
+                    : asGateClaimStatus(claim.gateStatus),
+                  vouched: claim.vouched === true,
+                  judgement: asOptionalText(claim.judgement, "claim judgement"),
+                  vouchedAt: asOptionalText(claim.vouchedAt, "claim vouchedAt"),
                   declaredStatus: asOptionalText(claim.declaredStatus, "claim declared status"),
                   name: asText(claim.name, "claim name"),
                   sentence: asText(claim.sentence, "claim sentence"),
@@ -643,6 +748,7 @@ export async function surveyOf(connection: Connection, repo: string): Promise<Su
                       detail: asText(line.detail, "reason detail"),
                     };
                   }),
+                  claim: asClaimForVouch(claim.claim, claim),
                 };
               }),
             };
@@ -677,10 +783,12 @@ export async function createProject(
 export async function createTopics(connection: Connection, entries: SeedTopic[]): Promise<number> {
   const payload = entries.map((entry) => ({
     topic: entry.topic,
+    claim: entry.claim,
     name: entry.name,
     parent: entry.parent,
     kind: entry.kind,
     project: entry.project,
+    gateStatus: entry.gateStatus,
   }));
   const answer = await request(connection, "/api/topics", { method: "POST", body: payload });
   return asNumber(answer, "topics added");

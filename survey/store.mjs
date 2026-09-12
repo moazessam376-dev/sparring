@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import nodePath from 'node:path';
+import { readAll } from '../core/log.mjs';
+import { canVouchClaim, validateClaim } from './claim.mjs';
 import { filesUnder, languageOf, repositoryRoot, resolveCommit } from './evidence.mjs';
 
 // Where a survey goes after the gate has finished with it, and what the
@@ -109,6 +111,28 @@ function newestFor(home, repo) {
 }
 
 /**
+ * Resolve the gate's own claim before a user can vouch for it. The repository
+ * and id are selectors supplied by the caller; the survey file is the source
+ * of the claim and its status. In particular, an active vouch is not read
+ * here, because a second vouch must be judged against the gate result that was
+ * stored before any user overlay existed.
+ */
+export function storedClaimForVouch(home, repo, claimId) {
+  if (typeof repo !== 'string' || repo.trim() === '') throw new Error('repo must be a non-empty string');
+  if (typeof claimId !== 'string' || claimId.trim() === '') throw new Error('claimId must be a non-empty string');
+  const repository = inspectRepository(repo);
+  const stored = newestFor(home, repository.root ?? repository.path);
+  const claim = (Array.isArray(stored?.claims) ? stored.claims : []).find((item) => item?.id === claimId);
+  if (claim === undefined) throw new Error(`claim not found in stored survey: ${claimId}`);
+  try {
+    validateClaim(claim);
+    return claimSnapshotForVouch(claim);
+  } catch (error) {
+    throw new Error(`stored claim cannot be vouched: ${error.message}`);
+  }
+}
+
+/**
  * What the application may know about a directory before anything has surveyed
  * it: whether it is a git repository at all, which is the one thing the survey
  * screen has to be able to refuse.
@@ -187,10 +211,60 @@ export function claimName(claim) {
 
 const ALTITUDE_OF = { part: 'map', topic: 'map', interaction: 'boundary', constraint: 'mechanism' };
 
-// Only these two statuses may seed anything. The rule is the skill's, not this
-// file's: a card seeded from a claim the gate could not stand behind would ask
-// the candidate to defend a sentence nobody has checked.
-const SEEDS = new Set(['verified', 'inferred']);
+// Vouched claims join the two gate outcomes that already seed the map. A vouch
+// is a separate user judgement, never a promotion to `verified`, but the drill
+// must still test the claim so a wrong judgement can surface there.
+const SEEDS = new Set(['verified', 'inferred', 'vouched']);
+
+function activeVouches(home) {
+  const active = new Map();
+  for (const event of readAll(home)) {
+    if (event.type === 'claim.vouched') {
+      const claim = event.data?.claim;
+      if (!claim || typeof claim !== 'object' || Array.isArray(claim)
+        || typeof claim.id !== 'string' || !canVouchClaim(claim.status)) continue;
+      try {
+        validateClaim(claim);
+      } catch {
+        continue;
+      }
+      active.set(claim.id, {
+        judgement: typeof event.data.judgement === 'string' ? event.data.judgement : '',
+        at: event.at,
+      });
+    } else if (event.type === 'claim.vouch.withdrawn' && typeof event.data?.claim === 'string') {
+      active.delete(event.data.claim);
+    }
+  }
+  return active;
+}
+
+// The event carries the complete gate claim so the vouch stays meaningful if
+// the disposable cache is rebuilt. Keep only the validated claim fields here;
+// verification diagnostics can be large and are not needed to replay a vouch.
+function claimSnapshotForVouch(claim) {
+  return {
+    id: claim.id,
+    type: claim.type,
+    status: claim.status,
+    sentence: claim.sentence,
+    path: claim.path ?? null,
+    fromLine: claim.fromLine ?? null,
+    toLine: claim.toLine ?? null,
+    commit: claim.commit ?? null,
+    spanHash: claim.spanHash ?? null,
+    extractor: claim.extractor,
+    unresolved: Array.isArray(claim.unresolved) ? [...claim.unresolved] : [],
+    coverage: Array.isArray(claim.coverage) ? [...claim.coverage] : [],
+    boundary: claim.boundary ?? null,
+    ends: claim.ends ?? null,
+    enforcement: claim.enforcement ?? null,
+    falsifier: claim.falsifier ?? null,
+    constraintKind: claim.constraintKind ?? null,
+    identifiers: claim.identifiers ?? null,
+    predicate: claim.predicate ?? null,
+  };
+}
 
 function askFor(claim, name) {
   if (claim.type === 'constraint') {
@@ -232,6 +306,7 @@ export function seedFrom(result, { project } = {}) {
       parent: null,
       kind: 'concept',
       project: projectId,
+      gateStatus: claim.gateStatus ?? claim.status,
     });
     if (typeof claim.path !== 'string' || claim.path === '' || !Number.isInteger(claim.fromLine)) continue;
     cards.push({
@@ -244,7 +319,7 @@ export function seedFrom(result, { project } = {}) {
       altitude: ALTITUDE_OF[claim.type] ?? 'map',
       topics: [claim.id],
       grounding: [{ path: claim.path, line: claim.fromLine, commit: claim.commit ?? null }],
-      source: { type: 'survey', ref: claim.id },
+      source: { type: 'survey', ref: claim.id, gateStatus: claim.gateStatus ?? claim.status },
     });
   }
 
@@ -270,18 +345,31 @@ export function surveyState(home, path) {
   if (stored === null) {
     return { repo, repository, survey: null, seed: null };
   }
-  const claims = (Array.isArray(stored.claims) ? stored.claims : []).map((claim) => ({
-    id: claim.id,
-    type: claim.type,
-    status: claim.status,
-    declaredStatus: claim.declaredStatus ?? null,
-    name: claimName(claim),
-    sentence: tidy(claim.sentence ?? ''),
-    path: claim.path ?? null,
-    fromLine: claim.fromLine ?? null,
-    toLine: claim.toLine ?? null,
-    reasons: Array.isArray(claim.reasons) ? claim.reasons : [],
-  }));
+  const vouches = activeVouches(home);
+  const claims = (Array.isArray(stored.claims) ? stored.claims : []).map((claim) => {
+    const vouch = typeof claim.id === 'string' && canVouchClaim(claim.status) ? vouches.get(claim.id) : undefined;
+    const isVouched = vouch !== undefined;
+    return {
+      id: claim.id,
+      type: claim.type,
+      status: isVouched ? 'vouched' : claim.status,
+      gateStatus: isVouched ? claim.status : null,
+      vouched: isVouched,
+      judgement: isVouched ? vouch.judgement : null,
+      vouchedAt: isVouched ? vouch.at : null,
+      declaredStatus: claim.declaredStatus ?? null,
+      name: claimName(claim),
+      sentence: tidy(claim.sentence ?? ''),
+      path: claim.path ?? null,
+      fromLine: claim.fromLine ?? null,
+      toLine: claim.toLine ?? null,
+      reasons: Array.isArray(claim.reasons) ? claim.reasons : [],
+      claim: claimSnapshotForVouch(claim),
+    };
+  });
+  const seedClaims = claims.map((claim) => claim.status === 'vouched'
+    ? { ...claim.claim, status: claim.status, gateStatus: claim.gateStatus }
+    : claim.claim);
   return {
     repo,
     repository,
@@ -291,6 +379,6 @@ export function surveyState(home, path) {
       coverage: stored.coverage?.counts ?? stored.summary?.coverage ?? null,
       claims,
     },
-    seed: seedFrom(stored, { project: slug(repository.name) }),
+    seed: seedFrom({ ...stored, claims: seedClaims }, { project: slug(repository.name) }),
   };
 }

@@ -8,6 +8,7 @@ import { schedule } from './scheduler.mjs';
 import { update } from './elo.mjs';
 import { topicsForProject } from './graph.mjs';
 import { topicMastery } from './mastery.mjs';
+import { canVouchClaim, CLAIM_STATUSES, validateClaim } from '../survey/claim.mjs';
 
 const CREDIT = { wrong: 0, partial: 0.5, correct: 1 };
 
@@ -21,6 +22,7 @@ const GRADES = new Set(['correct', 'partial', 'wrong']);
 const MODES = new Set(['drill', 'mock', 'transfer', 'lesson']);
 const TOPIC_KINDS = new Set(['technology', 'concept', 'skill']);
 const ALTITUDES = new Set(['map', 'boundary', 'mechanism', 'line']);
+const GATE_STATUSES = new Set(CLAIM_STATUSES);
 
 function requireText(value, label) {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} must be a non-empty string`);
@@ -40,6 +42,19 @@ function requireOneOf(value, allowed, label) {
     throw new Error(`${label} must be one of ${[...allowed].join(', ')}`);
   }
   return value;
+}
+
+function validateVouch({ claim, judgement } = {}) {
+  if (!claim || typeof claim !== 'object' || Array.isArray(claim)) throw new Error('claim must be an object');
+  try {
+    validateClaim(claim);
+  } catch (error) {
+    throw new Error(`claim cannot be vouched: ${error.message}`);
+  }
+  if (!canVouchClaim(claim.status)) throw new Error(`claim status ${claim.status} cannot be vouched`);
+  requireText(judgement, 'judgement');
+  if (judgement.length > 4096) throw new Error('judgement exceeds 4096 characters');
+  return { claim, judgement };
 }
 
 export function openState(home) {
@@ -239,9 +254,12 @@ export function topics(state, projectId = null) {
       ? []
       : state.db.prepare(`select id, name, parent, kind from topics where id in (${ids.map(() => '?').join(',')}) order by id`).all(...ids);
   const date = today();
+  const vouchRows = state.db.prepare('select claim from vouches').all();
+  const vouched = new Set(vouchRows.map((row) => row.claim));
   return {
     topics: topicRows.map((row) => {
       const mastery = topicMastery(state.db, row.id, date);
+      const gateStatus = state.db.prepare('select gate_status from topic_claims where topic = ?').get(row.id)?.gate_status ?? null;
       return {
         id: row.id,
         name: row.name,
@@ -250,6 +268,8 @@ export function topics(state, projectId = null) {
         cards: mastery.cards,
         score: mastery.score,
         confidence: mastery.confidence,
+        gateStatus,
+        vouched: gateStatus !== null && gateStatus !== 'verified' && vouched.has(row.id),
       };
     }),
     edges: (ids === null
@@ -323,6 +343,8 @@ export function addTopics(state, entries) {
     // The reducer defaults an absent kind to technology; anything else present
     // has to be one the topics table will hold.
     if (topic.kind !== undefined && topic.kind !== null) requireOneOf(topic.kind, TOPIC_KINDS, `${label} kind`);
+    if (topic.claim !== undefined && topic.claim !== null) requireText(topic.claim, `${label} claim`);
+    if (topic.gateStatus !== undefined && topic.gateStatus !== null) requireOneOf(topic.gateStatus, GATE_STATUSES, `${label} gateStatus`);
     if (project !== undefined && project !== null) requireText(project, `${label} project`);
     return { topic, project: project ?? null };
   });
@@ -399,6 +421,54 @@ export function contest(state, { attempt, userGrade } = {}) {
   state.append({ type: 'grade.contested', data: { attempt, userGrade } });
   refresh(state);
   return state.db.prepare('select * from attempts where id = ?').get(attempt);
+}
+
+export function vouch(state, input = {}) {
+  const data = validateVouch(input);
+  const event = state.append({ type: 'claim.vouched', data });
+  refresh(state);
+  return {
+    claim: data.claim.id,
+    status: 'vouched',
+    gateStatus: data.claim.status,
+    judgement: data.judgement,
+    at: event.at,
+  };
+}
+
+export function withdrawVouch(state, { claim, claimId } = {}) {
+  const id = claim ?? claimId;
+  requireText(id, 'claim');
+  refresh(state);
+  const existing = state.db.prepare('select claim_json from vouches where claim = ?').get(id);
+  if (!existing) throw new Error(`claim is not vouched: ${id}`);
+  let gateStatus = null;
+  try {
+    gateStatus = JSON.parse(existing.claim_json).status ?? null;
+  } catch {
+    // A vouch row can only have been written from JSON, but the reducer's
+    // quarantine rule means an old hand-written row should not make withdrawal
+    // fail after the event itself has been validated.
+  }
+  state.append({ type: 'claim.vouch.withdrawn', data: { claim: id } });
+  refresh(state);
+  return { claim: id, status: gateStatus, vouched: false };
+}
+
+export function vouchFor(state, claim) {
+  const id = typeof claim === 'string' ? claim : claim?.id;
+  requireText(id, 'claim');
+  refresh(state);
+  const row = state.db.prepare('select claim_json, judgement, vouched_at from vouches where claim = ?').get(id);
+  if (!row) return null;
+  const stored = JSON.parse(row.claim_json);
+  return {
+    claim: id,
+    status: 'vouched',
+    gateStatus: stored.status,
+    judgement: row.judgement,
+    at: row.vouched_at,
+  };
 }
 
 export function gaps(state, { days = 7 } = {}) {
