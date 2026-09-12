@@ -7,193 +7,176 @@
 <body>
 <x-dc>
 <helmet>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
-    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
-    body { margin: 0; background: #0a0f0e; color: #ece9e1;
-      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
-    a { color: #f2b544; } a:hover { color: #ece9e1; }
-    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
-      text-transform: uppercase; color: #6f7a76; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
     button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
-    .row:hover { background: rgba(169,176,172,0.03); }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
   </style>
 </helmet>
 
-<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0f0e;">
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; color: #9ee87d;">18</span>
+      </div>
+      <div class="lbl" style="padding: 0 16px 8px;">View</div>
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 7px 9px; border-radius: 7px; width: calc(100% - 16px); background: {{t.bg}};">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{t.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 13px; color: {{t.fg}};">{{t.label}}</span>
+          <span class="m" style="font-size: 10px; color: #626a69;">{{t.n}}</span>
+        </button>
+      </sc-for>
+      <div class="lbl" style="padding: 22px 16px 10px;">Is the schedule honest</div>
+      <div style="padding: 0 12px;">
+        <svg viewBox="0 0 226 150" style="width: 100%;">
+          <line x1="26" y1="126" x2="218" y2="126" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+          <line x1="26" y1="12" x2="26" y2="126" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+          <line x1="26" y1="126" x2="218" y2="12" stroke="rgba(255,255,255,0.14)" stroke-width="1" stroke-dasharray="4,4"/>
+          <sc-for list="{{calib}}" as="c" hint-placeholder-count="6">
+            <circle cx="{{c.x}}" cy="{{c.y}}" r="3.6" fill="{{c.fill}}" stroke="{{c.stroke}}" stroke-width="1"/>
+          </sc-for>
+          <text x="26" y="144" fill="#565d5c" font-size="8" font-family="DM Mono, monospace">predicted</text>
+          <text x="218" y="144" text-anchor="end" fill="#565d5c" font-size="8" font-family="DM Mono, monospace">100%</text>
+        </svg>
+        <div class="m" style="margin-top: 6px; font-size: 10px; color: #565d5c; line-height: 1.65;">Above the line means you remember more than it expects, so it is asking too often. Yours sit close.</div>
+      </div>
+      <div style="flex-grow: 1;"></div>
+      <button onClick="{{focus}}" class="pill go" style="margin: 0 12px; text-align: center;">Drill the seven weakest</button>
+    </div>
 
-  <div style="display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px; border-bottom: 1px solid #1d2a26; background: #0d1513;">
-    <span class="mono" style="font-size: 15px; font-weight: 600;">sparring</span>
-    <span class="eyebrow">standing</span>
-    <div style="flex-grow: 1;"></div>
-    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
-      <button onClick="{{t.pick}}" class="mono" style="padding: 5px 13px; font-size: 11px; border-radius: 5px; border: 1px solid {{t.border}}; background: {{t.bg}}; color: {{t.fg}};">{{t.label}}</button>
-    </sc-for>
-  </div>
-
-  <div style="flex-grow: 1; display: flex; min-height: 0;">
-
-    <div style="flex-grow: 1; padding: 32px 32px 0; min-width: 0; display: flex; flex-direction: column; gap: 26px;">
-
-      <div style="display: flex; gap: 16px;">
-        <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
-          <div style="flex-grow: 1; border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
-            <div class="eyebrow" style="margin-bottom: 12px;">{{t.label}}</div>
-            <div class="mono" style="font-size: 27px; font-weight: 600; color: {{t.fg}};">{{t.value}}</div>
-            <div style="margin-top: 6px; font-size: 12px; color: #6f7a76; line-height: 1.45;">{{t.note}}</div>
-          </div>
-        </sc-for>
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">{{title}}</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10.5px; color: #565d5c;">{{note}}</span>
       </div>
 
-      <div>
-        <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px;">
-          <span class="eyebrow">{{listTitle}}</span>
-          <span style="font-size: 12px; color: #6f7a76;">{{listNote}}</span>
+      <div style="flex-grow: 1; padding: 26px 28px 0; overflow: hidden; display: flex; flex-direction: column; gap: 22px;">
+        <div style="display: flex; gap: 12px;">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+            <div class="panel" style="flex-grow: 1; padding: 14px 16px;">
+              <div class="lbl" style="margin-bottom: 10px;">{{t.label}}</div>
+              <div class="m" style="font-size: 24px; color: {{t.fg}};">{{t.value}}</div>
+              <div class="m" style="margin-top: 5px; font-size: 10.5px; color: #565d5c;">{{t.note}}</div>
+            </div>
+          </sc-for>
         </div>
 
-        <div style="border: 1px solid #1d2a26; border-radius: 8px; overflow: hidden;">
+        <div class="panel" style="padding: 0; overflow: hidden;">
           <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
-            <button onClick="{{r.pick}}" class="row" style="display: flex; align-items: center; gap: 16px; padding: 13px 18px; width: 100%; border-bottom: 1px solid #141d1b; background: {{r.bg}};">
-              <span style="width: 6px; height: 6px; border-radius: 50%; background: {{r.dot}}; flex-shrink: 0;"></span>
-              <span style="width: 190px; flex-shrink: 0; color: {{r.fg}};">{{r.name}}</span>
-              <span class="mono" style="width: 96px; flex-shrink: 0; font-size: 11px; color: #6f7a76;">{{r.project}}</span>
-              <span style="flex-grow: 1; height: 4px; border-radius: 2px; background: #141d1b; overflow: hidden; position: relative;">
-                <span style="position: absolute; left: 0; top: 0; height: 4px; width: {{r.bar}}; background: {{r.dot}}; display: block;"></span>
-                <span style="position: absolute; left: {{r.lo}}; top: 0; height: 4px; width: {{r.span}}; background: rgba(169,176,172,0.22); display: block;"></span>
+            <button onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 15px; padding: 12px 17px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: {{r.dot}}; flex-shrink: 0;"></span>
+              <span style="width: 186px; flex-shrink: 0;">{{r.name}}</span>
+              <span class="m" style="width: 92px; flex-shrink: 0; font-size: 10.5px; color: #626a69;">{{r.project}}</span>
+              <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+                <span style="position: absolute; left: {{r.lo}}; width: {{r.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+                <span style="position: absolute; left: 0; width: {{r.bar}}; height: 3px; border-radius: 2px; background: {{r.dot}}; display: block;"></span>
               </span>
-              <span class="mono" style="width: 44px; text-align: right; flex-shrink: 0; color: {{r.dot}};">{{r.score}}</span>
-              <span class="mono" style="width: 108px; text-align: right; flex-shrink: 0; font-size: 11px; color: {{r.conf_fg}};">{{r.conf}}</span>
-              <span class="mono" style="width: 78px; text-align: right; flex-shrink: 0; font-size: 11px; color: #6f7a76;">{{r.last}}</span>
+              <span class="m" style="width: 42px; text-align: right; flex-shrink: 0; color: {{r.dot}}; font-size: 12px;">{{r.score}}</span>
+              <span class="m" style="width: 78px; text-align: right; flex-shrink: 0; font-size: 10.5px; color: {{r.n_fg}};">{{r.n}}</span>
+              <span class="m" style="width: 62px; text-align: right; flex-shrink: 0; font-size: 10.5px; color: #4a5150;">{{r.last}}</span>
             </button>
           </sc-for>
         </div>
-        <div class="aside" style="margin-top: 12px; font-size: 12px; line-height: 1.55; max-width: 640px;">
-          The pale band behind each bar is how wrong the estimate could be. A topic with three answers behind it has a band wider than the bar, which is the honest picture and not a rendering fault.
-        </div>
-      </div>
-    </div>
 
-    <div style="width: 348px; border-left: 1px solid #1d2a26; background: #0d1513; padding: 32px 26px 0; display: flex; flex-direction: column; gap: 26px;">
-
-      <div>
-        <div class="eyebrow" style="margin-bottom: 14px;">Is the schedule telling the truth</div>
-        <svg viewBox="0 0 296 180" style="width: 100%;">
-          <line x1="30" y1="150" x2="286" y2="150" stroke="#1d2a26" stroke-width="1"/>
-          <line x1="30" y1="12" x2="30" y2="150" stroke="#1d2a26" stroke-width="1"/>
-          <line x1="30" y1="150" x2="286" y2="12" stroke="#3c4644" stroke-width="1" stroke-dasharray="4,4"/>
-          <sc-for list="{{calib}}" as="c" hint-placeholder-count="6">
-            <circle cx="{{c.x}}" cy="{{c.y}}" r="4" fill="{{c.fill}}" stroke="{{c.stroke}}" stroke-width="1"/>
-          </sc-for>
-          <text x="30" y="168" fill="#6f7a76" font-size="9" font-family="Geist Mono, monospace">predicted</text>
-          <text x="286" y="168" text-anchor="end" fill="#6f7a76" font-size="9" font-family="Geist Mono, monospace">100%</text>
-          <text x="8" y="16" fill="#6f7a76" font-size="9" font-family="Geist Mono, monospace">actual</text>
-        </svg>
-        <div style="margin-top: 10px; font-size: 12px; color: #a9b0ac; line-height: 1.55;">
-          Points above the dashed line mean you remember more than the schedule expects, so it is asking too often. Yours sit close to it.
-        </div>
-      </div>
-
-      <div style="border-top: 1px solid #1d2a26; padding-top: 22px;">
-        <div class="eyebrow" style="margin-bottom: 14px;">Which question types work on you</div>
-        <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
-          <div style="display: flex; align-items: center; gap: 12px; padding: 7px 0;">
-            <span style="width: 122px; flex-shrink: 0; font-size: 13px; color: #a9b0ac;">{{c.name}}</span>
-            <span style="flex-grow: 1; height: 4px; border-radius: 2px; background: #141d1b;">
-              <span style="display: block; height: 4px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}};"></span>
-            </span>
-            <span class="mono" style="width: 34px; text-align: right; font-size: 11px; color: #6f7a76;">{{c.value}}</span>
-            <span class="mono" style="width: 58px; text-align: right; font-size: 10px; color: #3c4644;">{{c.n}}</span>
+        <div style="display: flex; gap: 26px; align-items: flex-start;">
+          <div class="m" style="flex-grow: 1; font-size: 10.5px; color: #565d5c; line-height: 1.72; max-width: 440px;">The pale band behind each bar is how wrong the estimate could be. A topic with three answers has a band wider than the bar, which is the honest picture and not a rendering fault.</div>
+          <div style="width: 340px; flex-shrink: 0;">
+            <div class="lbl" style="margin-bottom: 10px;">Which question types work on you</div>
+            <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 11px; padding: 5px 0;">
+                <span style="width: 116px; flex-shrink: 0; font-size: 12.5px; color: #979e9d;">{{c.name}}</span>
+                <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06);">
+                  <span style="display: block; height: 3px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}};"></span>
+                </span>
+                <span class="m" style="width: 30px; text-align: right; font-size: 10.5px; color: #626a69;">{{c.v}}</span>
+                <span class="m" style="width: 52px; text-align: right; font-size: 9.5px; color: #4a5150;">{{c.n}}</span>
+              </div>
+            </sc-for>
           </div>
-        </sc-for>
-        <div style="margin-top: 12px; font-size: 12px; color: #6f7a76; line-height: 1.55;">
-          Typing the answer separates what you know from what you recognise. Multiple choice barely does, which is why there is little of it. The last two lines rest on eleven and seven answers, so treat them as a hint rather than a result.
         </div>
       </div>
-
-      <div style="flex-grow: 1;"></div>
-      <button onClick="{{focusGaps}}" style="margin-bottom: 24px; padding: 11px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; text-align: center; font-weight: 500;">Drill the seven weakest</button>
     </div>
   </div>
 </div>
 </x-dc>
-
-<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36"]}}'>
+<script data-dc-script data-props='{}'>
 class Component extends DCLogic {
-  constructor(props) {
-    super(props);
-    this.state = { tab: 'gaps' };
-  }
-  all() {
-    return [
-      ['acknowledgements', 'raptor', 0.38, 3, '14d'],
-      ['worker pool boundary', 'raptor', 0.35, 2, '21d'],
-      ['definer functions', 'raptor', 0.44, 5, '6d'],
-      ['reconnection backoff', 'raptor', 0.52, 4, '9d'],
-      ['policy vs handler', 'raptor', 0.58, 5, '12d'],
-      ['redis adapter fan-out', 'raptor', 0.51, 4, '8d'],
-      ['signed url expiry', 'openreach-tools', 0.41, 2, '30d'],
-      ['SET NX EX', 'raptor', 0.79, 7, '19d'],
-      ['room membership', 'raptor', 0.74, 6, '4d'],
-      ['jwt verification', 'openreach-tools', 0.81, 9, '11d'],
-    ];
-  }
+  constructor(props) { super(props); this.state = { tab: 'gaps' }; }
+  all() { return [
+    ['acknowledgements','raptor',0.38,3,'14d'],['worker pool boundary','raptor',0.35,2,'21d'],
+    ['definer functions','raptor',0.44,5,'6d'],['reconnection backoff','raptor',0.52,4,'9d'],
+    ['policy vs handler','raptor',0.58,5,'12d'],['redis adapter fan-out','raptor',0.51,4,'8d'],
+    ['signed url expiry','openreach-tools',0.41,2,'30d'],['SET NX EX','raptor',0.79,7,'19d'],
+    ['room membership','raptor',0.74,6,'4d'],['jwt verification','openreach-tools',0.81,9,'11d']]; }
   renderVals() {
-    const accent = this.props.accent ?? '#f2b544';
-    const tab = this.state.tab;
-
+    const A = '#9ee87d'; const tab = this.state.tab;
+    const tone = (s) => s < 0.6 ? '#e88d7d' : (s > 0.75 ? A : '#e8c97d');
     let list = this.all();
-    if (tab === 'gaps') list = list.filter((r) => r[2] < 0.6).sort((a, b) => a[2] - b[2]);
-    else if (tab === 'decaying') list = list.filter((r) => parseInt(r[4], 10) > 10).sort((a, b) => parseInt(b[4], 10) - parseInt(a[4], 10));
-    else list = [...list].sort((a, b) => a[2] - b[2]);
-
-    const rows = list.map(([name, project, score, n, last]) => {
-      const pct = Math.round(score * 100);
-      const width = Math.max(6, Math.round(60 / Math.sqrt(n + 1)));
-      const lo = Math.max(0, pct - Math.round(width / 2));
-      const dot = score < 0.6 ? '#ef5a5a' : (score > 0.75 ? '#58d68d' : accent);
-      return { name, project, score: `${pct}%`, last: `${last} ago`, dot, bg: '#0d1513', fg: '#ece9e1',
-        bar: `${pct}%`, lo: `${lo}%`, span: `${Math.min(width, 100 - lo)}%`,
-        conf: n < 4 ? `${n} answers` : `${n} answers`,
-        conf_fg: n < 4 ? '#ef5a5a' : '#6f7a76',
-        pick: () => this.setState({ tab: 'all' }) };
-    });
-
-    const chip = (id, label) => {
-      const on = tab === id;
-      return { label, pick: () => this.setState({ tab: id }),
-        border: on ? accent : '#1d2a26', bg: on ? 'rgba(242,181,68,0.12)' : '#0a0f0e', fg: on ? accent : '#a9b0ac' };
-    };
-
-    const titles = {
-      gaps: ['Where you are weakest', 'Sorted by how little you hold, not by how long ago you were asked.'],
-      decaying: ['Going stale', 'You held these once. The schedule says they are slipping.'],
-      all: ['Every topic', 'Across both surveyed projects, weakest first.'],
-    };
-
+    if (tab === 'gaps') list = list.filter((r) => r[2] < 0.6).sort((a,b) => a[2]-b[2]);
+    else if (tab === 'decaying') list = list.filter((r) => parseInt(r[4],10) > 10).sort((a,b) => parseInt(b[4],10)-parseInt(a[4],10));
+    else list = [...list].sort((a,b) => a[2]-b[2]);
+    const titles = { gaps: ['Where you are weakest','sorted by how little you hold, not by how long ago'],
+      decaying: ['Going stale','you held these once and the schedule says they are slipping'],
+      all: ['Every topic','across both surveyed projects, weakest first'] };
+    const counts = { gaps: this.all().filter((r) => r[2] < 0.6).length,
+      decaying: this.all().filter((r) => parseInt(r[4],10) > 10).length, all: this.all().length };
+    const chip = (id, label) => ({ label, n: String(counts[id]), pick: () => this.setState({ tab: id }),
+      bg: tab === id ? 'rgba(255,255,255,0.055)' : 'transparent',
+      fg: tab === id ? '#e2e5e4' : '#979e9d',
+      dot: tab === id ? A : 'rgba(255,255,255,0.14)' });
     return {
-      focusGaps: () => this.setState({ tab: 'gaps' }),
-      tabs: [chip('gaps', 'Gaps'), chip('decaying', 'Decaying'), chip('all', 'Everything')],
-      listTitle: titles[tab][0], listNote: titles[tab][1],
-      rows,
-      tiles: [
-        { label: 'Topics held', value: '31', fg: '#ece9e1', note: 'of 74 the surveys found' },
-        { label: 'Weak right now', value: '7', fg: '#ef5a5a', note: 'under 60 percent with evidence' },
-        { label: 'Never asked', value: '12', fg: accent, note: 'on the map, never drilled' },
-        { label: 'Day streak', value: '9', fg: '#58d68d', note: 'longest run was 23' },
-      ],
-      calib: [[0.15, 0.19], [0.3, 0.28], [0.45, 0.47], [0.6, 0.56], [0.78, 0.81], [0.92, 0.89]].map(([p, a]) => ({
-        x: 30 + p * 256, y: 150 - a * 138,
-        fill: Math.abs(p - a) > 0.06 ? 'rgba(239,90,90,0.25)' : 'rgba(242,181,68,0.25)',
-        stroke: Math.abs(p - a) > 0.06 ? '#ef5a5a' : accent,
-      })),
-      checks: [
-        { name: 'Typed short answer', value: '.71', bar: '71%', fg: '#58d68d', n: '61 asked' },
-        { name: 'Exact command', value: '.68', bar: '68%', fg: '#58d68d', n: '24 asked' },
-        { name: 'Order the steps', value: '.54', bar: '54%', fg: accent, n: '11 asked' },
-        { name: 'Multiple choice', value: '.31', bar: '31%', fg: '#ef5a5a', n: '7 asked' },
-      ],
+      tabs: [chip('gaps','Gaps'), chip('decaying','Decaying'), chip('all','Everything')],
+      title: titles[tab][0], note: titles[tab][1], focus: () => this.setState({ tab: 'gaps' }),
+      rows: list.map(([name,project,score,n,last]) => { const pct = Math.round(score*100);
+        const width = Math.max(8, Math.round(64/Math.sqrt(n+1))); const lo = Math.max(0, pct - Math.round(width/2));
+        return { name, project, score: pct + '%', last: last + ' ago', dot: tone(score),
+          bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%',
+          n: n + ' answers', n_fg: n < 4 ? '#e88d7d' : '#626a69', pick: () => this.setState({ tab: 'all' }) }; }),
+      tiles: [['Topics held','31','#e2e5e4','of 74 the surveys found'],
+              ['Weak right now','7','#e88d7d','under 60 with evidence'],
+              ['Never asked','12','#e8c97d','on the map, never drilled'],
+              ['Day streak','9',A,'longest run was 23']]
+        .map(([label,value,fg,note]) => ({ label, value, fg, note })),
+      calib: [[0.15,0.19],[0.3,0.28],[0.45,0.47],[0.6,0.56],[0.78,0.81],[0.92,0.89]]
+        .map(([p,a]) => ({ x: 26 + p*192, y: 126 - a*114,
+          fill: Math.abs(p-a) > 0.06 ? 'rgba(232,141,125,0.25)' : 'rgba(158,232,125,0.25)',
+          stroke: Math.abs(p-a) > 0.06 ? '#e88d7d' : A })),
+      checks: [['Typed short answer','.71','71%',A,'61 asked'],['Exact command','.68','68%',A,'24 asked'],
+               ['Order the steps','.54','54%','#e8c97d','11 asked'],['Multiple choice','.31','31%','#e88d7d','7 asked']]
+        .map(([name,v,bar,fg,n]) => ({ name, v, bar, fg, n })),
     };
   }
 }
