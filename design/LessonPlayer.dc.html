@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #0a0f0e; color: #ece9e1;
+      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+    a { color: #f2b544; } a:hover { color: #ece9e1; }
+    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: #6f7a76; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+    input { font: inherit; color: #ece9e1; background: #0a0f0e; border: 1px solid #1d2a26;
+      border-radius: 6px; padding: 11px 14px; width: 100%; outline: none; }
+    input:focus { border-color: #f2b544; }
+    input::placeholder { color: #3c4644; }
+    .prose { font-size: 16px; line-height: 1.68; color: #ece9e1; }
+    .step { cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; background: #0a0f0e;">
+
+  <div style="width: 264px; border-right: 1px solid #1d2a26; background: #0d1513; display: flex; flex-direction: column; padding: 24px 0;">
+    <div style="padding: 0 22px 18px;">
+      <div class="eyebrow" style="margin-bottom: 8px;">Lesson · raptor</div>
+      <div style="font-size: 16px; font-weight: 600; line-height: 1.35;">How a message reaches the other browser</div>
+    </div>
+    <div style="display: flex; flex-direction: column;">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+        <button onClick="{{s.pick}}" class="step" style="display: flex; gap: 12px; align-items: flex-start; padding: 9px 22px; text-align: left; width: 100%; background: {{s.bg}}; border-left: 2px solid {{s.edge}};">
+          <span class="mono" style="font-size: 11px; color: {{s.num_fg}}; width: 14px; flex-shrink: 0; padding-top: 2px;">{{s.num}}</span>
+          <span style="flex-grow: 1; font-size: 13px; line-height: 1.45; color: {{s.fg}};">{{s.label}}</span>
+          <span style="color: {{s.tick_fg}}; font-size: 12px; padding-top: 1px;">{{s.tick}}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="padding: 0 22px;">
+      <div style="height: 3px; border-radius: 2px; background: #1d2a26; overflow: hidden;">
+        <div style="height: 3px; width: {{pct}}; background: #f2b544;"></div>
+      </div>
+      <div class="mono" style="margin-top: 9px; font-size: 11px; color: #6f7a76;">{{pct}} through · {{mins}} left</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
+    <div style="width: 720px; padding: 56px 0 40px; display: flex; flex-direction: column; gap: 26px;">
+
+      <div>
+        <div class="eyebrow" style="margin-bottom: 12px;">Part {{step.num}} of 6</div>
+        <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25;">{{step.title}}</div>
+      </div>
+
+      <div class="prose">{{step.body}}</div>
+
+      <div style="border: 1px solid #1d2a26; border-radius: 10px; background: #0d1513; padding: 26px 24px;">
+        <svg viewBox="0 0 620 190" style="width: 100%; height: auto;">
+          <sc-for list="{{diagram.edges}}" as="e" hint-placeholder-count="4">
+            <g>
+              <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="1" stroke-dasharray="{{e.dash}}"/>
+              <text x="{{e.lx}}" y="{{e.ly}}" text-anchor="middle" fill="{{e.stroke}}" font-size="8" font-family="Geist Mono, monospace" letter-spacing="0.06em">{{e.label}}</text>
+            </g>
+          </sc-for>
+          <sc-for list="{{diagram.boxes}}" as="b" hint-placeholder-count="4">
+            <g>
+              <rect x="{{b.x}}" y="{{b.y}}" width="{{b.w}}" height="44" rx="6" fill="{{b.fill}}" stroke="{{b.stroke}}" stroke-width="1"/>
+              <text x="{{b.cx}}" y="{{b.ty}}" text-anchor="middle" fill="{{b.fg}}" font-size="12" font-weight="500" font-family="Geist, sans-serif">{{b.name}}</text>
+              <text x="{{b.cx}}" y="{{b.sy}}" text-anchor="middle" fill="#6f7a76" font-size="9" font-family="Geist Mono, monospace">{{b.sub}}</text>
+            </g>
+          </sc-for>
+        </svg>
+      </div>
+
+      <div style="border: 1px solid {{check.border}}; border-radius: 10px; padding: 22px; background: {{check.bg}}; display: flex; flex-direction: column; gap: 14px;">
+        <div class="eyebrow" style="color: {{check.eyebrow_fg}};">{{check.eyebrow}}</div>
+        <div style="font-size: 16px; line-height: 1.5; font-weight: 500;">{{check.question}}</div>
+
+        <sc-if value="{{check.open}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; gap: 10px;">
+            <input placeholder="Type the exact command"/>
+            <button onClick="{{submit}}" style="padding: 0 20px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; white-space: nowrap;">Check</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{check.done}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #58d68d;"></span>
+              <span style="color: #58d68d; font-weight: 500;">Right, and it is the ordering that matters</span>
+            </div>
+            <div class="mono" style="font-size: 13px; padding: 12px 14px; border-radius: 6px; background: #0a0f0e; border: 1px solid #1d2a26; color: #ece9e1;">SET lock:session:42 &lt;token&gt; NX EX 30</div>
+            <div style="color: #a9b0ac; line-height: 1.6; font-size: 13px;">Setting the value and the expiry in two commands leaves a window where the process can die holding a lock that never expires. One command removes the window.</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding-top: 6px;">
+        <button onClick="{{prev}}" style="padding: 10px 18px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">Back</button>
+        <button onClick="{{next}}" style="padding: 10px 22px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">{{nextLabel}}</button>
+        <div style="flex-grow: 1;"></div>
+        <span style="font-size: 12px; color: #6f7a76;">Every part ends with one question. Skipping it is the part that does not work.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { i: 2, answered: false };
+  }
+  parts() {
+    return [
+      { title: 'The two browsers never speak to each other', body: 'Every message a coach sends goes to the server first. There is no direct path between one browser and another, which is why a message can be lost in a place neither person can see.' },
+      { title: 'A room is a label, not a place', body: 'Joining a room adds a string to a set held on one server process. Nothing is allocated and nothing is moved. This is why a room stops working the moment there are two server processes.' },
+      { title: 'Redis is what makes two servers behave like one', body: 'When a coach on server A sends to a room, server A publishes the message on a Redis channel. Server B is subscribed, receives it, and delivers to its own sockets in that room. The adapter is the only reason a second process does not silently drop half your traffic.' },
+      { title: 'An acknowledgement is a callback with no timer', body: 'The sender passes a function. The server invokes it. If the server never does, nothing fires and nothing errors. The timeout is yours to write.' },
+      { title: 'A lock is how two servers avoid doing the same work twice', body: 'The set-if-absent-with-expiry command is one operation for a reason: two operations leave a gap where a crash strands a lock forever.' },
+      { title: 'What breaks first when you scale', body: 'Sticky sessions, the adapter, and any state you kept in a module-level variable. In that order, and usually on the day you add the second process.' },
+    ];
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#f2b544';
+    const i = this.state.i;
+    const parts = this.parts();
+    const part = parts[i];
+    const answered = this.state.answered;
+
+    const steps = parts.map((p, n) => {
+      const on = n === i;
+      const done = n < i;
+      return {
+        num: String(n + 1).padStart(2, '0'), label: p.title,
+        pick: () => this.setState({ i: n, answered: false }),
+        bg: on ? 'rgba(242,181,68,0.07)' : 'transparent',
+        edge: on ? accent : 'transparent',
+        fg: on ? '#ece9e1' : (done ? '#a9b0ac' : '#6f7a76'),
+        num_fg: on ? accent : '#3c4644',
+        tick: done ? '✓' : '',
+        tick_fg: '#58d68d',
+      };
+    });
+
+    const boxes = [
+      { x: 10,  w: 120, name: 'coach browser', sub: 'socket.io-client', focal: false },
+      { x: 180, w: 120, name: 'server A', sub: 'node process', focal: false },
+      { x: 350, w: 120, name: 'redis', sub: 'pub/sub channel', focal: true },
+      { x: 490, w: 120, name: 'server B', sub: 'node process', focal: false },
+    ].map((b) => ({
+      ...b, y: 72, cx: b.x + b.w / 2, ty: 99, sy: 114,
+      fill: b.focal ? 'rgba(242,181,68,0.12)' : '#0a0f0e',
+      stroke: b.focal ? accent : '#1d2a26',
+      fg: b.focal ? accent : '#ece9e1',
+    }));
+
+    const edges = [
+      { x1: 130, x2: 180, label: 'emit' },
+      { x1: 300, x2: 350, label: 'publish' },
+      { x1: 470, x2: 490, label: 'deliver' },
+    ].map((e) => ({ ...e, y1: 94, y2: 94, lx: (e.x1 + e.x2) / 2, ly: 86, stroke: '#a9b0ac', dash: '0' }));
+
+    const pct = Math.round(((i + 1) / parts.length) * 100);
+
+    return {
+      steps, pct: `${pct}%`, mins: `${Math.max(1, parts.length - i - 1) * 2} min`,
+      step: { num: i + 1, title: part.title, body: part.body },
+      diagram: { boxes, edges },
+      check: {
+        open: !answered, done: answered,
+        eyebrow: answered ? 'Checked' : 'Before you move on',
+        eyebrow_fg: answered ? '#58d68d' : accent,
+        border: answered ? '#1d2a26' : accent,
+        bg: answered ? '#0d1513' : 'rgba(242,181,68,0.06)',
+        question: 'Write the command that takes a lock only if nobody holds it, and gives it up after thirty seconds even if you crash.',
+      },
+      nextLabel: i === parts.length - 1 ? 'Finish and take the quiz' : 'Next part',
+      submit: () => this.setState({ answered: true }),
+      next: () => this.setState({ i: Math.min(parts.length - 1, i + 1), answered: false }),
+      prev: () => this.setState({ i: Math.max(0, i - 1), answered: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

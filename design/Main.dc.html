@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #0a0f0e; color: #ece9e1;
+      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+    a { color: #f2b544; } a:hover { color: #ece9e1; }
+    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: #6f7a76; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+    .node { cursor: pointer; }
+    .node:hover .ring { stroke: #f2b544; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0f0e;">
+
+  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; height: 56px; border-bottom: 1px solid #1d2a26; background: #0d1513;">
+    <div style="display: flex; align-items: baseline; gap: 10px;">
+      <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+      <span class="eyebrow">hub</span>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid #f2b544; border-radius: 6px; background: rgba(242,181,68,0.12);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f2b544" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span class="mono" style="font-size: 12px; color: #f2b544;">18 due</span>
+    </div>
+    <button style="padding: 5px 14px; border: 1px solid #1d2a26; border-radius: 6px; background: #0a0f0e;">Start drill</button>
+  </div>
+
+  <div style="display: flex; flex-grow: 1; min-height: 0;">
+
+    <div style="width: 232px; border-right: 1px solid #1d2a26; padding: 20px 0; display: flex; flex-direction: column; gap: 4px;">
+      <div class="eyebrow" style="padding: 0 20px 12px;">Projects</div>
+      <sc-for list="{{projects}}" as="p" hint-placeholder-count="4">
+        <button onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 10px; padding: 8px 20px; text-align: left; width: 100%;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: {{p.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; color: {{p.fg}};">{{p.name}}</span>
+          <span class="mono" style="font-size: 11px; color: #6f7a76;">{{p.due}}</span>
+        </button>
+      </sc-for>
+      <div style="flex-grow: 1;"></div>
+      <button style="margin: 0 20px; padding: 8px; border: 1px dashed #1d2a26; border-radius: 6px; color: #a9b0ac; font-size: 13px;">+ Survey a repository</button>
+    </div>
+
+    <div style="flex-grow: 1; position: relative; min-width: 0;">
+      <div style="position: absolute; top: 16px; left: 20px; display: flex; gap: 6px; z-index: 2;">
+        <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+          <button onClick="{{f.pick}}" class="mono" style="padding: 4px 11px; font-size: 11px; border-radius: 5px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}};">{{f.label}}</button>
+        </sc-for>
+      </div>
+
+      <svg viewBox="0 0 860 760" style="width: 100%; height: 100%;">
+        <sc-for list="{{edges}}" as="e" hint-placeholder-count="10">
+          <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="1"/>
+        </sc-for>
+        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
+          <g class="node" onClick="{{n.pick}}">
+            <circle class="ring" cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.fill}}" stroke="{{n.stroke}}" stroke-width="{{n.sw}}"/>
+            <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.inner}}" fill="{{n.bar}}" opacity="0.9"/>
+            <text x="{{n.x}}" y="{{n.ty}}" text-anchor="middle" fill="{{n.tfill}}" font-size="{{n.ts}}" font-family="Geist, sans-serif" font-weight="500">{{n.name}}</text>
+          </g>
+        </sc-for>
+      </svg>
+    </div>
+
+    <div style="width: 320px; border-left: 1px solid #1d2a26; padding: 24px 24px 0; display: flex; flex-direction: column; gap: 20px; background: #0d1513;">
+      <div>
+        <div class="eyebrow" style="margin-bottom: 10px;">{{sel.kind}}</div>
+        <div style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">{{sel.name}}</div>
+        <div style="margin-top: 8px; color: #a9b0ac; line-height: 1.55;">{{sel.blurb}}</div>
+      </div>
+
+      <div style="border: 1px solid #1d2a26; border-radius: 8px; padding: 16px; background: #0a0f0e;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <span class="eyebrow">Standing</span>
+          <span class="mono" style="font-size: 11px; color: {{sel.conf_fg}};">{{sel.conf}}</span>
+        </div>
+        <div style="margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 30px; font-weight: 600; font-family: 'Geist Mono', monospace; color: {{sel.score_fg}};">{{sel.score}}</span>
+          <span style="color: #6f7a76; font-size: 12px;">of this topic held</span>
+        </div>
+        <div style="height: 4px; border-radius: 2px; background: #1d2a26; overflow: hidden;">
+          <div style="height: 4px; width: {{sel.bar}}; background: {{sel.score_fg}};"></div>
+        </div>
+        <div style="margin-top: 12px; font-size: 12px; color: #6f7a76; line-height: 1.5;">{{sel.caveat}}</div>
+      </div>
+
+      <div>
+        <div class="eyebrow" style="margin-bottom: 10px;">Weakest here</div>
+        <sc-for list="{{sel.weak}}" as="w" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #1d2a26;">
+            <span style="width: 5px; height: 5px; border-radius: 50%; background: #ef5a5a;"></span>
+            <span style="flex-grow: 1; font-size: 13px;">{{w.name}}</span>
+            <span class="mono" style="font-size: 11px; color: #6f7a76;">{{w.last}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex-grow: 1;"></div>
+      <div style="display: flex; gap: 8px; padding-bottom: 24px;">
+        <button style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544;">Drill this</button>
+        <button style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #1d2a26;">Open map</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36","#82a0c0"]},"gapsOnly":{"editor":"boolean","default":false}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'socketio', filter: 'all' };
+  }
+  data() {
+    return {
+      raptor:   { kind: 'Project', name: 'raptor', blurb: 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', score: 0.61, conf: 'low confidence', weak: [['Ack timeouts','14d ago'],['Adapter fan-out','21d ago']] },
+      socketio: { kind: 'Topic', name: 'socket.io', blurb: 'How rooms, acknowledgements and the Redis adapter move a message between two browsers.', score: 0.74, conf: 'moderate confidence', weak: [['Ack timeouts','14d ago'],['Reconnection backoff','9d ago'],['Namespace vs room','31d ago']] },
+      acks:     { kind: 'Subtopic', name: 'acknowledgements', blurb: 'The callback the sender passes and the server invokes. Silent when the socket drops.', score: 0.38, conf: 'very low confidence', weak: [['Ack timeouts','14d ago']] },
+      redis:    { kind: 'Topic', name: 'redis', blurb: 'Locking, expiry and the pub/sub channel the socket adapter rides on.', score: 0.81, conf: 'moderate confidence', weak: [['SET NX EX','19d ago']] },
+      rls:      { kind: 'Topic', name: 'row-level security', blurb: 'Where the tenant boundary is actually enforced, and where it is only passed along.', score: 0.55, conf: 'low confidence', weak: [['Definer functions','6d ago'],['Policy vs handler','12d ago']] },
+    };
+  }
+  layout() {
+    return [
+      ['raptor',   430, 150, 34, 'project'],
+      ['socketio', 250, 330, 27, 'topic'],
+      ['redis',    600, 320, 27, 'topic'],
+      ['rls',      430, 520, 27, 'topic'],
+      ['acks',     140, 470, 19, 'sub'],
+      ['recon',    300, 500, 19, 'sub'],
+      ['setnx',    700, 460, 19, 'sub'],
+      ['definer',  330, 660, 19, 'sub'],
+      ['policy',   540, 665, 19, 'sub'],
+    ];
+  }
+  names() {
+    return { raptor: 'raptor', socketio: 'socket.io', redis: 'redis', rls: 'row-level security',
+      acks: 'acknowledgements', recon: 'reconnection', setnx: 'SET NX EX', definer: 'definer functions', policy: 'policy vs handler' };
+  }
+  scores() {
+    return { raptor: 0.61, socketio: 0.74, redis: 0.81, rls: 0.55, acks: 0.38, recon: 0.52, setnx: 0.79, definer: 0.44, policy: 0.58 };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#f2b544';
+    const gapsOnly = this.state.filter === 'gaps';
+    const data = this.data();
+    const names = this.names();
+    const scores = this.scores();
+    const pos = {};
+    for (const [id, x, y, r] of this.layout()) pos[id] = { x, y, r };
+
+    const edgeList = [['raptor','socketio'],['raptor','redis'],['raptor','rls'],['socketio','acks'],['socketio','recon'],['redis','setnx'],['rls','definer'],['rls','policy'],['socketio','redis']];
+    const edges = edgeList.map(([a, b]) => ({
+      x1: pos[a].x, y1: pos[a].y, x2: pos[b].x, y2: pos[b].y,
+      stroke: (this.state.sel === a || this.state.sel === b) ? 'rgba(242,181,68,0.55)' : '#1d2a26',
+    }));
+
+    const nodes = this.layout().map(([id, x, y, r, kind]) => {
+      const s = scores[id];
+      const weak = s < 0.6;
+      const dim = gapsOnly && !weak;
+      const on = this.state.sel === id;
+      return {
+        x, y, r, name: names[id],
+        inner: Math.max(3, r * s * 0.72),
+        bar: weak ? '#ef5a5a' : (s > 0.75 ? '#58d68d' : accent),
+        fill: on ? 'rgba(242,181,68,0.10)' : '#0d1513',
+        stroke: on ? accent : (dim ? '#141d1b' : '#1d2a26'),
+        sw: on ? 1.6 : 1,
+        ts: kind === 'project' ? 13 : (kind === 'topic' ? 12 : 11),
+        ty: y + r + 17,
+        tfill: dim ? '#3c4644' : (on ? '#ece9e1' : '#a9b0ac'),
+        pick: () => this.setState({ sel: id }),
+      };
+    });
+
+    const chip = (id, label) => {
+      const on = this.state.filter === id;
+      return { label, pick: () => this.setState({ filter: id }),
+        border: on ? accent : '#1d2a26', bg: on ? 'rgba(242,181,68,0.12)' : '#0d1513', fg: on ? accent : '#a9b0ac' };
+    };
+
+    const d = data[this.state.sel] ?? {
+      kind: 'Subtopic', name: names[this.state.sel], score: scores[this.state.sel],
+      blurb: 'One idea inside a larger topic. Open the map to see where it sits.',
+      conf: 'very low confidence', weak: [[names[this.state.sel], 'not yet asked']],
+    };
+    const pct = Math.round(d.score * 100);
+    const scoreFg = d.score < 0.6 ? '#ef5a5a' : (d.score > 0.75 ? '#58d68d' : accent);
+
+    return {
+      edges, nodes,
+      filters: [chip('all', 'Everything'), chip('gaps', 'Gaps only'), chip('due', 'Due today')],
+      projects: [
+        { name: 'raptor', due: '12', dot: '#ef5a5a', fg: '#ece9e1', pick: () => this.setState({ sel: 'raptor' }) },
+        { name: 'openreach-tools', due: '4', dot: accent, fg: '#a9b0ac', pick: () => this.setState({ sel: 'redis' }) },
+        { name: 'sparring', due: '2', dot: '#58d68d', fg: '#a9b0ac', pick: () => this.setState({ sel: 'rls' }) },
+        { name: 'portfolio', due: '0', dot: '#1d2a26', fg: '#6f7a76', pick: () => this.setState({ sel: 'socketio' }) },
+      ],
+      sel: {
+        kind: d.kind, name: d.name, blurb: d.blurb,
+        score: `${pct}%`, score_fg: scoreFg, bar: `${pct}%`,
+        conf: d.conf, conf_fg: d.score < 0.6 ? '#ef5a5a' : '#6f7a76',
+        caveat: 'Estimated from 9 answers. This number is a guess you can argue with, not a measurement.',
+        weak: d.weak.map(([name, last]) => ({ name, last })),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

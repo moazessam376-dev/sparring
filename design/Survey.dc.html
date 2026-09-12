@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #0a0f0e; color: #ece9e1;
+      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+    a { color: #f2b544; } a:hover { color: #ece9e1; }
+    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: #6f7a76; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input { font: inherit; color: #ece9e1; background: #0a0f0e; border: 1px solid #1d2a26;
+      border-radius: 6px; padding: 12px 14px; width: 100%; outline: none; }
+    input:focus { border-color: #f2b544; }
+    input::placeholder { color: #3c4644; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0f0e;">
+
+  <div style="display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px; border-bottom: 1px solid #1d2a26; background: #0d1513;">
+    <span class="mono" style="font-size: 15px; font-weight: 600;">sparring</span>
+    <span class="eyebrow">survey a repository</span>
+    <div style="flex-grow: 1;"></div>
+    <sc-for list="{{stages}}" as="s" hint-placeholder-count="3">
+      <button onClick="{{s.pick}}" style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid {{s.border}}; background: {{s.bg}}; color: {{s.fg}}; display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-size: 10px;">{{s.n}}</span>
+        <span class="mono" style="font-size: 11px; color: {{s.fg}};">{{s.label}}</span>
+      </button>
+      <span style="width: 26px; height: 1px; background: #1d2a26;"></span>
+    </sc-for>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
+    <div style="width: 860px; padding: 52px 0 40px; display: flex; flex-direction: column; gap: 26px;">
+
+      <sc-if value="{{stage.pick}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 26px;">
+          <div>
+            <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.015em;">Which repository?</div>
+            <div style="margin-top: 10px; color: #a9b0ac; line-height: 1.6; max-width: 620px;">Sparring reads the code to build a map of it. Nothing leaves your machine, and it only reads what your coding agent can already see.</div>
+          </div>
+          <input value="~/Projects/raptor" />
+          <div>
+            <div class="eyebrow" style="margin-bottom: 12px;">Or one it already found</div>
+            <div style="display: flex; flex-direction: column; gap: 1px; border: 1px solid #1d2a26; border-radius: 8px; overflow: hidden;">
+              <sc-for list="{{repos}}" as="r" hint-placeholder-count="4">
+                <button onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 14px; padding: 13px 16px; background: #0d1513; border-bottom: 1px solid #141d1b; width: 100%;">
+                  <span class="mono" style="flex-grow: 1; font-size: 13px;">{{r.path}}</span>
+                  <span class="mono" style="font-size: 11px; color: #6f7a76;">{{r.lang}}</span>
+                  <span class="mono" style="font-size: 11px; color: #3c4644;">{{r.size}}</span>
+                  <span class="mono" style="font-size: 11px; color: {{r.state_fg}};">{{r.state}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <button onClick="{{start}}" style="padding: 11px 24px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Survey it</button>
+            <span style="font-size: 12px; color: #6f7a76;">Takes a few minutes on a repository this size. You can leave it running.</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{stage.running}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 28px;">
+          <div>
+            <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.015em;">Reading raptor</div>
+            <div style="margin-top: 10px; color: #a9b0ac; line-height: 1.6;">Claude Code is doing the reading. Sparring is checking each claim it makes against the code before it reaches the map.</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <sc-for list="{{phases}}" as="p" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; gap: 14px; padding: 13px 18px; border: 1px solid {{p.border}}; border-radius: 8px; background: {{p.bg}};">
+                <span style="width: 16px; text-align: center; color: {{p.icon_fg}};">{{p.icon}}</span>
+                <span style="flex-grow: 1; color: {{p.fg}};">{{p.label}}</span>
+                <span class="mono" style="font-size: 11px; color: #6f7a76;">{{p.detail}}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
+            <div class="eyebrow" style="margin-bottom: 10px;">Checks that failed, and what happens to them</div>
+            <div style="color: #a9b0ac; line-height: 1.6; font-size: 13px;">Two claims did not survive. The agent said the worker pool reads from Postgres directly, and no import supports it. That part will appear on the map drawn as unverified rather than dropped, because a gap you can see is worth more than a tidy map that is wrong.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{stage.review}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div>
+            <div style="font-size: 27px; font-weight: 600; letter-spacing: -0.015em;">Does this look like your codebase?</div>
+            <div style="margin-top: 10px; color: #a9b0ac; line-height: 1.6; max-width: 660px;">You built it, so you are the only one who can tell. Nothing is saved until you say it is right, and correcting a part here is worth more than any drill.</div>
+          </div>
+
+          <div style="display: flex; gap: 16px;">
+            <div style="flex-grow: 1; border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
+              <div class="eyebrow" style="margin-bottom: 10px;">Parts found</div>
+              <div class="mono" style="font-size: 24px; font-weight: 600;">11</div>
+              <div style="margin-top: 4px; font-size: 12px; color: #6f7a76;">9 verified against imports and calls</div>
+            </div>
+            <div style="flex-grow: 1; border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
+              <div class="eyebrow" style="margin-bottom: 10px;">Constraints found</div>
+              <div class="mono" style="font-size: 24px; font-weight: 600; color: #f2b544;">3</div>
+              <div style="margin-top: 4px; font-size: 12px; color: #6f7a76;">each with an enforcement point in the code</div>
+            </div>
+            <div style="flex-grow: 1; border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
+              <div class="eyebrow" style="margin-bottom: 10px;">Not covered</div>
+              <div class="mono" style="font-size: 24px; font-weight: 600; color: #a9b0ac;">14%</div>
+              <div style="margin-top: 4px; font-size: 12px; color: #6f7a76;">mostly generated and vendored code</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="eyebrow" style="margin-bottom: 12px;">Confirm each part, or fix it</div>
+            <div style="border: 1px solid #1d2a26; border-radius: 8px; overflow: hidden;">
+              <sc-for list="{{claims}}" as="c" hint-placeholder-count="5">
+                <div style="display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #141d1b; background: {{c.bg}};">
+                  <span class="mono" style="width: 74px; flex-shrink: 0; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: {{c.tag_fg}}; padding-top: 3px;">{{c.tag}}</span>
+                  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-weight: 500;">{{c.name}}</span>
+                    <span style="color: #a9b0ac; font-size: 13px; line-height: 1.55;">{{c.sentence}}</span>
+                    <span class="mono" style="font-size: 11px; color: #3c4644;">{{c.file}}</span>
+                  </div>
+                  <button onClick="{{c.fix}}" class="mono" style="flex-shrink: 0; font-size: 11px; color: #f2b544; padding-top: 3px;">{{c.action}}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <button onClick="{{done}}" style="padding: 11px 24px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Save the map and start</button>
+            <button onClick="{{restart}}" style="padding: 11px 18px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">Survey again</button>
+            <div style="flex-grow: 1;"></div>
+            <span style="font-size: 12px; color: #6f7a76;">Saving also creates 24 questions. First one is in a minute.</span>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36"]},"stage":{"editor":"enum","default":"review","options":["pick","running","review"]}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { stage: null };
+  }
+  stage() {
+    return this.state.stage ?? this.props.stage ?? 'pick';
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#f2b544';
+    const stage = this.stage();
+    const order = ['pick', 'running', 'review'];
+    const at = order.indexOf(stage);
+
+    const stages = [['pick', 'Choose'], ['running', 'Read'], ['review', 'Confirm']].map(([id, label], i) => {
+      const on = i === at;
+      const done = i < at;
+      return { n: done ? '✓' : String(i + 1), label,
+        pick: () => this.setState({ stage: id }),
+        border: on || done ? accent : '#1d2a26',
+        bg: on ? 'rgba(242,181,68,0.14)' : 'transparent',
+        fg: on ? accent : (done ? '#a9b0ac' : '#6f7a76') };
+    });
+
+    const phases = [
+      ['done', 'Entry points from the build and the configuration', '4 found'],
+      ['done', 'Import and call graph', '312 files, 1,840 edges'],
+      ['done', 'Clustering into parts a person can hold', '11 parts'],
+      ['work', 'Finding the constraints that cross everything', '3 so far'],
+      ['todo', 'Checking each claim against the code', ''],
+      ['todo', 'Proposing topics and first questions', ''],
+    ].map(([s, label, detail]) => ({
+      label, detail,
+      icon: s === 'done' ? '✓' : (s === 'work' ? '●' : '○'),
+      icon_fg: s === 'done' ? '#58d68d' : (s === 'work' ? accent : '#3c4644'),
+      fg: s === 'todo' ? '#6f7a76' : '#ece9e1',
+      border: s === 'work' ? accent : '#1d2a26',
+      bg: s === 'work' ? 'rgba(242,181,68,0.06)' : '#0d1513',
+    }));
+
+    const claims = [
+      ['verified', 'realtime hub', 'Holds the open sockets and the room membership for one process. Everything it knows dies with that process.', 'server/realtime/hub.js:31'],
+      ['verified', 'policy layer', 'Row-level security policies, plus the elevated functions that deliberately bypass them.', 'db/policies/sessions.sql:42'],
+      ['constraint', 'tenant boundary', 'Every read must carry the tenant. The gateway passes it, the database enforces it.', 'db/policies/sessions.sql:42'],
+      ['unverified', 'worker pool', 'Claimed to read from Postgres directly. No import or call supports that.', 'workers/index.js:19'],
+      ['unverified', 'video cdn', 'Inferred from configuration. No code that signs a URL was found.', 'infra/cdn.tf:88'],
+    ].map(([tag, name, sentence, file]) => ({
+      tag, name, sentence, file,
+      action: tag === 'unverified' ? 'Fix or drop' : 'Edit',
+      tag_fg: tag === 'verified' ? '#58d68d' : (tag === 'constraint' ? accent : '#ef5a5a'),
+      bg: tag === 'unverified' ? 'rgba(239,90,90,0.04)' : '#0d1513',
+      fix: () => {},
+    }));
+
+    return {
+      stages, phases, claims,
+      stage: { pick: stage === 'pick', running: stage === 'running', review: stage === 'review' },
+      repos: [
+        { path: '~/Projects/raptor', lang: 'JavaScript', size: '312 files', state: 'surveyed 2d ago', state_fg: '#58d68d', pick: () => {} },
+        { path: '~/Projects/openreach-tools', lang: 'Python', size: '96 files', state: 'surveyed 3w ago', state_fg: '#f2b544', pick: () => {} },
+        { path: '~/Projects/sparring', lang: 'JavaScript', size: '18 files', state: 'never', state_fg: '#6f7a76', pick: () => {} },
+        { path: '~/Projects/portfolio', lang: 'TypeScript', size: '204 files', state: 'never', state_fg: '#6f7a76', pick: () => {} },
+      ],
+      start: () => this.setState({ stage: 'running' }),
+      done: () => this.setState({ stage: 'pick' }),
+      restart: () => this.setState({ stage: 'running' }),
+    };
+  }
+}
+</script>
+</body>
+</html>
