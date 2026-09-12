@@ -26,6 +26,48 @@ async function request(state, route, { method = 'GET', body } = {}) {
   return result;
 }
 
+test('the queue hides the grounding and /api/card/:id is the one route that hands it over', async () => {
+  process.env.SPARRING_NOW = '2026-03-10T09:00:00Z';
+  const state = openState(home());
+  try {
+    await request(state, '/api/projects', { method: 'POST', body: { project: 'raptor', name: 'Raptor', remote: null } });
+    await request(state, '/api/topics', { method: 'POST', body: [{
+      topic: 'auth', name: 'Authentication', parent: null, kind: 'concept', project: 'raptor',
+    }] });
+    // Both strings are distinctive enough that finding them anywhere in the
+    // serialised queue can only mean the queue put them there.
+    await request(state, '/api/cards', { method: 'POST', body: [{
+      id: 'c002', project: 'raptor', concept: 'Bearer token', ask: 'Why use a bearer token?',
+      rubric: ['THE RUBRIC LINE THAT DECIDES IT'], altitude: 'boundary', topics: ['auth'],
+      grounding: [{ path: 'server/WHERE-THE-ANSWER-LIVES.mjs', line: 42, commit: 'abc123' }],
+    }] });
+
+    // Interviewer rule three: the grounding file stays closed until the
+    // candidate has answered in their own words. The queue is asked before the
+    // question, so it may carry neither the answer nor the map to it.
+    const queue = await request(state, '/api/due?n=5');
+    assert.equal(queue.status, 200);
+    assert.equal(queue.body.length, 1);
+    assert.equal(Object.hasOwn(queue.body[0], 'grounding'), false);
+    assert.equal(Object.hasOwn(queue.body[0], 'rubric'), false);
+    const serialised = JSON.stringify(queue.body);
+    assert.equal(serialised.includes('WHERE-THE-ANSWER-LIVES'), false, 'the queue leaked the grounding file');
+    assert.equal(serialised.includes('THE RUBRIC LINE THAT DECIDES IT'), false);
+    // What it must still carry, or there is no question to ask.
+    assert.equal(queue.body[0].id, 'c002');
+    assert.equal(queue.body[0].ask, 'Why use a bearer token?');
+    assert.equal(queue.body[0].concept, 'Bearer token');
+    assert.equal(queue.body[0].altitude, 'boundary');
+
+    // The deliberate exception: this route is called after the commitment.
+    const full = await request(state, '/api/card/c002');
+    assert.deepEqual(full.body.rubric, ['THE RUBRIC LINE THAT DECIDES IT']);
+    assert.deepEqual(full.body.grounding, [{ path: 'server/WHERE-THE-ANSWER-LIVES.mjs', line: 42, commit: 'abc123' }]);
+  } finally {
+    delete process.env.SPARRING_NOW;
+  }
+});
+
 test('API serves health and returns JSON for unknown routes', async () => {
   const state = openState(home());
   assert.deepEqual((await request(state, '/api/health')).body, { ok: true, version: 1, node: process.version });
@@ -53,6 +95,7 @@ test('API wraps the core and due never exposes a rubric', async () => {
     assert.equal(due.status, 200);
     assert.equal(due.body.length, 1);
     assert.equal(Object.hasOwn(due.body[0], 'rubric'), false);
+    assert.equal(Object.hasOwn(due.body[0], 'grounding'), false);
     assert.equal(JSON.stringify(due.body).includes('the server authenticates the request'), false);
 
     const full = await request(state, '/api/card/c001');

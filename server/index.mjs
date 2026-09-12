@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { openState, refresh } from '../core/index.mjs';
 import { handle } from './api.mjs';
 import { handle as handleMcp } from './mcp.mjs';
-import { ensureToken, guard } from './auth.mjs';
+import { corsHeaders, ensureToken, guard, preflight } from './auth.mjs';
 
 // The core takes a home rather than resolving one, and the only other copy of
 // this rule lives in scripts/drill.mjs, which is a self-executing CLI and
@@ -24,6 +24,15 @@ function sendError(res, status, message) {
   if (res.headersSent) return;
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ error: message }));
+}
+
+// Set on the response before anything is dispatched, so that every answer this
+// server gives carries the allow-origin the webview needs in order to be
+// allowed to read it: the API's answers, the MCP endpoint's, and the guard's
+// own refusals alike. Node merges these with whatever writeHead is given
+// later, so no handler has to know about them.
+function applyCors(req, res) {
+  for (const [name, value] of Object.entries(corsHeaders(req))) res.setHeader(name, value);
 }
 
 function listen(server, port) {
@@ -59,6 +68,24 @@ export async function start({ home, port = 4517 } = {}) {
         sendError(res, 400, 'invalid URL');
         return;
       }
+      applyCors(req, res);
+
+      // A preflight is answered before the guard and before routing. The
+      // interface sends an Authorization header on every call, which is what
+      // forces the browser to preflight in the first place; running the guard
+      // first would refuse the tokenless preflight and the real request would
+      // never be sent. Nothing here reads or writes state, and there is no body.
+      const options = preflight(req);
+      if (options) {
+        if (options.status !== 204) {
+          sendError(res, options.status, options.message);
+          return;
+        }
+        res.writeHead(options.status, options.headers);
+        res.end();
+        return;
+      }
+
       const health = req.method === 'GET' && pathname === '/api/health';
       const guarded = health
         ? guard({ headers: { ...(req.headers ?? {}), authorization: `Bearer ${token}` } }, token)

@@ -22,16 +22,51 @@ const eviloriginres = await j('/api/due', { headers: { ...H, Origin: 'https://ev
 check('a non-loopback Origin is refused even with the token', eviloriginres.status === 403, 'got ' + eviloriginres.status);
 check('a loopback Origin is allowed', (await j('/api/due', { headers: { ...H, Origin: `http://127.0.0.1:${s.port}` } })).status === 200);
 
+// The packaged application is a Tauri webview and sends this exact Origin. Each
+// of these three was separately enough to make the shipped application fail.
+const TAURI = 'tauri://localhost';
+const tauriRes = await fetch(base + '/api/due', { headers: { ...H, Origin: TAURI } });
+check('the Origin a Tauri webview sends is allowed', tauriRes.status === 200, 'got ' + tauriRes.status);
+check('and the response echoes that origin back, or the webview discards it',
+  tauriRes.headers.get('access-control-allow-origin') === TAURI,
+  'got ' + tauriRes.headers.get('access-control-allow-origin'));
+const loopbackRes = await fetch(base + '/api/due', { headers: { ...H, Origin: `http://127.0.0.1:${s.port}` } });
+check('the dev origin is echoed back too', loopbackRes.headers.get('access-control-allow-origin') === `http://127.0.0.1:${s.port}`,
+  'got ' + loopbackRes.headers.get('access-control-allow-origin'));
+check('the echo is never a wildcard', loopbackRes.headers.get('access-control-allow-origin') !== '*');
+const logBefore = fs.existsSync(path.join(home, 'log.jsonl')) ? fs.readFileSync(path.join(home, 'log.jsonl'), 'utf8') : '';
+const pre = await fetch(base + '/api/due', { method: 'OPTIONS', headers: { Origin: TAURI, 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization, content-type' } });
+const preBody = await pre.text();
+check('the preflight an Authorization header forces succeeds without a token', pre.status === 204 || pre.status === 200, 'got ' + pre.status);
+check('the preflight answers the headers and methods it was asked about',
+  /authorization/i.test(pre.headers.get('access-control-allow-headers') ?? '') && /GET/.test(pre.headers.get('access-control-allow-methods') ?? ''),
+  (pre.headers.get('access-control-allow-headers') ?? 'none') + ' / ' + (pre.headers.get('access-control-allow-methods') ?? 'none'));
+check('the preflight carries no body', preBody === '', JSON.stringify(preBody).slice(0, 80));
+const logAfter = fs.existsSync(path.join(home, 'log.jsonl')) ? fs.readFileSync(path.join(home, 'log.jsonl'), 'utf8') : '';
+check('the preflight touched no state', logAfter === logBefore);
+const evilPre = await fetch(base + '/api/due', { method: 'OPTIONS', headers: { Origin: 'https://evil.example.com', 'access-control-request-method': 'GET' } });
+check('a hostile origin is still refused on the preflight', evilPre.status === 403, 'got ' + evilPre.status);
+check('and a hostile origin is never echoed back', evilPre.headers.get('access-control-allow-origin') === null);
+const evilTokenless = await fetch(base + '/api/due', { headers: { Origin: 'https://evil.example.com' } });
+check('a hostile origin without a token is refused too', evilTokenless.status === 403, 'got ' + evilTokenless.status);
+
 await post('/api/projects', { project: 'probe', name: 'Probe' });
 await post('/api/topics', [{ topic: 'locks', name: 'locks', parent: null, kind: 'technology', project: 'probe' }]);
 const added = await post('/api/cards', [{ card: 'p1', project: 'probe', concept: 'c', ask: 'a',
   rubric: ['THE SECRET RUBRIC LINE'], altitude: 'mechanism', topics: ['locks'],
-  grounding: [{ path: 'x.js', line: 1, commit: 'abc1234' }], contexts: ['probe'], source: { type: 'probe', ref: '1' } }]);
+  grounding: [{ path: 'src/WHERE-THE-ANSWER-LIVES.mjs', line: 1, commit: 'abc1234' }], contexts: ['probe'], source: { type: 'probe', ref: 'THE-SOURCE-REF' } }]);
 check('cards accepted', added.status === 200, added.body.slice(0, 160));
 const dueRes = await j('/api/due?n=5', { headers: H });
 check('the queue never carries a rubric', !dueRes.body.includes('SECRET') && !dueRes.body.includes('rubric'), dueRes.body.slice(0, 200));
+// Interviewer rule three: the grounding is the file and line the answer lives
+// on, so it stays closed until the candidate has answered in their own words.
+check('the queue never carries a grounding reference',
+  !dueRes.body.includes('WHERE-THE-ANSWER-LIVES') && !dueRes.body.includes('grounding'), dueRes.body.slice(0, 200));
+check('nor the source a card was cut from', !dueRes.body.includes('THE-SOURCE-REF'), dueRes.body.slice(0, 200));
+check('but it still carries the question to ask', JSON.parse(dueRes.body)[0]?.ask === 'a', dueRes.body.slice(0, 200));
 const cardRes = await j('/api/card/p1', { headers: H });
 check('the card route does carry the rubric, on purpose', cardRes.body.includes('SECRET'));
+check('and the grounding too, on purpose', cardRes.body.includes('WHERE-THE-ANSWER-LIVES'), cardRes.body.slice(0, 200));
 const att = await post('/api/attempt', { card: 'p1', grade: 'correct', mode: 'drill' });
 check('an attempt is recorded', att.status === 200, att.body.slice(0, 160));
 const st = await j('/api/standing?project=probe', { headers: H });
@@ -71,8 +106,11 @@ check('the tool list never carries a rubric', !listed.body.includes('SECRET'));
 
 const mcpDue = await tool('sparring_due', { n: 5 });
 check('the mcp queue never carries a rubric', !mcpDue.text.includes('SECRET') && !mcpDue.text.includes('rubric'), mcpDue.text.slice(0, 200));
+check('the mcp queue never carries a grounding reference either',
+  !mcpDue.text.includes('WHERE-THE-ANSWER-LIVES') && !mcpDue.text.includes('grounding'), mcpDue.text.slice(0, 200));
 const mcpRubric = await tool('sparring_rubric', { card: 'p1' });
 check('sparring_rubric does carry the rubric, on purpose', mcpRubric.text.includes('SECRET'), mcpRubric.text.slice(0, 200));
+check('and the grounding, on purpose', mcpRubric.text.includes('WHERE-THE-ANSWER-LIVES'), mcpRubric.text.slice(0, 200));
 
 const badLesson = await tool('sparring_author_lesson', { lesson: {
   version: 1, id: 'probe-lesson', project: 'probe', title: 'Broken', topics: ['locks'],

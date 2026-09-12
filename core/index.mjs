@@ -490,21 +490,37 @@ function interleave(rows, n, keys) {
   return selected;
 }
 
+// What a card may carry before it has been answered: enough to ask the question
+// and to say how it is scheduled, and nothing that says where the answer is.
+//
+// This is a list of names and not `c.*` on purpose. Selecting every column and
+// then deleting the secret ones is publish-by-default: it leaked `grounding`,
+// the file and line the answer lives on, to every queued card, and it would
+// leak the next column anyone adds to the cards table in the same way. Naming
+// the columns inverts that. A new column is private until someone puts it here.
+//
+// Deliberately absent: `rubric` and `grounding`, which are the answer and the
+// map to the answer, and `source`, whose ref points back at the survey claim or
+// the file a card was cut from. GET /api/card/:id is the one route that hands
+// over the rubric and the grounding, and it is called after the candidate has
+// committed to an answer. That is the exception, and it is the only one.
+const QUEUE_COLUMNS = ['id', 'project', 'concept', 'ask', 'altitude', 'contexts'];
+
 export function due(state, { n = 12, includeMature = false } = {}) {
   void includeMature;
   const limit = Math.max(0, Math.floor(Number(n)));
   if (limit === 0) return [];
   const date = today();
   const rows = state.db.prepare(`
-    select c.*, s.stability, s.fsrs_difficulty, s.due, s.reps, s.lapses, s.last_at, s.last_grade
+    select ${QUEUE_COLUMNS.map((column) => `c.${column}`).join(', ')},
+           s.stability, s.fsrs_difficulty, s.due, s.reps, s.lapses, s.last_at, s.last_grade
     from cards c
     left join card_sched s on s.card = c.id
     where c.retired = 0 and (s.due is null or s.due <= ?)
     order by (s.due is not null), s.due, c.id
   `).all(date);
   const keys = topicKeys(state.db, rows);
-  const selected = interleave(rows, limit, keys);
-  return selected.map(({ rubric, ...card }) => card);
+  return interleave(rows, limit, keys);
 }
 
 export function standing(state, projectId) {
