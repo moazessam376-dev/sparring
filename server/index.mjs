@@ -1,9 +1,20 @@
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openState, refresh } from '../core/index.mjs';
 import { handle } from './api.mjs';
+import { handle as handleMcp } from './mcp.mjs';
 import { ensureToken, guard } from './auth.mjs';
+
+// The core takes a home rather than resolving one, and the only other copy of
+// this rule lives in scripts/drill.mjs, which is a self-executing CLI and
+// cannot be imported. It is stated once here for the sidecar and exported so
+// nothing else has to restate it.
+export function stateHome() {
+  return process.env.SPARRING_HOME || path.join(os.homedir(), '.sparring');
+}
 
 function sendError(res, status, message) {
   if (res.headersSent) return;
@@ -53,7 +64,8 @@ export async function start({ home, port = 4517 } = {}) {
         return;
       }
       try {
-        await handle(state, req, res);
+        if (pathname === '/mcp') await handleMcp(state, req, res);
+        else await handle(state, req, res);
       } catch (error) {
         sendError(res, 500, error.message || 'internal server error');
       }
@@ -94,4 +106,49 @@ export async function start({ home, port = 4517 } = {}) {
       });
     },
   };
+}
+
+function isEntryPoint() {
+  const argument = process.argv[1];
+  if (typeof argument !== 'string' || argument === '') return false;
+  const real = (value) => {
+    try {
+      return fs.realpathSync(value);
+    } catch {
+      return path.resolve(value);
+    }
+  };
+  return real(fileURLToPath(import.meta.url)) === real(argument);
+}
+
+// The desktop shell spawns this file as a sidecar process, so running it as a
+// script has to start a server. Importing it must not: a test that imports
+// `start` and never calls it binds no port.
+export async function main() {
+  const server = await start({ home: stateHome() });
+  process.stdout.write(`sparring listening on http://127.0.0.1:${server.port}\n`);
+  let stopping = false;
+  const stop = (code) => {
+    if (stopping) return;
+    stopping = true;
+    // A half-closed database is how a derived cache gets corrupted, so the
+    // signal waits for close() rather than letting the process fall over.
+    server.close().then(
+      () => process.exit(code),
+      (error) => {
+        process.stderr.write(`${error.message || error}\n`);
+        process.exit(1);
+      },
+    );
+  };
+  process.on('SIGINT', () => stop(130));
+  process.on('SIGTERM', () => stop(0));
+  return server;
+}
+
+if (isEntryPoint()) {
+  main().catch((error) => {
+    process.stderr.write(`${error.stack || error.message || error}\n`);
+    process.exit(1);
+  });
 }
