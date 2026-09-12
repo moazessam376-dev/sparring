@@ -1,5 +1,5 @@
 import { start } from './index.mjs';
-import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
+import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import { execFileSync } from 'node:child_process';
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'probe-'));
 const s = await start({ home });
 const base = `http://127.0.0.1:${s.port}`;
@@ -37,6 +37,67 @@ check('an attempt is recorded', att.status === 200, att.body.slice(0, 160));
 const st = await j('/api/standing?project=probe', { headers: H });
 check('standing reflects it', st.status === 200 && st.body.includes('score'), st.body.slice(0, 160));
 check('an unknown route is a 404 in json', (await j('/api/nope', { headers: H })).status === 404);
+
+// The MCP endpoint, driven over real HTTP the way an agent drives it.
+const MH = { ...H, 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
+let rpcId = 0;
+const rpc = async (method, params, o = {}) => {
+  rpcId += 1;
+  const r = await fetch(base + '/mcp', { method: 'POST', headers: { ...MH, ...(o.headers ?? {}) }, body: JSON.stringify({ jsonrpc: '2.0', id: rpcId, method, params }) });
+  const body = await r.text();
+  return { status: r.status, body, json: body ? JSON.parse(body) : null };
+};
+const tool = async (name, args) => {
+  const r = await rpc('tools/call', { name, arguments: args });
+  const payload = r.json?.result;
+  const text = payload ? payload.content[0].text : '';
+  let value = text; try { value = JSON.parse(text); } catch { /* a refusal is a sentence */ }
+  return { ...r, isError: payload?.isError, text, value };
+};
+
+check('mcp without a token is refused', (await fetch(base + '/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status === 401);
+const mcpEvil = await fetch(base + '/mcp', { method: 'POST', headers: { ...MH, Origin: 'https://evil.example.com' }, body: '{}' });
+check('mcp with a non-loopback Origin is refused', mcpEvil.status === 403, 'got ' + mcpEvil.status);
+const init = await rpc('initialize', { protocolVersion: '2026-07-28', capabilities: {}, clientInfo: { name: 'probe', version: '1' } });
+check('mcp initializes at revision 2026-07-28', init.json?.result?.protocolVersion === '2026-07-28', init.body.slice(0, 200));
+const oldInit = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {} });
+check('an unsupported revision is refused with a clear error', oldInit.json?.error?.code === -32602 && oldInit.body.includes('2026-07-28'), oldInit.body.slice(0, 200));
+const mcpGet = await fetch(base + '/mcp', { headers: H });
+check('the legacy sse stream is not served on GET', mcpGet.status === 405, 'got ' + mcpGet.status);
+const listed = await rpc('tools/list', {});
+const toolNames = (listed.json?.result?.tools ?? []).map((t) => t.name).sort().join(',');
+check('mcp lists the ten promised tools', toolNames === 'sparring_add_cards,sparring_add_topics,sparring_author_lesson,sparring_contest,sparring_due,sparring_projects,sparring_record,sparring_rubric,sparring_survey_submit,sparring_topics', toolNames);
+check('the tool list never carries a rubric', !listed.body.includes('SECRET'));
+
+const mcpDue = await tool('sparring_due', { n: 5 });
+check('the mcp queue never carries a rubric', !mcpDue.text.includes('SECRET') && !mcpDue.text.includes('rubric'), mcpDue.text.slice(0, 200));
+const mcpRubric = await tool('sparring_rubric', { card: 'p1' });
+check('sparring_rubric does carry the rubric, on purpose', mcpRubric.text.includes('SECRET'), mcpRubric.text.slice(0, 200));
+
+const badLesson = await tool('sparring_author_lesson', { lesson: {
+  version: 1, id: 'probe-lesson', project: 'probe', title: 'Broken', topics: ['locks'],
+  created: '2026-09-12T00:00:00Z', blocks: [{ type: 'prose', heading: 'Hi' }, { type: 'nonsense' }] } });
+check('an invalid lesson is refused with the full error list',
+  badLesson.value?.ok === false && badLesson.value?.stored === false && badLesson.value.errors.length >= 3
+  && badLesson.value.errors.every((e) => 'block' in e && 'field' in e && 'message' in e),
+  JSON.stringify(badLesson.value).slice(0, 300));
+check('nothing was stored for the invalid lesson', !fs.existsSync(path.join(home, 'lessons')));
+
+const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'probe-repo-'));
+const git = (args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', env: { PATH: process.env.PATH, GIT_CONFIG_SYSTEM: '/dev/null', GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Probe', GIT_AUTHOR_EMAIL: 'probe@example.invalid', GIT_COMMITTER_NAME: 'Probe', GIT_COMMITTER_EMAIL: 'probe@example.invalid', LC_ALL: 'C' } });
+git(['init', '-q']); git(['symbolic-ref', 'HEAD', 'refs/heads/main']);
+fs.writeFileSync(path.join(repo, 'lock.mjs'), 'export function acquire() {\n  return true;\n}\n');
+git(['add', '-A']); git(['commit', '-q', '-m', 'first']);
+const head = git(['rev-parse', 'HEAD']).trim();
+const survey = await tool('sparring_survey_submit', { repo, commit: head, claims: [{
+  id: 'part-invented', type: 'part', status: 'verified', sentence: 'The renewal daemon lives here.',
+  path: 'daemon/renew.mjs', fromLine: 1, toLine: 4, commit: head, spanHash: null,
+  extractor: 'probe', unresolved: [], coverage: [] }] });
+const resolved = survey.value?.claims?.[0];
+check('a claim that cannot verify is kept, not dropped', survey.value?.claims?.length === 1, JSON.stringify(survey.value).slice(0, 300));
+check('it comes back with a real non-verified status', resolved?.status === 'contradicted' && resolved?.declaredStatus === 'verified', JSON.stringify(resolved).slice(0, 300));
+check('it is never counted as fact', survey.value?.summary?.shownAsFact === 0 && survey.value?.summary?.downgradedFromVerified === 1, JSON.stringify(survey.value?.summary).slice(0, 300));
+fs.rmSync(repo, { recursive: true, force: true });
 
 s.close();
 console.log(fail === 0 ? '\nALL PROBES PASSED' : `\n${fail} PROBE(S) FAILED`);
