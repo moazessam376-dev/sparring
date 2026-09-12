@@ -142,7 +142,7 @@
 </x-dc>
 <script data-dc-script data-props='{"accent":{"editor":"color","default":"#9ee87d","options":["#9ee87d","#7dd3e8","#e8c97d"]}}'>
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { sel: 'socketio', filter: 'all' }; }
+  constructor(props) { super(props); this.state = { sel: 'socketio', filter: 'all', project: 'raptor' }; }
   meta() {
     return {
       raptor:   ['Project', 'raptor', 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', 0.61, 31, [['Ack timeouts','14d'],['Adapter fan-out','21d']]],
@@ -193,12 +193,13 @@ class Component extends DCLogic {
     const lo = Math.max(0, pct - Math.round(width/2));
     return {
       nodes, edges, noop: () => {}, dueCount: '18',
-      shown: gaps ? '4 of 9 topics, the weak ones' : '9 topics across 1 project',
+      shown: gaps ? '5 of 8 topics, the weak ones' : '8 topics across 1 project',
       filters: [chip('all','Everything'), chip('gaps','Gaps only'), chip('due','Due today')],
-      projects: [['raptor','12',true],['openreach-tools','4',false],['sparring','2',false],['portfolio','0',false]]
-        .map(([nm,due,on]) => ({ name: nm, due, pick: () => this.setState({ sel: 'raptor' }),
-          bg: on ? 'rgba(255,255,255,0.055)' : 'transparent', fg: on ? '#e2e5e4' : '#979e9d',
-          dot: on ? accent : 'rgba(255,255,255,0.14)' })),
+      projects: [['raptor','12','raptor'],['openreach-tools','4','redis'],['sparring','2','rls'],['portfolio','0','socketio']]
+        .map(([nm,due,target]) => { const on = this.state.project === nm;
+          return { name: nm, due, pick: () => this.setState({ project: nm, sel: target }),
+            bg: on ? 'rgba(255,255,255,0.055)' : 'transparent', fg: on ? '#e2e5e4' : '#979e9d',
+            dot: on ? accent : 'rgba(255,255,255,0.14)' }; }),
       queue: [['acknowledgements','#e88d7d'],['definer functions','#e88d7d'],['redis adapter','#e8c97d'],['room membership','rgba(255,255,255,0.14)']]
         .map(([nm,bar]) => ({ name: nm, bar })),
       sel: { kind, name, blurb, score: pct + '%', fg: tone(score), n: n + ' answers',

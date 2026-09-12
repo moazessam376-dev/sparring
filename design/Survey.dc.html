@@ -193,9 +193,9 @@ class Component extends DCLogic {
           fg: s === 'todo' ? '#626a69' : '#e2e5e4',
           br: s === 'work' ? 'rgba(158,232,125,0.3)' : 'rgba(255,255,255,0.06)',
           bg: s === 'work' ? 'rgba(158,232,125,0.045)' : 'rgba(255,255,255,0.028)' })),
-      tiles: [['Parts found','11','#e2e5e4','9 verified against imports and calls'],
+      tiles: [['Parts found','11','#e2e5e4','8 verified against imports and calls'],
               ['Constraints','3','#9ee87d','each with an enforcement point'],
-              ['Not covered','14%','#e8c97d','mostly generated and vendored']]
+              ['Not inspected','6%','#e8c97d','plus 23% generated and vendored']]
         .map(([label,value,fg,note]) => ({ label, value, fg, note })),
       claims: [['verified','realtime hub','Holds the open sockets and the room membership for one process. Everything it knows dies with that process.','server/realtime/hub.js:31'],
                ['verified','policy layer','Row-level security policies, plus the elevated functions that deliberately bypass them.','db/policies/sessions.sql:42'],

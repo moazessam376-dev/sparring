@@ -98,7 +98,10 @@
           <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
             <button onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 15px; padding: 12px 17px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.04);">
               <span style="width: 5px; height: 5px; border-radius: 50%; background: {{r.dot}}; flex-shrink: 0;"></span>
-              <span style="width: 186px; flex-shrink: 0;">{{r.name}}</span>
+              <span style="width: 186px; flex-shrink: 0; display: flex; align-items: baseline; gap: 7px;">
+                <span>{{r.name}}</span>
+                <span class="m" style="font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: {{r.mark_fg}};">{{r.mark}}</span>
+              </span>
               <span class="m" style="width: 92px; flex-shrink: 0; font-size: 10.5px; color: #626a69;">{{r.project}}</span>
               <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
                 <span style="position: absolute; left: {{r.lo}}; width: {{r.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
@@ -118,8 +121,9 @@
             <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
               <div style="display: flex; align-items: center; gap: 11px; padding: 5px 0;">
                 <span style="width: 116px; flex-shrink: 0; font-size: 12.5px; color: #979e9d;">{{c.name}}</span>
-                <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06);">
-                  <span style="display: block; height: 3px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}};"></span>
+                <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+                  <span style="position: absolute; left: {{c.lo}}; width: {{c.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+                  <span style="position: absolute; left: 0; height: 3px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}}; display: block;"></span>
                 </span>
                 <span class="m" style="width: 30px; text-align: right; font-size: 10.5px; color: #626a69;">{{c.v}}</span>
                 <span class="m" style="width: 52px; text-align: right; font-size: 9.5px; color: #4a5150;">{{c.n}}</span>
@@ -136,11 +140,11 @@
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { tab: 'gaps' }; }
   all() { return [
-    ['acknowledgements','raptor',0.38,3,'14d'],['worker pool boundary','raptor',0.35,2,'21d'],
-    ['definer functions','raptor',0.44,5,'6d'],['reconnection backoff','raptor',0.52,4,'9d'],
-    ['policy vs handler','raptor',0.58,5,'12d'],['redis adapter fan-out','raptor',0.51,4,'8d'],
-    ['signed url expiry','openreach-tools',0.41,2,'30d'],['SET NX EX','raptor',0.79,7,'19d'],
-    ['room membership','raptor',0.74,6,'4d'],['jwt verification','openreach-tools',0.81,9,'11d']]; }
+    ['acknowledgements','raptor',0.38,3,'14d',0],['worker pool boundary','raptor',0.35,2,'21d',1],
+    ['definer functions','raptor',0.44,5,'6d',0],['reconnection backoff','raptor',0.52,4,'9d',0],
+    ['policy vs handler','raptor',0.58,5,'12d',0],['redis adapter fan-out','raptor',0.51,4,'8d',0],
+    ['signed url expiry','openreach-tools',0.41,2,'30d',1],['SET NX EX','raptor',0.79,7,'19d',0],
+    ['room membership','raptor',0.74,6,'4d',0],['jwt verification','openreach-tools',0.81,9,'11d',0]]; }
   renderVals() {
     const A = '#9ee87d'; const tab = this.state.tab;
     const tone = (s) => s < 0.6 ? '#e88d7d' : (s > 0.75 ? A : '#e8c97d');
@@ -160,10 +164,11 @@ class Component extends DCLogic {
     return {
       tabs: [chip('gaps','Gaps'), chip('decaying','Decaying'), chip('all','Everything')],
       title: titles[tab][0], note: titles[tab][1], focus: () => this.setState({ tab: 'gaps' }),
-      rows: list.map(([name,project,score,n,last]) => { const pct = Math.round(score*100);
+      rows: list.map(([name,project,score,n,last,unver]) => { const pct = Math.round(score*100);
         const width = Math.max(8, Math.round(64/Math.sqrt(n+1))); const lo = Math.max(0, pct - Math.round(width/2));
         return { name, project, score: pct + '%', last: last + ' ago', dot: tone(score),
           bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%',
+          mark: unver ? 'unverified' : '', mark_fg: '#e8c97d',
           n: n + ' answers', n_fg: n < 4 ? '#e88d7d' : '#626a69', pick: () => this.setState({ tab: 'all' }) }; }),
       tiles: [['Topics held','31','#e2e5e4','of 74 the surveys found'],
               ['Weak right now','7','#e88d7d','under 60 with evidence'],
@@ -174,9 +179,11 @@ class Component extends DCLogic {
         .map(([p,a]) => ({ x: 26 + p*192, y: 126 - a*114,
           fill: Math.abs(p-a) > 0.06 ? 'rgba(232,141,125,0.25)' : 'rgba(158,232,125,0.25)',
           stroke: Math.abs(p-a) > 0.06 ? '#e88d7d' : A })),
-      checks: [['Typed short answer','.71','71%',A,'61 asked'],['Exact command','.68','68%',A,'24 asked'],
-               ['Order the steps','.54','54%','#e8c97d','11 asked'],['Multiple choice','.31','31%','#e88d7d','7 asked']]
-        .map(([name,v,bar,fg,n]) => ({ name, v, bar, fg, n })),
+      checks: [['Typed short answer','.71',71,A,61],['Exact command','.68',68,A,24],
+               ['Order the steps','.54',54,'#e8c97d',11],['Multiple choice','.31',31,'#e88d7d',7]]
+        .map(([name,v,pct,fg,n]) => { const width = Math.max(6, Math.round(80/Math.sqrt(n+1)));
+          const lo = Math.max(0, pct - Math.round(width/2));
+          return { name, v, fg, n: n + ' asked', bar: pct + '%', lo: lo + '%', span: Math.min(width,100-lo) + '%' }; }),
     };
   }
 }
