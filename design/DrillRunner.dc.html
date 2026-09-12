@@ -7,182 +7,199 @@
 <body>
 <x-dc>
 <helmet>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
-    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
-    body { margin: 0; background: #0a0f0e; color: #ece9e1;
-      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
-    a { color: #f2b544; } a:hover { color: #ece9e1; }
-    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
-      text-transform: uppercase; color: #6f7a76; }
-    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-    textarea { font: inherit; color: #ece9e1; background: #0a0f0e; border: 1px solid #1d2a26;
-      border-radius: 8px; padding: 16px; width: 100%; resize: none; outline: none; line-height: 1.6; }
-    textarea:focus { border-color: #f2b544; }
-    textarea::placeholder { color: #3c4644; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
   </style>
 </helmet>
 
-<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0f0e;">
-
-  <div style="display: flex; align-items: center; gap: 20px; padding: 0 24px; height: 56px; border-bottom: 1px solid #1d2a26; background: #0d1513;">
-    <span class="mono" style="font-size: 15px; font-weight: 600;">sparring</span>
-    <span class="eyebrow">drill</span>
-    <div style="flex-grow: 1;"></div>
-    <sc-for list="{{pips}}" as="p" hint-placeholder-count="8">
-      <span style="width: 18px; height: 3px; border-radius: 2px; background: {{p.bg}};"></span>
-    </sc-for>
-    <span class="mono" style="font-size: 12px; color: #6f7a76; margin-left: 8px;">{{progress}}</span>
-    <button onClick="{{end}}" style="margin-left: 12px; padding: 5px 12px; border: 1px solid #1d2a26; border-radius: 6px; color: #a9b0ac;">End session</button>
-  </div>
-
-  <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
-    <div style="width: 780px; padding: 56px 0 40px; display: flex; flex-direction: column; gap: 28px;">
-
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span class="mono" style="font-size: 11px; padding: 3px 9px; border-radius: 4px; border: 1px solid #1d2a26; color: #a9b0ac;">{{card.project}}</span>
-        <span class="mono" style="font-size: 11px; padding: 3px 9px; border-radius: 4px; border: 1px solid {{card.alt_border}}; color: {{card.alt_fg}};">{{card.altitude}}</span>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
         <div style="flex-grow: 1;"></div>
-        <span class="eyebrow">{{card.topic}}</span>
+        <button onClick="{{end}}" class="lbl" style="letter-spacing: 0.1em;">End</button>
       </div>
 
-      <div style="font-size: 25px; line-height: 1.45; font-weight: 500; letter-spacing: -0.01em;">{{card.question}}</div>
+      <div class="lbl" style="padding: 0 16px 9px;">This session</div>
+      <div style="padding: 0 16px 4px; display: flex; gap: 3px;">
+        <sc-for list="{{pips}}" as="p" hint-placeholder-count="8">
+          <span style="flex-grow: 1; height: 3px; border-radius: 2px; background: {{p.bg}};"></span>
+        </sc-for>
+      </div>
+      <div class="m" style="padding: 8px 16px 0; font-size: 10.5px; color: #626a69;">{{progress}} &middot; {{elapsed}}</div>
 
-      <sc-if value="{{phase.asking}}" hint-placeholder-val="{{true}}">
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <textarea rows="7" placeholder="Answer in your own words. There are no hints, and asking for one is graded as not knowing."></textarea>
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <button onClick="{{commit}}" style="padding: 10px 22px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Commit answer</button>
-            <button onClick="{{dontknow}}" style="padding: 10px 16px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">I do not know</button>
-            <div style="flex-grow: 1;"></div>
-            <span class="aside" style="font-size: 12px;">Nothing is revealed until you commit.</span>
-          </div>
+      <div class="lbl" style="padding: 24px 16px 8px;">Answered</div>
+      <sc-for list="{{history}}" as="h" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{h.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 12.5px; color: #979e9d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.name}}</span>
+          <span class="m" style="font-size: 9.5px; color: #4a5150;">{{h.grade}}</span>
         </div>
-      </sc-if>
+      </sc-for>
 
-      <sc-if value="{{phase.graded}}" hint-placeholder-val="{{false}}">
-        <div style="display: flex; flex-direction: column; gap: 20px;">
+      <div style="flex-grow: 1;"></div>
+      <div class="panel" style="margin: 0 12px 0; padding: 12px 13px;">
+        <div class="lbl" style="margin-bottom: 7px;">Interleaved</div>
+        <div class="m" style="font-size: 10.5px; color: #979e9d; line-height: 1.6;">No two questions in a row come from one project. You have to work out which idea applies before you can answer.</div>
+      </div>
+    </div>
 
-          <div style="border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
-            <div class="eyebrow" style="margin-bottom: 8px;">Your answer</div>
-            <div style="color: #a9b0ac; line-height: 1.6;">{{answer}}</div>
-          </div>
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 20px; gap: 11px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <span class="lbl">raptor</span>
+        <span class="lbl" style="color: #343a39;">/</span>
+        <span class="lbl">socket.io / acknowledgements</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; padding: 3px 9px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.08); color: #626a69;">mechanism</span>
+      </div>
 
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="width: 9px; height: 9px; border-radius: 50%; background: {{grade.fg}};"></span>
-            <span style="font-size: 17px; font-weight: 600; color: {{grade.fg}};">{{grade.label}}</span>
-            <span style="color: #6f7a76;">{{grade.gap}}</span>
-          </div>
+      <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
+        <div style="width: 700px; padding: 52px 0 30px; display: flex; flex-direction: column; gap: 26px;">
 
-          <div style="border-left: 2px solid {{grade.fg}}; padding-left: 18px; display: flex; flex-direction: column; gap: 9px;">
-            <div class="eyebrow" style="margin-bottom: 2px;">What the answer had to contain</div>
-            <sc-for list="{{rubric}}" as="r" hint-placeholder-count="3">
-              <div style="display: flex; gap: 11px; align-items: flex-start;">
-                <span style="flex-shrink: 0; margin-top: 7px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid {{r.fg}}; background: {{r.bg}};"></span>
-                <span style="color: {{r.text_fg}}; line-height: 1.6;">{{r.text}}</span>
+          <div style="font-size: 25px; line-height: 1.36; font-weight: 600; letter-spacing: -0.018em;">A coach sends a session update and the server never calls the acknowledgement back. What does the coach&rsquo;s browser do, and how long does it wait?</div>
+
+          <sc-if value="{{asking}}" hint-placeholder-val="{{true}}">
+            <div class="rise" style="display: flex; flex-direction: column; gap: 14px;">
+              <textarea rows="6" placeholder="Answer in your own words. There are no hints, and asking for one is graded as not knowing."></textarea>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button onClick="{{commit}}" class="pill go" style="padding: 8px 18px;">Commit answer</button>
+                <button onClick="{{dunno}}" class="pill ghost" style="padding: 8px 14px;">I do not know</button>
+                <div style="flex-grow: 1;"></div>
+                <span class="m" style="font-size: 10.5px; color: #565d5c;">nothing is revealed until you commit</span>
               </div>
-            </sc-for>
-          </div>
+            </div>
+          </sc-if>
 
-          <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #1d2a26; border-radius: 8px; background: #0d1513;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6f7a76" stroke-width="1.7" stroke-linecap="round"><path d="M4 5h10l6 6v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M14 5v6h6"/></svg>
-            <span class="mono" style="font-size: 12px; color: #a9b0ac;">{{grounding.path}}</span>
-            <span class="mono" style="font-size: 11px; color: #3c4644;">@{{grounding.commit}}</span>
-            <div style="flex-grow: 1;"></div>
-            <button class="mono" style="font-size: 11px; color: #f2b544;">Open</button>
-          </div>
+          <sc-if value="{{graded}}" hint-placeholder-val="{{false}}">
+            <div class="rise" style="display: flex; flex-direction: column; gap: 20px;">
+              <div class="panel" style="padding: 14px 16px;">
+                <div class="lbl" style="margin-bottom: 7px;">Your answer</div>
+                <div style="color: #979e9d; line-height: 1.62;">The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.</div>
+              </div>
 
-          <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px;">
-            <button onClick="{{next}}" style="padding: 10px 22px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Next question</button>
-            <button onClick="{{contest}}" style="padding: 10px 16px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">I think this grade is wrong</button>
-            <div style="flex-grow: 1;"></div>
-            <span class="mono" style="font-size: 11px; color: #6f7a76;">next in {{nextdue}}</span>
-          </div>
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: {{grade.fg}}; box-shadow: 0 0 12px {{grade.glow}};"></span>
+                <span style="font-size: 16px; font-weight: 600; color: {{grade.fg}};">{{grade.label}}</span>
+                <span style="color: #626a69;">{{grade.gap}}</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column;">
+                <div class="lbl" style="margin-bottom: 10px;">What the answer had to contain</div>
+                <sc-for list="{{rubric}}" as="r" hint-placeholder-count="3">
+                  <div style="display: flex; gap: 13px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,0.055);">
+                    <span style="flex-shrink: 0; margin-top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid {{r.ring}}; background: {{r.fill}};"></span>
+                    <span style="flex-grow: 1; color: {{r.fg}}; line-height: 1.6;">{{r.text}}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div class="panel" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#626a69" stroke-width="1.7" stroke-linecap="round"><path d="M4 5h10l6 6v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M14 5v6h6"/></svg>
+                <span class="m" style="font-size: 11.5px; color: #979e9d;">server/realtime/session.js:118</span>
+                <span class="m" style="font-size: 10.5px; color: #4a5150;">a3f91c2</span>
+                <div style="flex-grow: 1;"></div>
+                <button onClick="{{noop}}" class="m" style="font-size: 11px; color: #9ee87d;">Open</button>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button onClick="{{next}}" class="pill go" style="padding: 8px 18px;">Next question</button>
+                <button onClick="{{contest}}" class="pill ghost" style="padding: 8px 14px;">This grade is wrong</button>
+                <div style="flex-grow: 1;"></div>
+                <span class="m" style="font-size: 10.5px; color: #565d5c;">again in {{again}}</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{contesting}}" hint-placeholder-val="{{false}}">
+            <div class="rise panel" style="padding: 20px; border-color: rgba(158,232,125,0.3); display: flex; flex-direction: column; gap: 15px;">
+              <div>
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px;">What should this have been graded?</div>
+                <div class="m" style="color: #626a69; line-height: 1.55; font-size: 11.5px;">The grader agrees with a human marker about two times in three. Your correction is kept beside its grade, never instead of it.</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <sc-for list="{{grades}}" as="g" hint-placeholder-count="3">
+                  <button onClick="{{g.pick}}" class="pill" style="padding: 7px 16px; border: 1px solid {{g.br}}; background: {{g.bg}}; color: {{g.fg}};">{{g.label}}</button>
+                </sc-for>
+                <div style="flex-grow: 1;"></div>
+                <button onClick="{{cancel}}" class="lbl" style="letter-spacing: 0.1em;">Cancel</button>
+              </div>
+            </div>
+          </sc-if>
         </div>
-      </sc-if>
-
-      <sc-if value="{{phase.contesting}}" hint-placeholder-val="{{false}}">
-        <div style="border: 1px solid #f2b544; border-radius: 8px; padding: 20px; background: rgba(242,181,68,0.06); display: flex; flex-direction: column; gap: 16px;">
-          <div>
-            <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">What should this have been graded?</div>
-            <div class="aside" style="line-height: 1.55; font-size: 13px;">The grader is a language model and agrees with a human marker roughly two times in three. Your correction is kept beside its grade, not instead of it, so both are visible later.</div>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <sc-for list="{{grades}}" as="g" hint-placeholder-count="3">
-              <button onClick="{{g.pick}}" style="padding: 8px 18px; border-radius: 6px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: {{g.fg}};">{{g.label}}</button>
-            </sc-for>
-            <div style="flex-grow: 1;"></div>
-            <button onClick="{{cancel}}" style="padding: 8px 14px; color: #6f7a76;">Cancel</button>
-          </div>
-        </div>
-      </sc-if>
-
+      </div>
     </div>
   </div>
 </div>
 </x-dc>
-
-<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36"]},"phase":{"editor":"enum","default":"asking","options":["asking","graded","contesting"]}}'>
+<script data-dc-script data-props='{"phase":{"editor":"enum","default":"asking","options":["asking","graded","contesting"]}}'>
 class Component extends DCLogic {
-  constructor(props) {
-    super(props);
-    this.state = { phase: null, grade: 'partial', i: 3 };
-  }
-  phase() {
-    return this.state.phase ?? this.props.phase ?? 'asking';
-  }
+  constructor(props) { super(props); this.state = { phase: null, grade: 'partial', i: 3 }; }
   renderVals() {
-    const accent = this.props.accent ?? '#f2b544';
-    const phase = this.phase();
-    const grade = this.state.grade;
-
-    const GRADES = {
-      correct: { label: 'Correct', fg: '#58d68d', gap: 'Held under the follow-up.' },
-      partial: { label: 'Partial', fg: accent, gap: 'You named the symptom, not the mechanism.' },
-      wrong:   { label: 'Wrong', fg: '#ef5a5a', gap: 'The enforcement point is not where you said.' },
+    const phase = this.state.phase ?? this.props.phase ?? 'asking';
+    const g = this.state.grade;
+    const G = {
+      correct: { label: 'Correct', fg: '#9ee87d', glow: 'rgba(158,232,125,0.5)', gap: 'Held under the follow-up.' },
+      partial: { label: 'Partial', fg: '#e8c97d', glow: 'rgba(232,201,125,0.45)', gap: 'You named the symptom, not the mechanism.' },
+      wrong:   { label: 'Wrong', fg: '#e88d7d', glow: 'rgba(232,141,125,0.45)', gap: 'The enforcement point is not where you said.' },
     };
-    const hit = { correct: [1, 1, 1], partial: [1, 0, 0], wrong: [0, 0, 0] }[grade];
-    const rubric = [
-      'The callback the sender passed is never invoked, so the sender waits forever',
-      'Socket.io has no built-in ack timeout, so the timer is the caller’s job',
-      'A reconnect does not replay the ack, so the message is lost silently',
-    ].map((text, i) => ({
-      text,
-      bg: hit[i] ? '#58d68d' : 'transparent',
-      fg: hit[i] ? '#58d68d' : '#3c4644',
-      text_fg: hit[i] ? '#a9b0ac' : '#ece9e1',
-    }));
-
-    const gradeChip = (id, label) => ({
-      label, pick: () => this.setState({ grade: id, phase: 'graded' }),
-      border: grade === id ? GRADES[id].fg : '#1d2a26',
-      bg: grade === id ? 'rgba(242,181,68,0.10)' : '#0a0f0e',
-      fg: grade === id ? GRADES[id].fg : '#a9b0ac',
-    });
-
+    const hit = { correct: [1,1,1], partial: [1,0,0], wrong: [0,0,0] }[g];
+    const chip = (id, label) => ({ label, pick: () => this.setState({ grade: id, phase: 'graded' }),
+      br: g === id ? G[id].fg : 'rgba(255,255,255,0.09)',
+      bg: g === id ? 'rgba(255,255,255,0.05)' : 'transparent',
+      fg: g === id ? G[id].fg : '#979e9d' });
     return {
-      phase: { asking: phase === 'asking', graded: phase === 'graded', contesting: phase === 'contesting' },
-      pips: [0, 1, 2, 3, 4, 5, 6, 7].map((n) => ({ bg: n < this.state.i ? accent : '#1d2a26' })),
-      progress: `${this.state.i + 1} of 18`,
-      card: {
-        project: 'raptor', topic: 'socket.io / acknowledgements',
-        altitude: 'mechanism', alt_border: '#1d2a26', alt_fg: '#6f7a76',
-        question: 'A coach sends a session update and the server never calls the acknowledgement back. What does the coach’s browser do, and how long does it wait?',
-      },
-      answer: 'The emit callback never fires so nothing happens on the client. I think it just hangs until the socket reconnects.',
-      grade: GRADES[grade],
-      rubric,
-      grounding: { path: 'server/realtime/session.js:118', commit: 'a3f91c2' },
-      nextdue: grade === 'correct' ? '4 days' : (grade === 'partial' ? '2 days' : 'tomorrow'),
-      grades: [gradeChip('correct', 'Correct'), gradeChip('partial', 'Partial'), gradeChip('wrong', 'Wrong')],
+      asking: phase === 'asking', graded: phase === 'graded', contesting: phase === 'contesting',
+      pips: [0,1,2,3,4,5,6,7].map((n) => ({ bg: n < this.state.i ? '#9ee87d' : 'rgba(255,255,255,0.08)' })),
+      progress: (this.state.i + 1) + ' of 18', elapsed: '6 min',
+      history: [['SET NX EX','correct','#9ee87d'],['room membership','correct','#9ee87d'],['policy vs handler','partial','#e8c97d']]
+        .map(([name,grade,dot]) => ({ name, grade, dot })),
+      grade: G[g],
+      rubric: [
+        'The callback the sender passed is never invoked, so the sender waits forever',
+        'Socket.io has no built-in acknowledgement timeout, so the timer is the caller\u2019s job',
+        'A reconnect does not replay the acknowledgement, so the message is lost silently',
+      ].map((text, i) => ({ text, ring: hit[i] ? '#9ee87d' : 'rgba(255,255,255,0.14)',
+        fill: hit[i] ? '#9ee87d' : 'transparent', fg: hit[i] ? '#626a69' : '#e2e5e4' })),
+      again: g === 'correct' ? '4 days' : (g === 'partial' ? '2 days' : 'tomorrow'),
+      grades: [chip('correct','Correct'), chip('partial','Partial'), chip('wrong','Wrong')],
       commit: () => this.setState({ phase: 'graded', grade: 'partial' }),
-      dontknow: () => this.setState({ phase: 'graded', grade: 'wrong' }),
+      dunno: () => this.setState({ phase: 'graded', grade: 'wrong' }),
       contest: () => this.setState({ phase: 'contesting' }),
       cancel: () => this.setState({ phase: 'graded' }),
       next: () => this.setState({ phase: 'asking', i: Math.min(7, this.state.i + 1) }),
       end: () => this.setState({ phase: 'asking', i: 0 }),
+      noop: () => {},
     };
   }
 }

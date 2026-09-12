@@ -7,221 +7,204 @@
 <body>
 <x-dc>
 <helmet>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
-    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
-    body { margin: 0; background: #0a0f0e; color: #ece9e1;
-      font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
-    a { color: #f2b544; } a:hover { color: #ece9e1; }
-    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .eyebrow { font-family: "Geist Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em;
-      text-transform: uppercase; color: #6f7a76; }
-    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-    .node { cursor: pointer; }
-    .node:hover .ring { stroke: #f2b544; }
+    body { margin: 0; color: #e2e5e4; font-family: "Archivo", system-ui, sans-serif; font-size: 13px; -webkit-font-smoothing: antialiased; }
+    a { color: #9ee87d; } a:hover { color: #e2e5e4; }
+    .m { font-family: "DM Mono", ui-monospace, monospace; font-weight: 300; }
+    .lbl { font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #626a69; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; text-align: left; }
+    input, textarea { font: inherit; color: #e2e5e4; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; padding: 11px 13px; width: 100%; outline: none; resize: none; }
+    input:focus, textarea:focus { border-color: rgba(158,232,125,0.45); background: rgba(158,232,125,0.04); }
+    input::placeholder, textarea::placeholder { color: #4a5150; }
+    .glass { background: rgba(24,26,27,0.58); backdrop-filter: blur(32px) saturate(135%); -webkit-backdrop-filter: blur(32px) saturate(135%); }
+    .glass-content { background: rgba(21,23,24,0.86); backdrop-filter: blur(44px) saturate(118%); -webkit-backdrop-filter: blur(44px) saturate(118%); }
+    .hair { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+    .panel { background: rgba(255,255,255,0.028); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+    .rail { border-right: 1px solid rgba(255,255,255,0.07); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 14px 0 38px rgba(0,0,0,0.24); }
+    .pill { border-radius: 7px; padding: 5px 11px; font-size: 12px; }
+    .go { background: rgba(158,232,125,0.13); border: 1px solid rgba(158,232,125,0.34); color: #9ee87d; }
+    .ghost { border: 1px solid rgba(255,255,255,0.09); color: #979e9d; }
+    @keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2.5%,1.5%,0) scale(1.06); } 100% { transform: translate3d(0,0,0) scale(1); } }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ground { animation: drift 54s ease-in-out infinite; }
+    .rise { animation: rise 420ms cubic-bezier(0.22,1,0.36,1) both; }
+    @media (prefers-reduced-motion: reduce) { .ground, .rise { animation: none; } }
   </style>
 </helmet>
 
-<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #0a0f0e;">
-
-  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; height: 56px; border-bottom: 1px solid #1d2a26; background: #0d1513;">
-    <div style="display: flex; align-items: baseline; gap: 10px;">
-      <span style="font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
-      <span class="eyebrow">hub</span>
-    </div>
-    <div style="flex-grow: 1;"></div>
-    <div style="display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid #f2b544; border-radius: 6px; background: rgba(242,181,68,0.12);">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f2b544" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      <span class="mono" style="font-size: 12px; color: #f2b544;">18 due</span>
-    </div>
-    <button onClick="{{focusWeakest}}" style="padding: 5px 14px; border: 1px solid #1d2a26; border-radius: 6px; background: #0a0f0e;">Start drill</button>
-  </div>
-
-  <div style="display: flex; flex-grow: 1; min-height: 0;">
-
-    <div style="width: 232px; border-right: 1px solid #1d2a26; padding: 20px 0; display: flex; flex-direction: column; gap: 4px;">
-      <div class="eyebrow" style="padding: 0 20px 12px;">Projects</div>
+<div style="width: 1440px; height: 900px; position: relative; overflow: hidden; background: #0b0c0c;">
+  <div class="ground" style="position: absolute; inset: -8%; background:
+      radial-gradient(880px 620px at 12% 4%, rgba(158,232,125,0.13), transparent 62%),
+      radial-gradient(820px 600px at 82% 10%, rgba(150,168,172,0.15), transparent 60%),
+      radial-gradient(760px 720px at 58% 104%, rgba(120,140,128,0.11), transparent 64%),
+      radial-gradient(520px 420px at 96% 78%, rgba(158,232,125,0.07), transparent 60%);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.038; background-image: radial-gradient(#ffffff 0.5px, transparent 0.5px); background-size: 3px 3px;"></div>
+  <div style="position: relative; height: 100%; display: flex;">
+    <div class="glass rail" style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; padding: 18px 0;">
+      <div style="display: flex; align-items: center; gap: 9px; padding: 0 16px 18px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(150deg, #9ee87d, #4e8f5e); box-shadow: 0 0 20px rgba(158,232,125,0.34), inset 0 1px 0 rgba(255,255,255,0.35); flex-shrink: 0;"></span>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">sparring</span>
+        <div style="flex-grow: 1;"></div>
+        <span class="m" style="font-size: 10px; color: #9ee87d;">{{dueCount}}</span>
+      </div>
+      <div class="lbl" style="padding: 0 16px 7px;">Projects</div>
       <sc-for list="{{projects}}" as="p" hint-placeholder-count="4">
-        <button onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 10px; padding: 8px 20px; text-align: left; width: 100%;">
-          <span style="width: 7px; height: 7px; border-radius: 50%; background: {{p.dot}}; flex-shrink: 0;"></span>
-          <span style="flex-grow: 1; color: {{p.fg}};">{{p.name}}</span>
-          <span class="mono" style="font-size: 11px; color: #6f7a76;">{{p.due}}</span>
+        <button onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 7px 9px; border-radius: 7px; background: {{p.bg}}; width: calc(100% - 16px);">
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: {{p.dot}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; color: {{p.fg}}; font-size: 13px;">{{p.name}}</span>
+          <span class="m" style="font-size: 10px; color: #626a69;">{{p.due}}</span>
+        </button>
+      </sc-for>
+      <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 8px; margin: 8px 8px 0; padding: 7px 9px; border-radius: 7px; width: calc(100% - 16px); color: #626a69; font-size: 12.5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#626a69" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Survey a repository
+      </button>
+
+      <div class="lbl" style="padding: 22px 16px 8px;">Due now</div>
+      <sc-for list="{{queue}}" as="q" hint-placeholder-count="4">
+        <button onClick="{{noop}}" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px; width: 100%;">
+          <span style="width: 3px; height: 13px; border-radius: 2px; background: {{q.bar}}; flex-shrink: 0;"></span>
+          <span style="flex-grow: 1; font-size: 12.5px; color: #979e9d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{q.name}}</span>
         </button>
       </sc-for>
       <div style="flex-grow: 1;"></div>
-      <button onClick="{{focusWeakest}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 20px; padding: 8px; border: 1px dashed #1d2a26; border-radius: 6px; color: #a9b0ac; font-size: 13px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a9b0ac" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Survey a repository
-      </button>
+      <button onClick="{{noop}}" class="pill go" style="margin: 0 12px; text-align: center;">Start drill</button>
     </div>
 
-    <div style="flex-grow: 1; position: relative; min-width: 0;">
-      <div style="position: absolute; top: 16px; left: 20px; display: flex; gap: 6px; z-index: 2;">
+    <div class="glass-content" style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div class="glass hair" style="height: 46px; flex-shrink: 0; display: flex; align-items: center; padding: 0 18px; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.06);">
         <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
-          <button onClick="{{f.pick}}" class="mono" style="padding: 4px 11px; font-size: 11px; border-radius: 5px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}};">{{f.label}}</button>
+          <button onClick="{{f.pick}}" class="m" style="font-size: 10.5px; padding: 4px 11px; border-radius: 6px; background: {{f.bg}}; color: {{f.fg}}; border: 1px solid {{f.br}};">{{f.label}}</button>
         </sc-for>
+        <div style="flex-grow: 1;"></div>
+        <span class="lbl">{{shown}}</span>
       </div>
 
-      <svg viewBox="0 0 860 760" style="width: 100%; height: 100%;">
-        <sc-for list="{{edges}}" as="e" hint-placeholder-count="10">
-          <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="1"/>
-        </sc-for>
-        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
-          <g class="node" onClick="{{n.pick}}">
-            <circle class="ring" cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.fill}}" stroke="{{n.stroke}}" stroke-width="{{n.sw}}"/>
-            <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.inner}}" fill="{{n.bar}}" opacity="0.9"/>
-            <text x="{{n.x}}" y="{{n.ty}}" text-anchor="middle" fill="{{n.tfill}}" font-size="{{n.ts}}" font-family="Geist, sans-serif" font-weight="500">{{n.name}}</text>
-          </g>
-        </sc-for>
-      </svg>
-    </div>
-
-    <div style="width: 320px; border-left: 1px solid #1d2a26; padding: 24px 24px 0; display: flex; flex-direction: column; gap: 20px; background: #0d1513;">
-      <div>
-        <div class="eyebrow" style="margin-bottom: 10px;">{{sel.kind}}</div>
-        <div style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">{{sel.name}}</div>
-        <div style="margin-top: 8px; color: #a9b0ac; line-height: 1.55;">{{sel.blurb}}</div>
-      </div>
-
-      <div style="border: 1px solid #1d2a26; border-radius: 8px; padding: 16px; background: #0a0f0e;">
-        <div style="display: flex; align-items: baseline; justify-content: space-between;">
-          <span class="eyebrow">Standing</span>
-          <span class="mono" style="font-size: 11px; color: {{sel.conf_fg}};">{{sel.conf}}</span>
+      <div style="flex-grow: 1; display: flex; min-height: 0;">
+        <div style="flex-grow: 1; min-width: 0; position: relative;">
+          <svg viewBox="0 0 820 760" style="width: 100%; height: 100%;">
+            <sc-for list="{{edges}}" as="e" hint-placeholder-count="10">
+              <line x1="{{e.x1}}" y1="{{e.y1}}" x2="{{e.x2}}" y2="{{e.y2}}" stroke="{{e.stroke}}" stroke-width="{{e.w}}"/>
+            </sc-for>
+            <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
+              <g onClick="{{n.pick}}" style="cursor: pointer;">
+                <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.glow}}" fill="{{n.glowFill}}"/>
+                <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.r}}" fill="{{n.fill}}" stroke="{{n.stroke}}" stroke-width="{{n.sw}}"/>
+                <circle cx="{{n.x}}" cy="{{n.y}}" r="{{n.inner}}" fill="{{n.bar}}"/>
+                <text x="{{n.x}}" y="{{n.ty}}" text-anchor="middle" fill="{{n.tfill}}" font-size="{{n.ts}}" font-family="Archivo, sans-serif" font-weight="500">{{n.name}}</text>
+              </g>
+            </sc-for>
+          </svg>
         </div>
-        <div style="margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px;">
-          <span style="font-size: 30px; font-weight: 600; font-family: 'Geist Mono', monospace; color: {{sel.score_fg}};">{{sel.score}}</span>
-          <span style="color: #6f7a76; font-size: 12px;">of this topic held</span>
-        </div>
-        <div style="height: 4px; border-radius: 2px; background: #1d2a26; overflow: hidden;">
-          <div style="height: 4px; width: {{sel.bar}}; background: {{sel.score_fg}};"></div>
-        </div>
-        <div class="aside" style="margin-top: 12px; font-size: 12px; line-height: 1.5;">{{sel.caveat}}</div>
-      </div>
 
-      <div>
-        <div class="eyebrow" style="margin-bottom: 10px;">Weakest here</div>
-        <sc-for list="{{sel.weak}}" as="w" hint-placeholder-count="3">
-          <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #1d2a26;">
-            <span style="width: 5px; height: 5px; border-radius: 50%; background: #ef5a5a;"></span>
-            <span style="flex-grow: 1; font-size: 13px;">{{w.name}}</span>
-            <span class="mono" style="font-size: 11px; color: #6f7a76;">{{w.last}}</span>
+        <div style="width: 322px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.06); padding: 24px 22px 0; display: flex; flex-direction: column; gap: 20px;">
+          <div class="rise">
+            <div class="lbl" style="margin-bottom: 9px;">{{sel.kind}}</div>
+            <div style="font-size: 20px; font-weight: 600; letter-spacing: -0.014em;">{{sel.name}}</div>
+            <div style="margin-top: 9px; color: #979e9d; line-height: 1.6;">{{sel.blurb}}</div>
           </div>
-        </sc-for>
-      </div>
-
-      <div style="flex-grow: 1;"></div>
-      <div style="display: flex; gap: 8px; padding-bottom: 24px;">
-        <button onClick="{{focusWeakest}}" style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544;">Drill this</button>
-        <button onClick="{{openProject}}" style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #1d2a26;">Open map</button>
+          <div class="panel" style="padding: 15px 16px;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <span class="m" style="font-size: 26px; color: {{sel.fg}};">{{sel.score}}</span>
+              <span class="lbl" style="letter-spacing: 0.06em;">held</span>
+              <div style="flex-grow: 1;"></div>
+              <span class="m" style="font-size: 10px; color: #626a69;">{{sel.n}}</span>
+            </div>
+            <div style="margin-top: 11px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.06); position: relative;">
+              <span style="position: absolute; left: {{sel.lo}}; width: {{sel.span}}; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); display: block;"></span>
+              <span style="position: absolute; left: 0; width: {{sel.bar}}; height: 3px; border-radius: 2px; background: {{sel.fg}}; display: block;"></span>
+            </div>
+            <div class="m" style="margin-top: 9px; font-size: 10.5px; color: #565d5c; line-height: 1.5;">{{sel.caveat}}</div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom: 10px;">Weakest here</div>
+            <sc-for list="{{sel.weak}}" as="w" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.05);">
+                <span style="width: 4px; height: 4px; border-radius: 50%; background: #e88d7d;"></span>
+                <span style="flex-grow: 1; font-size: 12.5px;">{{w.name}}</span>
+                <span class="m" style="font-size: 10px; color: #626a69;">{{w.last}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div style="display: flex; gap: 8px; padding-bottom: 22px;">
+            <button onClick="{{noop}}" class="pill go" style="flex-grow: 1; text-align: center;">Drill this</button>
+            <button onClick="{{noop}}" class="pill ghost" style="flex-grow: 1; text-align: center;">Open map</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 </x-dc>
-
-<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36","#82a0c0"]}}'>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#9ee87d","options":["#9ee87d","#7dd3e8","#e8c97d"]}}'>
 class Component extends DCLogic {
-  constructor(props) {
-    super(props);
-    this.state = { sel: 'socketio', filter: 'all' };
-  }
-  data() {
+  constructor(props) { super(props); this.state = { sel: 'socketio', filter: 'all' }; }
+  meta() {
     return {
-      raptor:   { kind: 'Project', name: 'raptor', n: 31, blurb: 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', score: 0.61, conf: 'low confidence', weak: [['Ack timeouts','14d ago'],['Adapter fan-out','21d ago']] },
-      socketio: { kind: 'Topic', name: 'socket.io', n: 9, blurb: 'How rooms, acknowledgements and the Redis adapter move a message between two browsers.', score: 0.74, conf: 'moderate confidence', weak: [['Ack timeouts','14d ago'],['Reconnection backoff','9d ago'],['Namespace vs room','31d ago']] },
-      acks:     { kind: 'Subtopic', name: 'acknowledgements', n: 3, blurb: 'The callback the sender passes and the server invokes. Silent when the socket drops.', score: 0.38, conf: 'very low confidence', weak: [['Ack timeouts','14d ago']] },
-      redis:    { kind: 'Topic', name: 'redis', n: 12, blurb: 'Locking, expiry and the pub/sub channel the socket adapter rides on.', score: 0.81, conf: 'moderate confidence', weak: [['SET NX EX','19d ago']] },
-      rls:      { kind: 'Topic', name: 'row-level security', n: 7, blurb: 'Where the tenant boundary is actually enforced, and where it is only passed along.', score: 0.55, conf: 'low confidence', weak: [['Definer functions','6d ago'],['Policy vs handler','12d ago']] },
+      raptor:   ['Project', 'raptor', 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', 0.61, 31, [['Ack timeouts','14d'],['Adapter fan-out','21d']]],
+      socketio: ['Topic', 'socket.io', 'How rooms, acknowledgements and the Redis adapter move a message between two browsers.', 0.74, 9, [['Ack timeouts','14d'],['Reconnection backoff','9d'],['Namespace vs room','31d']]],
+      redis:    ['Topic', 'redis', 'Locking, expiry and the pub/sub channel the socket adapter rides on.', 0.81, 12, [['SET NX EX','19d']]],
+      rls:      ['Topic', 'row-level security', 'Where the tenant boundary is enforced, and where it is only passed along.', 0.55, 7, [['Definer functions','6d'],['Policy vs handler','12d']]],
+      acks:     ['Subtopic', 'acknowledgements', 'The callback the sender passes and the server invokes. Silent when the socket drops.', 0.38, 3, [['Ack timeouts','14d']]],
+      recon:    ['Subtopic', 'reconnection', 'What the client retries, and what it quietly gives up on.', 0.52, 4, [['Backoff window','9d']]],
+      setnx:    ['Subtopic', 'SET NX EX', 'One command because two leave a window where a crash strands the lock.', 0.79, 6, [['Token check','19d']]],
+      definer:  ['Subtopic', 'definer functions', 'Elevated functions that must fence themselves, because policies do not apply inside.', 0.44, 5, [['Caller check','6d']]],
+      policy:   ['Subtopic', 'policy vs handler', 'Which of the two is the enforcement point, and which only carries context.', 0.58, 4, [['Enforcement point','12d']]],
     };
   }
   layout() {
-    return [
-      ['raptor',   430, 150, 34, 'project'],
-      ['socketio', 250, 330, 27, 'topic'],
-      ['redis',    600, 320, 27, 'topic'],
-      ['rls',      430, 520, 27, 'topic'],
-      ['acks',     140, 470, 19, 'sub'],
-      ['recon',    300, 500, 19, 'sub'],
-      ['setnx',    700, 460, 19, 'sub'],
-      ['definer',  330, 660, 19, 'sub'],
-      ['policy',   540, 665, 19, 'sub'],
-    ];
-  }
-  names() {
-    return { raptor: 'raptor', socketio: 'socket.io', redis: 'redis', rls: 'row-level security',
-      acks: 'acknowledgements', recon: 'reconnection', setnx: 'SET NX EX', definer: 'definer functions', policy: 'policy vs handler' };
-  }
-  scores() {
-    return { raptor: 0.61, socketio: 0.74, redis: 0.81, rls: 0.55, acks: 0.38, recon: 0.52, setnx: 0.79, definer: 0.44, policy: 0.58 };
+    return [['raptor',410,140,32,'p'],['socketio',236,318,25,'t'],['redis',572,306,25,'t'],['rls',410,496,25,'t'],
+      ['acks',128,452,17,'s'],['recon',288,486,17,'s'],['setnx',668,444,17,'s'],['definer',310,636,17,'s'],['policy',516,640,17,'s']];
   }
   renderVals() {
-    const accent = this.props.accent ?? '#f2b544';
-    const gapsOnly = this.state.filter === 'gaps';
-    const data = this.data();
-    const names = this.names();
-    const scores = this.scores();
-    const pos = {};
-    for (const [id, x, y, r] of this.layout()) pos[id] = { x, y, r };
+    const accent = this.props.accent ?? '#9ee87d';
+    const meta = this.meta();
+    const gaps = this.state.filter === 'gaps';
+    const pos = {}; for (const [id,x,y] of this.layout()) pos[id] = {x,y};
+    const el = [['raptor','socketio'],['raptor','redis'],['raptor','rls'],['socketio','acks'],['socketio','recon'],['redis','setnx'],['rls','definer'],['rls','policy'],['socketio','redis']];
+    const tone = (s) => s < 0.6 ? '#e88d7d' : (s > 0.75 ? accent : '#e8c97d');
 
-    const edgeList = [['raptor','socketio'],['raptor','redis'],['raptor','rls'],['socketio','acks'],['socketio','recon'],['redis','setnx'],['rls','definer'],['rls','policy'],['socketio','redis']];
-    const edges = edgeList.map(([a, b]) => ({
-      x1: pos[a].x, y1: pos[a].y, x2: pos[b].x, y2: pos[b].y,
-      stroke: (this.state.sel === a || this.state.sel === b) ? 'rgba(242,181,68,0.55)' : '#1d2a26',
-    }));
-
-    const nodes = this.layout().map(([id, x, y, r, kind]) => {
-      const s = scores[id];
-      const weak = s < 0.6;
-      const dim = gapsOnly && !weak;
-      const on = this.state.sel === id;
-      return {
-        x, y, r, name: names[id],
-        inner: Math.max(3, r * s * 0.72),
-        bar: weak ? '#ef5a5a' : (s > 0.75 ? '#58d68d' : accent),
-        fill: on ? 'rgba(242,181,68,0.10)' : '#0d1513',
-        stroke: on ? accent : (dim ? '#141d1b' : '#1d2a26'),
-        sw: on ? 1.6 : 1,
-        ts: kind === 'project' ? 13 : (kind === 'topic' ? 12 : 11),
-        ty: y + r + 17,
-        tfill: dim ? '#3c4644' : (on ? '#ece9e1' : '#a9b0ac'),
-        pick: () => this.setState({ sel: id }),
-      };
+    const edges = el.map(([a,b]) => {
+      const on = this.state.sel === a || this.state.sel === b;
+      return { x1: pos[a].x, y1: pos[a].y, x2: pos[b].x, y2: pos[b].y,
+        stroke: on ? 'rgba(158,232,125,0.42)' : 'rgba(255,255,255,0.07)', w: on ? 1.4 : 1 };
     });
-
-    const chip = (id, label) => {
-      const on = this.state.filter === id;
+    const nodes = this.layout().map(([id,x,y,r,k]) => {
+      const s = meta[id][3]; const on = this.state.sel === id; const dim = gaps && s >= 0.6;
+      return { x, y, r, name: meta[id][1], inner: Math.max(3, r*s*0.66), bar: tone(s),
+        glow: on ? r + 13 : 0, glowFill: on ? 'rgba(158,232,125,0.09)' : 'transparent',
+        fill: on ? 'rgba(158,232,125,0.09)' : 'rgba(255,255,255,0.03)',
+        stroke: on ? accent : (dim ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.10)'),
+        sw: on ? 1.5 : 1, ts: k === 'p' ? 13 : (k === 't' ? 12 : 11), ty: y + r + 17,
+        tfill: dim ? '#3a413f' : (on ? '#e2e5e4' : '#979e9d'),
+        pick: () => this.setState({ sel: id }) };
+    });
+    const chip = (id, label) => { const on = this.state.filter === id;
       return { label, pick: () => this.setState({ filter: id }),
-        border: on ? accent : '#1d2a26', bg: on ? 'rgba(242,181,68,0.12)' : '#0d1513', fg: on ? accent : '#a9b0ac' };
-    };
+        bg: on ? 'rgba(158,232,125,0.13)' : 'transparent', fg: on ? accent : '#979e9d',
+        br: on ? 'rgba(158,232,125,0.34)' : 'rgba(255,255,255,0.07)' }; };
 
-    const d = data[this.state.sel] ?? {
-      kind: 'Subtopic', name: names[this.state.sel], score: scores[this.state.sel], n: 2,
-      blurb: 'One idea inside a larger topic. Open the map to see where it sits.',
-      conf: 'very low confidence', weak: [[names[this.state.sel], 'not yet asked']],
-    };
-    const pct = Math.round(d.score * 100);
-    const scoreFg = d.score < 0.6 ? '#ef5a5a' : (d.score > 0.75 ? '#58d68d' : accent);
-
+    const [kind, name, blurb, score, n, weak] = meta[this.state.sel];
+    const pct = Math.round(score*100); const width = Math.max(8, Math.round(64/Math.sqrt(n+1)));
+    const lo = Math.max(0, pct - Math.round(width/2));
     return {
-      edges, nodes,
-      filters: [chip('all', 'Everything'), chip('gaps', 'Gaps only'), chip('due', 'Due today')],
-      projects: [
-        { name: 'raptor', due: '12', dot: '#ef5a5a', fg: this.state.sel === 'raptor' ? '#ece9e1' : '#a9b0ac', pick: () => this.setState({ sel: 'raptor' }) },
-        { name: 'openreach-tools', due: '4', dot: accent, fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
-        { name: 'sparring', due: '2', dot: '#58d68d', fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
-        { name: 'portfolio', due: '0', dot: '#1d2a26', fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
-      ],
-      focusWeakest: () => this.setState({ sel: 'acks' }),
-      openProject: () => this.setState({ sel: 'raptor' }),
-      sel: {
-        kind: d.kind, name: d.name, blurb: d.blurb,
-        score: `${pct}%`, score_fg: scoreFg, bar: `${pct}%`,
-        conf: d.conf, conf_fg: d.score < 0.6 ? '#ef5a5a' : '#6f7a76',
-        n: d.n,
-        caveat: `Estimated from ${d.n} answers. This number is a guess you can argue with, not a measurement.`,
-        weak: d.weak.map(([name, last]) => ({ name, last })),
-      },
+      nodes, edges, noop: () => {}, dueCount: '18',
+      shown: gaps ? '4 of 9 topics, the weak ones' : '9 topics across 1 project',
+      filters: [chip('all','Everything'), chip('gaps','Gaps only'), chip('due','Due today')],
+      projects: [['raptor','12',true],['openreach-tools','4',false],['sparring','2',false],['portfolio','0',false]]
+        .map(([nm,due,on]) => ({ name: nm, due, pick: () => this.setState({ sel: 'raptor' }),
+          bg: on ? 'rgba(255,255,255,0.055)' : 'transparent', fg: on ? '#e2e5e4' : '#979e9d',
+          dot: on ? accent : 'rgba(255,255,255,0.14)' })),
+      queue: [['acknowledgements','#e88d7d'],['definer functions','#e88d7d'],['redis adapter','#e8c97d'],['room membership','rgba(255,255,255,0.14)']]
+        .map(([nm,bar]) => ({ name: nm, bar })),
+      sel: { kind, name, blurb, score: pct + '%', fg: tone(score), n: n + ' answers',
+        bar: pct + '%', lo: lo + '%', span: Math.min(width, 100-lo) + '%',
+        caveat: 'the pale band is how wrong this could be',
+        weak: weak.map(([nm,last]) => ({ name: nm, last: last + ' ago' })) },
     };
   }
 }

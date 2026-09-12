@@ -1,16 +1,18 @@
 {
   "artboards": [
-    { "file": "Main.dc.html",         "x": 0,    "y": 0,    "w": 1440, "h": 900, "title": "Hub", "is_interactive": true },
-    { "file": "ProjectMap.dc.html",   "x": 1560, "y": 0,    "w": 1440, "h": 900, "title": "Project map", "is_interactive": true },
-    { "file": "Survey.dc.html",       "x": 3120, "y": 0,    "w": 1440, "h": 900, "title": "Repo survey", "is_interactive": true },
-    { "file": "DrillRunner.dc.html",  "x": 0,    "y": 1080, "w": 1440, "h": 900, "title": "Drill", "is_interactive": true },
-    { "file": "LessonPlayer.dc.html", "x": 1560, "y": 1080, "w": 1440, "h": 900, "title": "Lesson", "is_interactive": true },
-    { "file": "Standing.dc.html",     "x": 3120, "y": 1080, "w": 1440, "h": 900, "title": "Standing", "is_interactive": true }
+    { "file": "Survey.dc.html",       "x": 0,    "y": 0,    "w": 1440, "h": 900, "title": "1 · Survey a repository", "is_interactive": true },
+    { "file": "ProjectMap.dc.html",   "x": 1560, "y": 0,    "w": 1440, "h": 900, "title": "2 · The map", "is_interactive": true },
+    { "file": "Main.dc.html",         "x": 3120, "y": 0,    "w": 1440, "h": 900, "title": "3 · Hub", "is_interactive": true },
+    { "file": "LessonPlayer.dc.html", "x": 0,    "y": 1080, "w": 1440, "h": 900, "title": "4 · Lesson", "is_interactive": true },
+    { "file": "DrillRunner.dc.html",  "x": 1560, "y": 1080, "w": 1440, "h": 900, "title": "5 · Drill", "is_interactive": true },
+    { "file": "Standing.dc.html",     "x": 3120, "y": 1080, "w": 1440, "h": 900, "title": "6 · Standing", "is_interactive": true },
+    { "file": "Components.dc.html",   "x": 1560, "y": 2160, "w": 1440, "h": 900, "title": "Component catalogue", "is_interactive": true }
   ],
   "annotations": [
-    { "id": "note-entry", "x": 3120, "y": -190, "w": 440, "text": "The survey is the front door. Everything else exists because this ran once.\n\nClaims the agent makes are checked against imports and calls before they reach the map. What fails the check is drawn as unverified, never dropped." },
-    { "id": "note-loop", "x": 0, "y": 2060, "w": 440, "text": "Commit before reveal. No hints, and asking for one is graded as not knowing.\n\nThe grade is a model's judgement and agrees with a human marker about two times in three, so it can be contested and both are kept." },
-    { "id": "note-honesty", "x": 3120, "y": 2060, "w": 440, "text": "Every number carries how little it is worth. The pale band is the uncertainty, and on a topic with three answers it is wider than the bar.\n\nThat is the design, not a bug." }
+    { "id": "note-order", "x": 0, "y": -210, "w": 470, "text": "Read left to right, top to bottom. That is the order a new user meets the application: point it at a repo, confirm the map it found, then live in the hub.\n\nEvery screen is live. Click nodes, answer the drill, contest the grade, switch languages in the lesson, walk the survey stages." },
+    { "id": "note-glass", "x": 3120, "y": -210, "w": 430, "text": "Both panes are the same material at different densities. The sidebar is thin so the lit ground reads through it; the content pane is dense so nothing competes with text.\n\nThe ground drifts on a 54 second cycle and stops under reduced motion. That is the motion, kept in the shell." },
+    { "id": "note-components", "x": 0, "y": 2160, "w": 470, "text": "THE CATALOGUE\n\nFifteen finished components across explain, ask and show. The agent picks one and supplies content; the application owns the layout, the states, the keyboard and the grading.\n\nClick through the left rail. Four of them are live here: order the steps, pick the misconception, fill the blank, and exact recall.\n\nThe right column is what the agent actually writes. Never markup." },
+    { "id": "note-honest", "x": 3120, "y": 2160, "w": 430, "text": "Three rules the screens exist to hold.\n\nNothing is revealed before you commit, the grounding file included.\n\nEvery estimate is drawn with its uncertainty. The pale band is the doubt, and on a thin topic it is wider than the bar.\n\nA part the survey could not verify is drawn dashed and marked, never dropped." }
   ],
   "launch": { "view": "canvas" }
 }
