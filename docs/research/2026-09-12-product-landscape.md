@@ -79,7 +79,7 @@ Tunneling solves a different problem. T3 Connect and Tailscale give remote contr
 ## Claims I could not verify
 
 - That Claude Code reads `AGENTS.md` natively. The primary documentation says it reads `CLAUDE.md`, and Claude Code is absent from the supporter list on the `AGENTS.md` site, while secondary sources claim support was added in spring 2026. Resolve before relying on it.
-- FSRS version status was contradictory across two research passes. Checked directly on 2026-09-12: the latest `fsrs-rs` release is v6.6.2 and no release notes mention FSRS-7. FSRS-7 exists in the benchmark and in at least one third-party implementation. Treat FSRS-6 as what ships.
+- FSRS version status was contradictory across two research passes. Checked directly on 2026-09-12: the latest `fsrs-rs` release is v6.6.2 and no release notes mention FSRS-7. The main branch does carry a 34-parameter FSRS-7 in `src/inference_v7.rs`, so it is further along than "benchmark only", but it is unreleased. Treat FSRS-6 as what ships. Its 21 default parameters were read from `src/inference_v6.rs` the same day and are recorded in the core implementation plan.
 - JetBrains per-concern percentages, a Veracode figure of 2.74 times more vulnerabilities than human code, and a 54-student July 2026 preprint on coding agents and comprehension. None traced to a primary source.
 - Whether Orbit is still maintained.
 - The on-disk path and format of Devin CLI session transcripts.

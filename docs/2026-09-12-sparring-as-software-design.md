@@ -163,8 +163,9 @@ The contributor guide has to cover two audiences. Code contributors need the bui
 
 - **Whether to pay for macOS signing.** Notarised distribution needs the Apple Developer Program at 99 US dollars a year, and there is no free route to it. Unsigned is free and gives every macOS user a security warning and a right-click ritual on first launch. Windows is solved: code signing is free for qualifying open-source projects through the SignPath Foundation, although a brand-new application still triggers the reputation warning until it has been installed cleanly a few hundred times. Linux has no equivalent gate. This is a decision about the project's budget, not about engineering.
 - **Whether to depend on T3 Code** rather than write five agent integrations. It is MIT, TypeScript, at 22,500 stars, and already normalises the event streams of Codex, Claude Code, Cursor, Grok Build, OpenCode and Antigravity into one interface. Reading it is not optional. Depending on it is a real choice with a real coupling cost.
-- **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently.
-- **Event log limits.** No safe event-log size, snapshot interval or merge policy has been established for this design. Those numbers need a prototype tested against offline use and divergent history, not a literature answer.
+- **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently. Being researched separately.
+
+Deliberately left unanswered: **the event log's size, snapshot interval and merge policy.** No safe numbers exist for this design and none can be read out of the literature. They come from running the thing against real repositories and real work, including offline use and divergent history, so no limit is set until there is something to measure.
 
 ## 11. Sequence
 
