@@ -1,16 +1,11 @@
 import nodePath from 'node:path';
-import { matchTexts, validatePattern, MAX_QUERY_BYTES } from './patterns.mjs';
-import { CONSTRAINT_QUERIES, QUERY_VERSION } from './queries.mjs';
 import { CLAIM_STATUSES, COVERAGE_LABELS, validateClaim, worst } from './claim.mjs';
 import {
-  codeOnly,
-  sourceClass,
-  searchCode,
   fileAt,
   filesAt,
   filesUnder,
+  grepFor,
   importsOf,
-  unresolvedImportsOf,
   languageOf,
   linesOf,
   resolveCommit,
@@ -128,9 +123,16 @@ function resolveSpec(fromPath, spec, tracked) {
   return null;
 }
 
+// A specifier can name a boundary without resolving to a file, for instance a
+// workspace package whose directory is the boundary.
+function specNames(spec, dir) {
+  const base = normalise(dir);
+  const candidates = [normalise(spec), normalise(spec.split('.').filter(Boolean).join('/'))];
+  return candidates.some((candidate) => candidate === base || candidate.startsWith(`${base}/`));
+}
+
 function symbolEvidence(repo, commit, end) {
-  const raw = fileAt(repo, end.path, commit);
-  const text = raw === null || sourceClass(end.path, raw) !== 'production' ? null : codeOnly(raw, end.path);
+  const text = fileAt(repo, end.path, commit);
   if (text === null) return { path: end.path, symbol: end.symbol, exists: false, mentioned: false, defined: false, lines: [] };
   const symbol = escapeRegExp(end.symbol);
   const mention = new RegExp(`(?<![\\w$])${symbol}(?![\\w$])`);
@@ -144,93 +146,68 @@ function symbolEvidence(repo, commit, end) {
     ].join('|'),
     'm',
   );
+  const lines = linesOf(text);
   const mentionedAt = [];
-  for (const match of matchTexts(mention.source, [text])[0]) mentionedAt.push(text.slice(0, match.index).split('\n').length);
+  for (let i = 0; i < lines.length; i += 1) if (mention.test(lines[i])) mentionedAt.push(i + 1);
   return {
     path: end.path,
     symbol: end.symbol,
     exists: true,
     mentioned: mentionedAt.length > 0,
-    defined: matchTexts(definition.source, [text])[0].length > 0,
+    defined: definition.test(text),
     lines: mentionedAt.slice(0, 10),
   };
 }
 
-function checkBoundary(repo, commit, claim, tracked, record, context) {
+function checkBoundary(repo, commit, claim, tracked, record) {
   const boundary = claim.boundary;
-  if (!boundary?.dir || !boundary.neighbours?.length) {
-    record('boundary', 'unchecked', 'a part claim must name a boundary and neighbours');
+  if (!boundary || !boundary.dir || !Array.isArray(boundary.neighbours) || boundary.neighbours.length === 0) {
+    record('boundary', 'unchecked', 'a part claim that names no module boundary and no neighbours has nothing to check against the import graph');
     return;
   }
-  const all = [...tracked];
-  const insideAll = all.filter((path) => under(path, boundary.dir));
-  if (!insideAll.length) {
-    record('boundary', 'contradicted', `no tracked file lives under the claimed boundary ${boundary.dir}`);
-    return;
-  }
-  if (insideAll.length === all.length || boundary.neighbours.some((nb) => under(nb, boundary.dir) || under(boundary.dir, nb))) {
-    record('boundary', 'contradicted', 'degenerate boundary: whole repository or overlapping/self neighbour');
-    return;
-  }
-  const paths = all.filter((path) => {
-    if (Date.now() > context.deadline) throw new Error('verification time budget exceeded');
-    return sourceClass(path, fileAt(repo, path, commit) ?? '') === 'production';
-  });
+  const paths = [...tracked];
   const inside = paths.filter((path) => under(path, boundary.dir));
-  const outside = paths.filter((path) => !under(path, boundary.dir));
-  // Covering all production code is also a whole-repository cut even when a
-  // README, tests, or build output lives outside the claimed directory.
-  if (!outside.length) {
-    record('boundary', 'contradicted', 'degenerate boundary: covers all production code');
+  const unparsed = [];
+  const edges = [];
+  const collect = (path, direction, neighbourOfPath) => {
+    if (!supportsImports(path)) {
+      unparsed.push(path);
+      return;
+    }
+    const imports = importsOf(repo, path, commit);
+    if (imports === null) return;
+    for (const imported of imports) {
+      const target = resolveSpec(path, imported.spec, tracked);
+      if (direction === 'out') {
+        const neighbour = boundary.neighbours.find((nb) => (target !== null && under(target, nb)) || specNames(imported.spec, nb));
+        if (neighbour) edges.push({ direction: 'out', from: path, to: target ?? imported.spec, neighbour, line: imported.line });
+      } else if ((target !== null && under(target, boundary.dir)) || specNames(imported.spec, boundary.dir)) {
+        edges.push({ direction: 'in', from: path, to: target ?? imported.spec, neighbour: neighbourOfPath, line: imported.line });
+      }
+    }
+  };
+  for (const path of inside) collect(path, 'out', null);
+  for (const neighbour of boundary.neighbours) {
+    for (const path of paths.filter((candidate) => under(candidate, neighbour))) {
+      if (under(path, boundary.dir)) continue;
+      collect(path, 'in', neighbour);
+    }
+  }
+  claim.edges = edges.slice(0, 50);
+  claim.unparsed = unparsed;
+  if (inside.length === 0) {
+    record('boundary', 'contradicted', `no tracked file lives under the claimed boundary ${boundary.dir} at ${shortSha(commit)}`);
     return;
   }
-  claim.unparsed = all.filter((path) => !supportsImports(path) && (under(path, boundary.dir)
-    || /\.(?:go|rs|java|rb|c|cc|cpp|h|cs|php|swift|kt|scala|sh|vue|svelte|jsx|tsx)$/i.test(path)));
-  const internal = [], crossing = [], unknown = [], seen = new Set();
-  for (const path of paths) {
-    if (Date.now() > context.deadline) throw new Error('verification time budget exceeded');
-    let parsed = context.imports.get(path);
-    if (!parsed) {
-      const imports = importsOf(repo, path, commit) ?? [];
-      parsed = { imports, unknown: unresolvedImportsOf(repo, path, commit, imports) };
-      context.imports.set(path, parsed);
+  if (edges.length === 0) {
+    const tail = unparsed.length > 0 ? `; ${unparsed.length} file(s) inside are in a language the import reader cannot parse` : '';
+    record('boundary', 'inferred', `no import edge joins ${boundary.dir} to ${boundary.neighbours.join(', ')}${tail}`);
+    for (const neighbour of boundary.neighbours) {
+      claim.unresolved.push({ kind: 'boundary', from: boundary.dir, to: neighbour, reason: 'no import edge found' });
     }
-    unknown.push(...parsed.unknown);
-    for (const imported of parsed.imports) {
-      const target = resolveSpec(path, imported.spec, tracked);
-      if (target === null) {
-        unknown.push({ kind: 'import', path, spec: imported.spec, reason: 'unresolved module specifier' });
-        continue;
-      }
-      const key = `${path}\0${target}`;
-      if (seen.has(key) || path === target || !paths.includes(target)) continue;
-      seen.add(key);
-      const fromInside = under(path, boundary.dir), toInside = under(target, boundary.dir);
-      const edge = { from: path, to: target, line: imported.line };
-      if (fromInside && toInside) internal.push(edge);
-      else if (fromInside !== toInside) crossing.push(edge);
-    }
+    return;
   }
-  const unexplained = crossing.filter((edge) => !boundary.neighbours.some((nb) => under(under(edge.from, boundary.dir) ? edge.to : edge.from, nb)));
-  const internalPossible = inside.length * (inside.length - 1);
-  const crossingPossible = 2 * inside.length * outside.length;
-  const internalDensity = internalPossible ? internal.length / internalPossible : 0;
-  const crossingDensity = crossingPossible ? crossing.length / crossingPossible : 0;
-  claim.boundaryMetrics = { internalEdges: internal.length, crossingEdges: crossing.length,
-    internalPossible, crossingPossible, internalDensity, crossingDensity,
-    unexplainedCrossings: unexplained.length, unresolvedEdges: unknown.length,
-    insideFiles: inside.length, outsideFiles: outside.length };
-  claim.edges = [...internal, ...crossing].slice(0, 50);
-  claim.unresolved.push(...unknown.slice(0, 100));
-  const missingNeighbours = boundary.neighbours.filter((nb) => !crossing.some((edge) => under(edge.from, nb) || under(edge.to, nb)));
-  for (const nb of missingNeighbours) claim.unresolved.push({ kind: 'boundary', from: boundary.dir, to: nb, reason: 'no import edge found' });
-  if (!crossing.length || !internal.length || internalDensity <= crossingDensity || unexplained.length || missingNeighbours.length) {
-    record('boundary', 'inferred', `no defensible cut: ${internal.length} internal and ${crossing.length} crossing edges; densities ${internalDensity} and ${crossingDensity}`);
-  } else if (unknown.length || claim.unparsed.length) {
-    record('boundary', 'unchecked', 'boundary graph contains unresolved imports or unsupported files');
-  } else {
-    record('boundary', 'verified', `internal density ${internalDensity} exceeds crossing density ${crossingDensity}; all crossing edges explained`);
-  }
+  record('boundary', 'verified', `${edges.length} import edge(s) join ${boundary.dir} and its named neighbours`);
 }
 
 function checkInteraction(repo, commit, claim, record) {
@@ -265,93 +242,48 @@ function checkInteraction(repo, commit, claim, record) {
   record('interaction', 'verified', `${ends.from.symbol} is named in ${ends.from.path} and ${ends.to.symbol} is defined in ${ends.to.path}`);
 }
 
-function checkConstraint(repo, commit, claim, record, context) {
-  const query = Object.hasOwn(CONSTRAINT_QUERIES, claim.constraintKind ?? '') ? CONSTRAINT_QUERIES[claim.constraintKind] : null;
-  if (!query) {
-    record('enforcement', 'unchecked', 'missing or unsupported constraintKind; agent patterns cannot verify a constraint');
+function checkConstraint(repo, commit, claim, record) {
+  const enforcement = claim.enforcement;
+  // A constraint with no searchable enforcement point is not an unchecked
+  // claim, it is a false one. "Everything goes through the repository layer"
+  // with nothing that makes it so is the most dangerous sentence a map can
+  // carry, because a learner will believe it and write code against it.
+  if (!enforcement || typeof enforcement.pattern !== 'string' || enforcement.pattern.length === 0) {
+    record('enforcement', 'contradicted', 'a constraint claim that supplies no enforcement pattern names no mechanism that enforces it');
     return;
   }
-  claim.query = { version: QUERY_VERSION, kind: claim.constraintKind, ...query };
-  const enforcement = searchCode(repo, commit, query.enforcement, context);
-  const falsifier = searchCode(repo, commit, query.falsifier, context);
-  claim.enforcementHits = enforcement.hits;
-  claim.weakEnforcementHits = enforcement.weak;
-  claim.falsifierHits = falsifier.hits;
-  claim.weakFalsifierHits = falsifier.weak;
-  if (!enforcement.hits.length) {
-    record('enforcement', 'contradicted', 'no production code matches the gate-owned enforcement query');
-  } else {
-    record('enforcement', 'inferred', `${enforcement.hits.length} enforcement candidate(s); lexical matches do not prove a runtime invariant`);
+  let hits;
+  try {
+    hits = grepFor(repo, enforcement.pattern, enforcement.globs ?? [], commit);
+  } catch (error) {
+    record('enforcement', 'unchecked', `the enforcement search could not be run: ${error.message}`);
+    return;
   }
-  // Falsifiers are candidates as well: a write may be inside a transaction.
-  record('contradiction', falsifier.hits.length ? 'inferred' : 'note',
-    `${falsifier.hits.length} gate-owned bypass candidate(s); absence is not proof`);
+  if (hits.length === 0) {
+    const scope = (enforcement.globs ?? []).length > 0 ? ` within ${(enforcement.globs ?? []).join(', ')}` : '';
+    record('enforcement', 'contradicted', `no tracked file at ${shortSha(commit)} matches the enforcement pattern ${enforcement.pattern}${scope}`);
+    return;
+  }
+  claim.enforcementHits = hits.slice(0, 20);
+  record('enforcement', 'verified', `${hits.length} enforcement point(s), first at ${hits[0].path}:${hits[0].line}`);
 }
 
-function checkExtraPatterns(repo, commit, claim, record, context) {
-  for (const field of ['enforcement', 'falsifier']) {
-    if (!claim[field]) continue;
-    validatePattern(claim[field].pattern);
-    const result = searchCode(repo, commit, claim[field].pattern, context);
-    claim[`${field}ExtraHits`] = result;
-    // An agent-proposed counterexample can lower confidence, never raise it.
-    if (field === 'falsifier' && result.hits.length) record('extra-pattern', 'inferred', 'agent-proposed falsifier requires review');
+function checkContradiction(repo, commit, claim, record) {
+  const falsifier = claim.falsifier;
+  if (!falsifier || typeof falsifier.pattern !== 'string' || falsifier.pattern.length === 0) return;
+  let hits;
+  try {
+    hits = grepFor(repo, falsifier.pattern, falsifier.globs ?? [], commit);
+  } catch (error) {
+    record('contradiction', 'unchecked', `the contradiction search could not be run: ${error.message}`);
+    return;
   }
-}
-
-// Binding is necessary but not entailment. Exact controlled sentences are the
-// only mechanically verified prose; arbitrary descriptions remain unchecked.
-// This closes the omitted-identifier attack without pretending to parse English.
-function checkProposition(repo, commit, claim, record) {
-  const declared = claim.identifiers;
-  const span = claim.path && claim.fromLine !== null ? spanAt(repo, claim.path, claim.fromLine, claim.toLine, commit) : null;
-  const raw = span ? fileAt(repo, claim.path, commit) : null;
-  const fullCode = raw === null ? null : codeOnly(raw, claim.path);
-  const spanCode = fullCode === null ? '' : linesOf(fullCode).slice(claim.fromLine - 1, claim.toLine).join('\n');
-  const evidencePaths = new Set([...(span ? [claim.path] : []),
-    ...Object.values(claim.ends ?? {}).filter((end) => end.evidence?.mentioned).map((end) => end.path),
-    ...(claim.enforcementHits ?? []).map((hit) => hit.path),
-    ...(claim.edges ?? []).flatMap((edge) => [edge.from, edge.to])]);
-  // Recover obvious code identifiers even if an agent leaves them off its list.
-  const mentioned = claim.sentence.match(/\b[A-Za-z_$][\w$]*(?:[A-Z][\w$]*|_[\w$]+)\b/g) ?? [];
-  const automatic = mentioned.filter((name) => /[a-z][A-Z]|_/.test(name)).map((name) => ({ kind: 'symbol', name }));
-  const identifiers = [...(declared ?? []), ...automatic];
-  const missing = [];
-  for (const item of identifiers) {
-    let found;
-    if (item.kind === 'symbol') {
-      const pattern = `(?<![\\w$])${escapeRegExp(item.name)}(?![\\w$])`;
-      // When a span is cited, symbols must be in that exact span, not elsewhere
-      // in the file or in unrelated enforcement hits.
-      const texts = span ? [spanCode] : [
-        ...Object.values(claim.ends ?? {}).filter((end) => end.evidence?.mentioned && end.symbol === item.name).map(() => item.name),
-        ...(claim.enforcementHits ?? []).map((hit) => hit.text),
-      ];
-      found = matchTexts(pattern, texts).some((matches) => matches.length);
-    } else if (item.kind === 'path') found = evidencePaths.has(item.name);
-    else found = [...evidencePaths].some((path) => under(path, item.name));
-    if (!found) missing.push(item.name);
+  if (hits.length > 0) {
+    claim.falsifierHits = hits.slice(0, 20);
+    record('contradiction', 'contradicted', `the falsifying pattern ${falsifier.pattern} matched ${hits.length} time(s), first at ${hits[0].path}:${hits[0].line}`);
+    return;
   }
-  if (missing.length) record('proposition-binding', 'contradicted', `identifiers absent from own evidence: ${[...new Set(missing)].join(', ')}`);
-  else if (!declared?.length) record('proposition-binding', 'unchecked', 'explicit proposition identifiers are required');
-  else record('proposition-binding', 'verified', 'all asserted identifiers occur in the claim evidence');
-
-  let expected = null;
-  const symbols = (declared ?? []).filter((item) => item.kind === 'symbol');
-  const includes = (kind, name) => declared?.some((item) => item.kind === kind && item.name === name);
-  if (claim.type === 'topic' && claim.predicate === 'reference' && symbols.length === 1 && includes('path', claim.path)) {
-    expected = `\`${symbols[0].name}\` is referenced in \`${claim.path}\`.`;
-    if (!span || raw === null || sourceClass(claim.path, raw) !== 'production' || fullCode === null) record('proposition', 'unchecked', 'reference requires a production code span');
-  } else if (claim.type === 'interaction' && claim.predicate === 'reference' && claim.ends
-      && claim.ends.from.symbol === claim.ends.to.symbol
-      && includes('symbol', claim.ends.from.symbol) && includes('path', claim.ends.from.path) && includes('path', claim.ends.to.path)) {
-    expected = `\`${claim.ends.from.symbol}\` is referenced in \`${claim.ends.from.path}\` and defined in \`${claim.ends.to.path}\`.`;
-  } else if (claim.type === 'part' && claim.predicate === 'boundary' && claim.boundary
-      && includes('module', claim.boundary.dir) && claim.boundary.neighbours.every((nb) => includes('module', nb))) {
-    expected = `\`${claim.boundary.dir}\` has denser internal imports than crossing imports.`;
-  }
-  if (expected === null || claim.sentence !== expected) record('proposition', 'unchecked', 'sentence is outside the mechanically checkable proposition vocabulary');
-  else record('proposition', 'verified', 'sentence exactly states the checked proposition');
+  record('contradiction', 'verified', `the falsifying pattern ${falsifier.pattern} matched nothing`);
 }
 
 // Fill in the fields a hand-written or agent-written claim may have left out,
@@ -372,17 +304,14 @@ function normaliseInput(input) {
     ends: input?.ends ?? null,
     enforcement: input?.enforcement ?? null,
     falsifier: input?.falsifier ?? null,
-    constraintKind: input?.constraintKind ?? null,
-    identifiers: input?.identifiers ?? null,
-    predicate: input?.predicate ?? null,
   };
 }
 
-function checkClaim(repo, commit, input, tracked, context) {
+function checkClaim(repo, commit, input, tracked) {
   const claim = {
     ...normaliseInput(input),
-    unresolved: Array.isArray(input?.unresolved) ? [...input.unresolved] : input?.unresolved ?? [],
-    coverage: Array.isArray(input?.coverage) ? [...input.coverage] : input?.coverage ?? [],
+    unresolved: [...(input?.unresolved ?? [])],
+    coverage: [...(input?.coverage ?? [])],
     reasons: [],
   };
   // The status an agent wrote is the thing under test, so it is thrown away
@@ -392,7 +321,7 @@ function checkClaim(repo, commit, input, tracked, context) {
   let status = 'verified';
   const record = (check, floor, detail) => {
     claim.reasons.push({ check, status: floor, detail });
-    if (floor !== 'note') status = worst(status, floor);
+    status = worst(status, floor);
   };
 
   try {
@@ -403,18 +332,12 @@ function checkClaim(repo, commit, input, tracked, context) {
     return claim;
   }
 
-  if (Date.now() > context.deadline) {
-    claim.reasons.push({ check: 'budget', status: 'unchecked', detail: 'verification time budget exceeded' });
-    return claim;
-  }
-
   if (commit === null) {
     claim.reasons.push({ check: 'commit', status: 'unchecked', detail: 'the surveyed commit does not resolve in this repository, so nothing could be checked against it' });
     claim.status = 'unchecked';
     return claim;
   }
 
-  if (claim.commit === null) record('commit', 'unchecked', 'claim does not name its surveyed commit');
   if (claim.commit !== null && claim.commit !== commit && !commit.startsWith(claim.commit)) {
     record('commit', 'stale', `the claim was made against ${shortSha(claim.commit)} and is being checked against ${shortSha(commit)}`);
   }
@@ -463,16 +386,12 @@ function checkClaim(repo, commit, input, tracked, context) {
     }
   }
 
-  try {
-    checkExtraPatterns(repo, commit, claim, record, context);
-    if (claim.type === 'part') checkBoundary(repo, commit, claim, tracked, record, context);
-    else if (claim.type === 'interaction') checkInteraction(repo, commit, claim, record);
-    else if (claim.type === 'constraint') checkConstraint(repo, commit, claim, record, context);
-    checkProposition(repo, commit, claim, record);
-    if (claim.unresolved.length) record('unresolved', 'unchecked', 'claim depends on unresolved evidence');
-  } catch (error) {
-    record('query', 'unchecked', `could not complete verification: ${error.message}`);
-  }
+  if (claim.type === 'part') checkBoundary(repo, commit, claim, tracked, record);
+  else if (claim.type === 'interaction') checkInteraction(repo, commit, claim, record);
+  else if (claim.type === 'constraint') checkConstraint(repo, commit, claim, record);
+  else record('type', 'verified', 'a topic claim carries no structural check beyond its citation');
+
+  checkContradiction(repo, commit, claim, record);
 
   claim.status = status;
   return claim;
@@ -480,7 +399,7 @@ function checkClaim(repo, commit, input, tracked, context) {
 
 function excludedBy(path, rules) {
   for (const rule of rules) {
-    if (rule instanceof RegExp && matchTexts(rule.source, [path], rule.flags)[0].length) return true;
+    if (rule instanceof RegExp && rule.test(path)) return true;
     if (typeof rule === 'string' && (path === normalise(rule) || under(path, rule))) return true;
   }
   return false;
@@ -506,7 +425,7 @@ export function classifyCoverage(repo, commit, checked, options = {}) {
       if (claim.path) inspected.add(normalise(claim.path));
       for (const covered of claim.coverage ?? []) inspected.add(normalise(covered));
     }
-    for (const edge of Array.isArray(claim.unresolved) ? claim.unresolved : []) {
+    for (const edge of claim.unresolved ?? []) {
       if (edge && typeof edge.path === 'string') unresolved.add(normalise(edge.path));
     }
     for (const path of claim.unparsed ?? []) unresolved.add(normalise(path));
@@ -537,17 +456,10 @@ export function classifyCoverage(repo, commit, checked, options = {}) {
   return { commit, total, counts, paths };
 }
 
-export const MAX_CLAIMS = 100;
-export const MAX_RUN_MS = 30000;
-
 export function verify(repo, commit, claims, options = {}) {
-  if (!Array.isArray(claims ?? []) || (claims?.length ?? 0) > MAX_CLAIMS) throw new Error(`verification accepts at most ${MAX_CLAIMS} claims`);
-  const context = { deadline: Date.now() + MAX_RUN_MS, cache: new Map(), imports: new Map() };
   const resolved = resolveCommit(repo, commit);
   const tracked = new Set(resolved === null ? filesUnder(repo, '.') : filesAt(repo, resolved, '.'));
-  const inventory = resolved === null ? [] : treeAt(repo, resolved);
-  if (inventory.length > 2000 || inventory.reduce((n, entry) => n + (entry.size ?? 0), 0) > MAX_QUERY_BYTES) throw new Error('repository verification budget exceeded');
-  const checked = (claims ?? []).map((claim) => checkClaim(repo, resolved, claim, tracked, context));
+  const checked = (claims ?? []).map((claim) => checkClaim(repo, resolved, claim, tracked));
   const coverage = classifyCoverage(repo, resolved, checked, options);
 
   const byStatus = Object.fromEntries(CLAIM_STATUSES.map((status) => [status, 0]));

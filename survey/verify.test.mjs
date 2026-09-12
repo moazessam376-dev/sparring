@@ -1,7 +1,7 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -43,8 +43,12 @@ function git(dir, args) {
   });
 }
 
+const temporaryRepos = [];
+after(() => { for (const dir of temporaryRepos) fs.rmSync(dir, { recursive: true, force: true }); });
+
 function makeRepo(files, message = 'first') {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sparring-survey-'));
+  const dir = fs.mkdtempSync(fileURLToPath(new URL('./.fixture-', import.meta.url)));
+  temporaryRepos.push(dir);
   git(dir, ['init', '-q']);
   git(dir, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
   writeAll(dir, files);
@@ -117,6 +121,16 @@ const FIXTURE = {
 
 function fixture() {
   return makeRepo(FIXTURE);
+}
+
+function reference(symbol, path) {
+  return { predicate: 'reference', sentence: `\`${symbol}\` is referenced in \`${path}\`.`,
+    identifiers: [{ kind: 'symbol', name: symbol }, { kind: 'path', name: path }] };
+}
+
+function cohesiveFixture() {
+  return makeRepo({ 'api/server.mjs': FIXTURE['api/server.mjs'].replace("import { loadOrders } from '../db/orders.mjs';\n", ''),
+    'db/orders.mjs': FIXTURE['db/orders.mjs'], 'db/tenant.mjs': FIXTURE['db/tenant.mjs'] });
 }
 
 // ---------------------------------------------------------------- claim shape
@@ -250,6 +264,8 @@ test('nothing in the surveyed repository is executed, even when it asks to be', 
   filesUnder(dir, '.');
   grepFor(dir, 'withTenant', [], commit);
   importsOf(dir, 'db/orders.mjs', commit);
+  verify(dir, commit, [makeClaim({ type: 'constraint', constraintKind: 'tenancy',
+    sentence: 'Every query uses withTenant.', enforcement: { pattern: 'withTenant' }, commit })]);
   assert.equal(fs.existsSync(marker), false, 'the surveyed repository was executed');
 });
 
@@ -282,8 +298,8 @@ test('check: the line range must be inside the file at that commit', () => {
 test('check: a span hash mismatch is stale, not contradicted', () => {
   const { dir, commit } = fixture();
   const span = spanAt(dir, 'db/tenant.mjs', 2, 5, commit);
-  const good = makeClaim({ type: 'topic', sentence: 'withTenant guards every read.', path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: span.hash, ...surveyed(commit) });
-  const drifted = makeClaim({ type: 'topic', sentence: 'withTenant guards every read.', path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: hashText('something the file never said'), ...surveyed(commit) });
+  const good = makeClaim({ type: 'topic', ...reference('withTenant', 'db/tenant.mjs'), path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: span.hash, ...surveyed(commit) });
+  const drifted = makeClaim({ type: 'topic', ...reference('withTenant', 'db/tenant.mjs'), path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: hashText('something the file never said'), ...surveyed(commit) });
   const { claims: out } = verify(dir, commit, [good, drifted]);
   assert.equal(out[0].status, 'verified');
   assert.equal(out[1].status, 'stale');
@@ -298,12 +314,13 @@ test('check: a claim with no span hash is unchecked, never verified', () => {
   assert.equal(out[0].reasons.find((r) => r.check === 'span-hash').status, 'unchecked');
 });
 
-test('check: a part claim whose boundary has a real import edge is verified', () => {
-  const { dir, commit } = fixture();
+test('check: a part with a measured cohesive boundary is verified', () => {
+  const { dir, commit } = cohesiveFixture();
   const span = spanAt(dir, 'db/tenant.mjs', 2, 5, commit);
   const claim = makeClaim({
     type: 'part',
-    sentence: 'db is the persistence boundary and the api layer goes through it.',
+    sentence: '`db` has denser internal imports than crossing imports.',
+    predicate: 'boundary', identifiers: [{ kind: 'module', name: 'db' }, { kind: 'module', name: 'api' }],
     path: 'db/tenant.mjs',
     fromLine: 2,
     toLine: 5,
@@ -317,7 +334,7 @@ test('check: a part claim whose boundary has a real import edge is verified', ()
   assert.ok(out[0].edges.some((edge) => edge.from === 'api/server.mjs' && edge.to === 'db/tenant.mjs'));
 });
 
-test('check: a part claim with no supporting import edge is downgraded to inferred', () => {
+test('check: a part claim with no supporting import edge retains an inferred boundary check', () => {
   const { dir, commit } = fixture();
   const span = spanAt(dir, 'docs/notes.md', 1, 1, commit);
   const claim = makeClaim({
@@ -331,8 +348,9 @@ test('check: a part claim with no supporting import edge is downgraded to inferr
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [claim]);
-  assert.equal(out[0].status, 'inferred');
-  assert.match(out[0].reasons.find((r) => r.check === 'boundary').detail, /no import edge joins docs to api/);
+  assert.equal(out[0].status, 'unchecked');
+  assert.equal(out[0].reasons.find((r) => r.check === 'boundary').status, 'inferred');
+  assert.match(out[0].reasons.find((r) => r.check === 'boundary').detail, /no defensible cut/);
   assert.ok(out[0].unresolved.some((edge) => edge.kind === 'boundary' && edge.to === 'api'));
 });
 
@@ -363,7 +381,8 @@ test('check: an interaction whose symbols resolve at both ends is verified', () 
   const span = spanAt(dir, 'api/server.mjs', 4, 6, commit);
   const claim = makeClaim({
     type: 'interaction',
-    sentence: 'handleOrders calls loadOrders.',
+    sentence: '`loadOrders` is referenced in `api/server.mjs` and defined in `db/orders.mjs`.',
+    predicate: 'reference', identifiers: [{ kind: 'symbol', name: 'loadOrders' }, { kind: 'path', name: 'api/server.mjs' }, { kind: 'path', name: 'db/orders.mjs' }],
     path: 'api/server.mjs',
     fromLine: 4,
     toLine: 6,
@@ -390,7 +409,7 @@ test('check: an interaction with an unresolvable end keeps the edge and is downg
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [claim]);
-  assert.equal(out[0].status, 'inferred');
+  assert.equal(out[0].status, 'unchecked');
   const edge = out[0].unresolved.find((item) => item.kind === 'interaction');
   assert.equal(edge.end, 'to');
   assert.equal(edge.symbol, 'writeAuditRecord');
@@ -408,8 +427,8 @@ test('check: an interaction whose called end is only mentioned, never defined, i
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [claim]);
-  assert.equal(out[0].status, 'inferred');
-  assert.match(out[0].reasons.find((r) => r.check === 'interaction').detail, /no definition of it was found/);
+  assert.equal(out[0].status, 'unchecked');
+  assert.match(out[0].reasons.find((r) => r.check === 'interaction').detail, /never names doWork/);
 });
 
 test('check: an interaction that names no symbols is unchecked', () => {
@@ -419,61 +438,63 @@ test('check: an interaction that names no symbols is unchecked', () => {
   assert.equal(out[0].status, 'unchecked');
 });
 
-test('check: a constraint with a matching enforcement point is verified', () => {
+test('check: gate-owned matches are candidates, not proof of a universal constraint', () => {
   const { dir, commit } = fixture();
   const claim = makeClaim({
     type: 'constraint',
     sentence: 'Every query passes through withTenant.',
+    constraintKind: 'tenancy', identifiers: [{ kind: 'symbol', name: 'withTenant' }],
     enforcement: { pattern: 'export function withTenant', globs: ['db/*.mjs'] },
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [claim]);
-  assert.equal(out[0].status, 'verified');
-  assert.equal(out[0].enforcementHits[0].path, 'db/tenant.mjs');
+  assert.equal(out[0].status, 'unchecked');
+  assert.equal(out[0].reasons.find((r) => r.check === 'enforcement').status, 'inferred');
+  assert.ok(out[0].enforcementHits.some((hit) => hit.path === 'db/tenant.mjs'));
 });
 
 test('check: a constraint nothing enforces is contradicted, not merely downgraded', () => {
   const { dir, commit } = fixture();
   const claim = makeClaim({
     type: 'constraint',
-    sentence: 'Every write runs inside a transaction.',
+    sentence: 'Every write runs inside a transaction.', constraintKind: 'transactions',
     enforcement: { pattern: 'beginTransaction', globs: [] },
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [claim]);
   assert.equal(out[0].status, 'contradicted');
-  assert.match(out[0].reasons.find((r) => r.check === 'enforcement').detail, /no tracked file at .* matches the enforcement pattern/);
+  assert.match(out[0].reasons.find((r) => r.check === 'enforcement').detail, /no production code matches the gate-owned enforcement query/);
 });
 
-test('check: a constraint that supplies no enforcement pattern at all is contradicted', () => {
+test('check: a constraint with no recognised kind is unchecked', () => {
   const { dir, commit } = fixture();
   const claim = makeClaim({ type: 'constraint', sentence: 'Nothing may bypass the service layer.', ...surveyed(commit) });
   const { claims: out } = verify(dir, commit, [claim]);
-  assert.equal(out[0].status, 'contradicted');
-  assert.match(out[0].reasons.find((r) => r.check === 'enforcement').detail, /supplies no enforcement pattern/);
+  assert.equal(out[0].status, 'unchecked');
+  assert.match(out[0].reasons.find((r) => r.check === 'enforcement').detail, /missing or unsupported constraintKind/);
 });
 
-test('check: a falsifying pattern that matches contradicts the claim', () => {
+test('check: agent falsifiers never supply affirmative evidence', () => {
   const { dir, commit } = fixture();
   const holds = makeClaim({
-    type: 'constraint',
+    type: 'constraint', constraintKind: 'tenancy',
     sentence: 'No code talks to the database outside db/.',
     enforcement: { pattern: 'export function withTenant', globs: ['db/*.mjs'] },
     falsifier: { pattern: 'new Pool\\(', globs: [] },
     ...surveyed(commit),
   });
   const broken = makeClaim({
-    type: 'constraint',
+    type: 'constraint', constraintKind: 'tenancy',
     sentence: 'Nothing in api/ imports db/ directly.',
     enforcement: { pattern: 'export function withTenant', globs: ['db/*.mjs'] },
     falsifier: { pattern: "from '\\.\\./db/", globs: ['api/*.mjs'] },
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [holds, broken]);
-  assert.equal(out[0].status, 'verified');
-  assert.equal(out[0].reasons.find((r) => r.check === 'contradiction').status, 'verified');
-  assert.equal(out[1].status, 'contradicted');
-  assert.equal(out[1].falsifierHits[0].path, 'api/server.mjs');
+  assert.equal(out[0].status, 'unchecked');
+  assert.equal(out[0].reasons.find((r) => r.check === 'contradiction').status, 'note');
+  assert.equal(out[1].status, 'unchecked');
+  assert.equal(out[1].falsifierExtraHits.weak[0].path, 'api/server.mjs');
 });
 
 test('check: when the surveyed commit does not resolve, every claim is unchecked', () => {
@@ -501,7 +522,7 @@ test('the gate never trusts the status the claim arrived with', () => {
     id: 'hand-written',
     type: 'constraint',
     status: 'verified',
-    sentence: 'Everything is fine.',
+    sentence: 'Everything is fine.', constraintKind: 'transactions',
     path: 'db/tenant.mjs',
     fromLine: 1,
     toLine: 1,
@@ -524,7 +545,7 @@ test('the gate never trusts the status the claim arrived with', () => {
 });
 
 test('the worst check wins over the checks that passed', () => {
-  const { dir, commit } = fixture();
+  const { dir, commit } = cohesiveFixture();
   const claim = makeClaim({
     type: 'part',
     sentence: 'db is the persistence boundary.',
@@ -555,13 +576,14 @@ test('provenance rule: a span is the only provenance a part or topic claim has',
   const constraint = makeClaim({
     type: 'constraint',
     sentence: 'Every query passes through withTenant.',
+    constraintKind: 'tenancy', identifiers: [{ kind: 'symbol', name: 'withTenant' }],
     enforcement: { pattern: 'export function withTenant', globs: ['db/*.mjs'] },
     ...surveyed(commit),
   });
   const { claims: out } = verify(dir, commit, [part, constraint]);
   assert.equal(out[0].status, 'unchecked');
   assert.equal(out[0].reasons.find((r) => r.check === 'path').status, 'unchecked');
-  assert.equal(out[1].status, 'verified');
+  assert.equal(out[1].status, 'unchecked');
   assert.equal(out[1].reasons.find((r) => r.check === 'path').status, 'note');
 });
 
@@ -600,7 +622,7 @@ test('coverage classifications sum to the tracked file count', () => {
 
 test('coverage sums with every label populated at once', () => {
   const { dir, commit } = makeRepo({
-    'src/app.mjs': "import './lib.mjs';\n",
+    'src/app.mjs': "import './lib.mjs'; const app = 1;\n",
     'src/lib.mjs': 'export const one = 1;\n',
     'src/legacy.go': 'package legacy\n',
     'dist/bundle.js': 'var a=1;\n',
@@ -611,6 +633,7 @@ test('coverage sums with every label populated at once', () => {
   });
   const span = spanAt(dir, 'src/app.mjs', 1, 1, commit);
   const claims = [
+    makeClaim({ type: 'topic', ...reference('app', 'src/app.mjs'), path: 'src/app.mjs', fromLine: 1, toLine: 1, spanHash: span.hash, ...surveyed(commit) }),
     makeClaim({
       type: 'part',
       sentence: 'src is the application.',
@@ -653,7 +676,7 @@ test('a contradicted claim buys no coverage for the file it misread', () => {
   const { dir, commit } = fixture();
   const claim = makeClaim({
     type: 'constraint',
-    sentence: 'Writes are transactional.',
+    sentence: 'Writes are transactional.', constraintKind: 'transactions',
     path: 'db/orders.mjs',
     fromLine: 3,
     toLine: 5,
@@ -689,8 +712,8 @@ test('the summary separates what may be shown as fact from what is dropped', () 
   const { dir, commit } = fixture();
   const span = spanAt(dir, 'db/tenant.mjs', 2, 5, commit);
   const claims = [
-    makeClaim({ type: 'topic', sentence: 'Tenancy.', path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: span.hash, ...surveyed(commit) }),
-    makeClaim({ type: 'constraint', sentence: 'Transactions everywhere.', enforcement: { pattern: 'beginTransaction' }, ...surveyed(commit) }),
+    makeClaim({ type: 'topic', ...reference('withTenant', 'db/tenant.mjs'), path: 'db/tenant.mjs', fromLine: 2, toLine: 5, spanHash: span.hash, ...surveyed(commit) }),
+    makeClaim({ type: 'constraint', sentence: 'Transactions everywhere.', constraintKind: 'transactions', enforcement: { pattern: 'beginTransaction' }, ...surveyed(commit) }),
     makeClaim({ type: 'interaction', sentence: 'Something calls something.', ...surveyed(commit) }),
   ];
   const { summary } = verify(dir, commit, claims);
