@@ -11,6 +11,37 @@ import { topicMastery } from './mastery.mjs';
 
 const CREDIT = { wrong: 0, partial: 0.5, correct: 1 };
 
+// The vocabularies below mirror the CHECK constraints in db.mjs. The schema is
+// the authority and stays as it is; this is the write path agreeing with it in
+// advance. The log is append-only and is the only durable record, so an event
+// the reducer would refuse must never reach it: the caller sees an error and
+// believes nothing happened, while the log keeps a line that makes every later
+// replay fail and takes the whole history with it.
+const GRADES = new Set(['correct', 'partial', 'wrong']);
+const MODES = new Set(['drill', 'mock', 'transfer', 'lesson']);
+const TOPIC_KINDS = new Set(['technology', 'concept', 'skill']);
+const ALTITUDES = new Set(['map', 'boundary', 'mechanism', 'line']);
+
+function requireText(value, label) {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} must be a non-empty string`);
+  return value;
+}
+
+// A column that is nullable still refuses an object, and binding one throws
+// inside the reducer, which is the same poisoning by a different route.
+function optionalText(value, label) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new Error(`${label} must be a string or null`);
+  return value;
+}
+
+function requireOneOf(value, allowed, label) {
+  if (typeof value !== 'string' || !allowed.has(value)) {
+    throw new Error(`${label} must be one of ${[...allowed].join(', ')}`);
+  }
+  return value;
+}
+
 export function openState(home) {
   fs.mkdirSync(home, { recursive: true });
   const db = openDatabase(path.join(home, 'cache.db'));
@@ -121,7 +152,7 @@ function replayRatings(db) {
 }
 
 export function refresh(state) {
-  const applied = rebuild(state.db, readAll(state.home));
+  const { applied, quarantined } = rebuild(state.db, readAll(state.home));
   state.db.exec('begin');
   try {
     // These are projections of the complete attempt history. Replaying them
@@ -134,7 +165,14 @@ export function refresh(state) {
     try { state.db.exec('rollback'); } catch { /* already rolled back */ }
     throw error;
   }
-  return applied;
+  // Also hung on the state so a caller that ignores the return value can still
+  // report that some history was skipped rather than quietly losing it.
+  state.quarantined = quarantined;
+  return { applied, quarantined };
+}
+
+function cardExists(state, id) {
+  return state.db.prepare('select 1 as ok from cards where id = ?').get(id) !== undefined;
 }
 
 export function record(state, {
@@ -145,11 +183,26 @@ export function record(state, {
   answer = null,
   gap = null,
   mode = 'drill',
-}) {
-  state.append({
-    type: 'attempt.recorded',
-    data: { card, grade, question, context, answer, gap, mode },
-  });
+} = {}) {
+  requireText(card, 'card');
+  requireOneOf(grade, GRADES, 'grade');
+  requireOneOf(mode, MODES, 'mode');
+  const data = {
+    card,
+    grade,
+    question: optionalText(question, 'question'),
+    context: optionalText(context, 'context'),
+    answer: optionalText(answer, 'answer'),
+    gap: optionalText(gap, 'gap'),
+    mode,
+  };
+  if (!cardExists(state, card)) {
+    // The database is a cache, so a card that is in the log but not yet reduced
+    // is not a missing card. Rebuild once before refusing.
+    refresh(state);
+    if (!cardExists(state, card)) throw new Error(`card not found: ${card}`);
+  }
+  state.append({ type: 'attempt.recorded', data });
   refresh(state);
   return state.db.prepare('select * from card_sched where card = ?').get(card);
 }
@@ -242,26 +295,46 @@ export function card(state, id) {
   };
 }
 
-export function addProject(state, { project, name, remote }) {
-  state.append({ type: 'project.added', data: { project, name, remote } });
+export function addProject(state, { project, name, remote } = {}) {
+  // projects.id, projects.name and projects.added are all not null, and the
+  // reducer falls back to the id for the name, so the id is what must hold.
+  requireText(project, 'project');
+  const data = {
+    project,
+    name: optionalText(name, 'name') ?? project,
+    remote: optionalText(remote, 'remote'),
+  };
+  state.append({ type: 'project.added', data });
   refresh(state);
   return projects(state).find((item) => item.id === project);
 }
 
 export function addTopics(state, entries) {
   if (!Array.isArray(entries)) throw new Error('topics must be an array');
-  for (const entry of entries) {
+  // The whole batch is checked before a single event is appended, so a bad
+  // fifth entry cannot leave the first four in the log.
+  const validated = entries.map((entry, index) => {
+    const label = `topic ${index + 1}`;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`${label} must be an object`);
     const { project, ...topic } = entry;
+    requireText(topic.topic, `${label} topic`);
+    requireText(topic.name, `${label} name`);
+    optionalText(topic.parent, `${label} parent`);
+    // The reducer defaults an absent kind to technology; anything else present
+    // has to be one the topics table will hold.
+    if (topic.kind !== undefined && topic.kind !== null) requireOneOf(topic.kind, TOPIC_KINDS, `${label} kind`);
+    if (project !== undefined && project !== null) requireText(project, `${label} project`);
+    return { topic, project: project ?? null };
+  });
+  for (const { topic, project } of validated) {
     state.append({ type: 'topic.added', data: topic });
-    if (project !== undefined && project !== null) {
-      state.append({ type: 'topic.linked', data: { topic: entry.topic, project } });
+    if (project !== null) {
+      state.append({ type: 'topic.linked', data: { topic: topic.topic, project } });
     }
   }
   refresh(state);
   return entries.length;
 }
-
-const ALTITUDES = new Set(['map', 'boundary', 'mechanism', 'line']);
 
 function validateAddedCard(item, index, ids) {
   const label = `card ${index + 1}`;
@@ -289,6 +362,17 @@ function validateAddedCard(item, index, ids) {
     || (ground.commit !== null && (typeof ground.commit !== 'string' || !ground.commit.trim())))) {
     throw new Error(`${label} grounding must contain {path, line, commit} entries`);
   }
+  // contexts and source are stored as JSON text under a json_valid CHECK. The
+  // reducer defaults both, so absent is fine, but a value that JSON.stringify
+  // cannot turn into a document would break the append itself.
+  if (item.contexts !== undefined && item.contexts !== null
+    && (!Array.isArray(item.contexts) || item.contexts.some((context) => typeof context !== 'string' || !context.trim()))) {
+    throw new Error(`${label} contexts must be an array of non-empty strings`);
+  }
+  if (item.source !== undefined && item.source !== null
+    && (typeof item.source !== 'object' || Array.isArray(item.source))) {
+    throw new Error(`${label} source must be an object`);
+  }
   return id;
 }
 
@@ -305,7 +389,13 @@ export function addCards(state, cards) {
   return validated.map(({ id }) => id);
 }
 
-export function contest(state, { attempt, userGrade }) {
+export function contest(state, { attempt, userGrade } = {}) {
+  requireText(attempt, 'attempt');
+  // The contest overwrites attempts.grade, which carries the same CHECK the
+  // original grade did. An attempt id that matches nothing is not refused here:
+  // replay is in timestamp order, so a contest may legitimately arrive before
+  // the attempt it contests, and the reducer defers it rather than failing.
+  requireOneOf(userGrade, GRADES, 'userGrade');
   state.append({ type: 'grade.contested', data: { attempt, userGrade } });
   refresh(state);
   return state.db.prepare('select * from attempts where id = ?').get(attempt);
