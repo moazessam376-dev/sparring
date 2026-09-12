@@ -176,6 +176,16 @@ The direction of the fix: the gate generates the candidate enforcement patterns 
 
 Until that lands, the gate's honest description is that it catches a careless agent and not a motivated one, and the interface must not describe a verified claim as more than that.
 
+### A true claim the gate cannot check
+
+Decided 2026-09-12 by the owner, after a real survey showed the hardened gate verifying trivial symbol references and refusing the meaningful claims, including one independently confirmed to be true.
+
+Two of the causes were defects and are fixed separately: external imports were being counted as unresolved internal edges, which disqualified every real module boundary, and the gate's constraint vocabulary had no query for common architecture such as validation before persistence.
+
+What remains is a claim that is true and still outside anything the gate can mechanically check. The user may vouch for it on the confirm screen. A vouched claim is a third state beside verified and unverified. It is drawn differently from a gate-verified claim, labelled in plain words as confirmed by the user rather than proven by the code, recorded as an event carrying that judgement, and never merged into verified at any layer, including the counts. It seeds cards like a verified claim, so the drill then tests the user on it, which is where a wrong vouch shows up.
+
+The reasoning: the user built the code and is the authority on it, and refusing their word starves the map of exactly the architectural knowledge the product exists to teach. The label is what keeps that honest. A map where every node says who vouched for it, the code or the person, tells the truth about its own evidence.
+
 This is the entry point for the entire product. A new user installs the application, points it at a repository they built with an agent, and within one pass has a map of it, a set of topics, and a first question. The map is also the honest test of whether the survey was any good, because a wrong map is obvious to the person who built the thing.
 
 ## 7. Privacy and telemetry
