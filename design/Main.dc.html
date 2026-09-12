@@ -9,6 +9,8 @@
 <helmet>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
     body { margin: 0; background: #0a0f0e; color: #ece9e1;
       font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
     a { color: #f2b544; } a:hover { color: #ece9e1; }
@@ -33,7 +35,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f2b544" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       <span class="mono" style="font-size: 12px; color: #f2b544;">18 due</span>
     </div>
-    <button style="padding: 5px 14px; border: 1px solid #1d2a26; border-radius: 6px; background: #0a0f0e;">Start drill</button>
+    <button onClick="{{focusWeakest}}" style="padding: 5px 14px; border: 1px solid #1d2a26; border-radius: 6px; background: #0a0f0e;">Start drill</button>
   </div>
 
   <div style="display: flex; flex-grow: 1; min-height: 0;">
@@ -48,7 +50,10 @@
         </button>
       </sc-for>
       <div style="flex-grow: 1;"></div>
-      <button style="margin: 0 20px; padding: 8px; border: 1px dashed #1d2a26; border-radius: 6px; color: #a9b0ac; font-size: 13px;">+ Survey a repository</button>
+      <button onClick="{{focusWeakest}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 20px; padding: 8px; border: 1px dashed #1d2a26; border-radius: 6px; color: #a9b0ac; font-size: 13px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a9b0ac" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Survey a repository
+      </button>
     </div>
 
     <div style="flex-grow: 1; position: relative; min-width: 0;">
@@ -91,7 +96,7 @@
         <div style="height: 4px; border-radius: 2px; background: #1d2a26; overflow: hidden;">
           <div style="height: 4px; width: {{sel.bar}}; background: {{sel.score_fg}};"></div>
         </div>
-        <div style="margin-top: 12px; font-size: 12px; color: #6f7a76; line-height: 1.5;">{{sel.caveat}}</div>
+        <div class="aside" style="margin-top: 12px; font-size: 12px; line-height: 1.5;">{{sel.caveat}}</div>
       </div>
 
       <div>
@@ -107,15 +112,15 @@
 
       <div style="flex-grow: 1;"></div>
       <div style="display: flex; gap: 8px; padding-bottom: 24px;">
-        <button style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544;">Drill this</button>
-        <button style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #1d2a26;">Open map</button>
+        <button onClick="{{focusWeakest}}" style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544;">Drill this</button>
+        <button onClick="{{openProject}}" style="flex-grow: 1; padding: 9px; border-radius: 6px; border: 1px solid #1d2a26;">Open map</button>
       </div>
     </div>
   </div>
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36","#82a0c0"]},"gapsOnly":{"editor":"boolean","default":false}}'>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#f2b544","options":["#f2b544","#58d68d","#eb6c36","#82a0c0"]}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -123,11 +128,11 @@ class Component extends DCLogic {
   }
   data() {
     return {
-      raptor:   { kind: 'Project', name: 'raptor', blurb: 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', score: 0.61, conf: 'low confidence', weak: [['Ack timeouts','14d ago'],['Adapter fan-out','21d ago']] },
-      socketio: { kind: 'Topic', name: 'socket.io', blurb: 'How rooms, acknowledgements and the Redis adapter move a message between two browsers.', score: 0.74, conf: 'moderate confidence', weak: [['Ack timeouts','14d ago'],['Reconnection backoff','9d ago'],['Namespace vs room','31d ago']] },
-      acks:     { kind: 'Subtopic', name: 'acknowledgements', blurb: 'The callback the sender passes and the server invokes. Silent when the socket drops.', score: 0.38, conf: 'very low confidence', weak: [['Ack timeouts','14d ago']] },
-      redis:    { kind: 'Topic', name: 'redis', blurb: 'Locking, expiry and the pub/sub channel the socket adapter rides on.', score: 0.81, conf: 'moderate confidence', weak: [['SET NX EX','19d ago']] },
-      rls:      { kind: 'Topic', name: 'row-level security', blurb: 'Where the tenant boundary is actually enforced, and where it is only passed along.', score: 0.55, conf: 'low confidence', weak: [['Definer functions','6d ago'],['Policy vs handler','12d ago']] },
+      raptor:   { kind: 'Project', name: 'raptor', n: 31, blurb: 'Real-time coaching platform. Socket.io over Redis, Supabase behind row-level security.', score: 0.61, conf: 'low confidence', weak: [['Ack timeouts','14d ago'],['Adapter fan-out','21d ago']] },
+      socketio: { kind: 'Topic', name: 'socket.io', n: 9, blurb: 'How rooms, acknowledgements and the Redis adapter move a message between two browsers.', score: 0.74, conf: 'moderate confidence', weak: [['Ack timeouts','14d ago'],['Reconnection backoff','9d ago'],['Namespace vs room','31d ago']] },
+      acks:     { kind: 'Subtopic', name: 'acknowledgements', n: 3, blurb: 'The callback the sender passes and the server invokes. Silent when the socket drops.', score: 0.38, conf: 'very low confidence', weak: [['Ack timeouts','14d ago']] },
+      redis:    { kind: 'Topic', name: 'redis', n: 12, blurb: 'Locking, expiry and the pub/sub channel the socket adapter rides on.', score: 0.81, conf: 'moderate confidence', weak: [['SET NX EX','19d ago']] },
+      rls:      { kind: 'Topic', name: 'row-level security', n: 7, blurb: 'Where the tenant boundary is actually enforced, and where it is only passed along.', score: 0.55, conf: 'low confidence', weak: [['Definer functions','6d ago'],['Policy vs handler','12d ago']] },
     };
   }
   layout() {
@@ -191,7 +196,7 @@ class Component extends DCLogic {
     };
 
     const d = data[this.state.sel] ?? {
-      kind: 'Subtopic', name: names[this.state.sel], score: scores[this.state.sel],
+      kind: 'Subtopic', name: names[this.state.sel], score: scores[this.state.sel], n: 2,
       blurb: 'One idea inside a larger topic. Open the map to see where it sits.',
       conf: 'very low confidence', weak: [[names[this.state.sel], 'not yet asked']],
     };
@@ -202,16 +207,19 @@ class Component extends DCLogic {
       edges, nodes,
       filters: [chip('all', 'Everything'), chip('gaps', 'Gaps only'), chip('due', 'Due today')],
       projects: [
-        { name: 'raptor', due: '12', dot: '#ef5a5a', fg: '#ece9e1', pick: () => this.setState({ sel: 'raptor' }) },
-        { name: 'openreach-tools', due: '4', dot: accent, fg: '#a9b0ac', pick: () => this.setState({ sel: 'redis' }) },
-        { name: 'sparring', due: '2', dot: '#58d68d', fg: '#a9b0ac', pick: () => this.setState({ sel: 'rls' }) },
-        { name: 'portfolio', due: '0', dot: '#1d2a26', fg: '#6f7a76', pick: () => this.setState({ sel: 'socketio' }) },
+        { name: 'raptor', due: '12', dot: '#ef5a5a', fg: this.state.sel === 'raptor' ? '#ece9e1' : '#a9b0ac', pick: () => this.setState({ sel: 'raptor' }) },
+        { name: 'openreach-tools', due: '4', dot: accent, fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
+        { name: 'sparring', due: '2', dot: '#58d68d', fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
+        { name: 'portfolio', due: '0', dot: '#1d2a26', fg: '#6f7a76', pick: () => this.setState({ sel: 'raptor' }) },
       ],
+      focusWeakest: () => this.setState({ sel: 'acks' }),
+      openProject: () => this.setState({ sel: 'raptor' }),
       sel: {
         kind: d.kind, name: d.name, blurb: d.blurb,
         score: `${pct}%`, score_fg: scoreFg, bar: `${pct}%`,
         conf: d.conf, conf_fg: d.score < 0.6 ? '#ef5a5a' : '#6f7a76',
-        caveat: 'Estimated from 9 answers. This number is a guess you can argue with, not a measurement.',
+        n: d.n,
+        caveat: `Estimated from ${d.n} answers. This number is a guess you can argue with, not a measurement.`,
         weak: d.weak.map(([name, last]) => ({ name, last })),
       },
     };

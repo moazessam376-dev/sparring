@@ -9,6 +9,8 @@
 <helmet>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
     body { margin: 0; background: #0a0f0e; color: #ece9e1;
       font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
     a { color: #f2b544; } a:hover { color: #ece9e1; }
@@ -63,7 +65,7 @@
           </div>
           <div style="display: flex; align-items: center; gap: 14px;">
             <button onClick="{{start}}" style="padding: 11px 24px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Survey it</button>
-            <span style="font-size: 12px; color: #6f7a76;">Takes a few minutes on a repository this size. You can leave it running.</span>
+            <span class="aside" style="font-size: 12px;">Takes a few minutes on a repository this size. You can leave it running.</span>
           </div>
         </div>
       </sc-if>
@@ -78,7 +80,7 @@
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <sc-for list="{{phases}}" as="p" hint-placeholder-count="6">
               <div style="display: flex; align-items: center; gap: 14px; padding: 13px 18px; border: 1px solid {{p.border}}; border-radius: 8px; background: {{p.bg}};">
-                <span style="width: 16px; text-align: center; color: {{p.icon_fg}};">{{p.icon}}</span>
+                <span style="flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; border: 1px solid {{p.icon_fg}}; background: {{p.dot_bg}};"></span>
                 <span style="flex-grow: 1; color: {{p.fg}};">{{p.label}}</span>
                 <span class="mono" style="font-size: 11px; color: #6f7a76;">{{p.detail}}</span>
               </div>
@@ -87,7 +89,7 @@
 
           <div style="border: 1px solid #1d2a26; border-radius: 8px; padding: 16px 18px; background: #0d1513;">
             <div class="eyebrow" style="margin-bottom: 10px;">Checks that failed, and what happens to them</div>
-            <div style="color: #a9b0ac; line-height: 1.6; font-size: 13px;">Two claims did not survive. The agent said the worker pool reads from Postgres directly, and no import supports it. That part will appear on the map drawn as unverified rather than dropped, because a gap you can see is worth more than a tidy map that is wrong.</div>
+            <div class="aside" style="line-height: 1.6; font-size: 13px;">Two claims did not survive. The agent said the worker pool reads from Postgres directly, and no import supports it. That part will appear on the map drawn as unverified rather than dropped, because a gap you can see is worth more than a tidy map that is wrong.</div>
           </div>
         </div>
       </sc-if>
@@ -138,7 +140,7 @@
             <button onClick="{{done}}" style="padding: 11px 24px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Save the map and start</button>
             <button onClick="{{restart}}" style="padding: 11px 18px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">Survey again</button>
             <div style="flex-grow: 1;"></div>
-            <span style="font-size: 12px; color: #6f7a76;">Saving also creates 24 questions. First one is in a minute.</span>
+            <span class="aside" style="font-size: 12px;">Saving also seeds 24 questions, drawn only from the parts that passed their check.</span>
           </div>
         </div>
       </sc-if>
@@ -166,7 +168,7 @@ class Component extends DCLogic {
     const stages = [['pick', 'Choose'], ['running', 'Read'], ['review', 'Confirm']].map(([id, label], i) => {
       const on = i === at;
       const done = i < at;
-      return { n: done ? '✓' : String(i + 1), label,
+      return { n: done ? '\u00b7' : String(i + 1), label,
         pick: () => this.setState({ stage: id }),
         border: on || done ? accent : '#1d2a26',
         bg: on ? 'rgba(242,181,68,0.14)' : 'transparent',
@@ -182,8 +184,8 @@ class Component extends DCLogic {
       ['todo', 'Proposing topics and first questions', ''],
     ].map(([s, label, detail]) => ({
       label, detail,
-      icon: s === 'done' ? '✓' : (s === 'work' ? '●' : '○'),
       icon_fg: s === 'done' ? '#58d68d' : (s === 'work' ? accent : '#3c4644'),
+      dot_bg: s === 'done' ? '#58d68d' : (s === 'work' ? accent : 'transparent'),
       fg: s === 'todo' ? '#6f7a76' : '#ece9e1',
       border: s === 'work' ? accent : '#1d2a26',
       bg: s === 'work' ? 'rgba(242,181,68,0.06)' : '#0d1513',
@@ -200,20 +202,20 @@ class Component extends DCLogic {
       action: tag === 'unverified' ? 'Fix or drop' : 'Edit',
       tag_fg: tag === 'verified' ? '#58d68d' : (tag === 'constraint' ? accent : '#ef5a5a'),
       bg: tag === 'unverified' ? 'rgba(239,90,90,0.04)' : '#0d1513',
-      fix: () => {},
+      fix: () => this.setState({ stage: 'running' }),
     }));
 
     return {
       stages, phases, claims,
       stage: { pick: stage === 'pick', running: stage === 'running', review: stage === 'review' },
       repos: [
-        { path: '~/Projects/raptor', lang: 'JavaScript', size: '312 files', state: 'surveyed 2d ago', state_fg: '#58d68d', pick: () => {} },
-        { path: '~/Projects/openreach-tools', lang: 'Python', size: '96 files', state: 'surveyed 3w ago', state_fg: '#f2b544', pick: () => {} },
-        { path: '~/Projects/sparring', lang: 'JavaScript', size: '18 files', state: 'never', state_fg: '#6f7a76', pick: () => {} },
-        { path: '~/Projects/portfolio', lang: 'TypeScript', size: '204 files', state: 'never', state_fg: '#6f7a76', pick: () => {} },
+        { path: '~/Projects/raptor', lang: 'JavaScript', size: '312 files', state: 'surveyed 2d ago', state_fg: '#58d68d', pick: () => this.setState({ stage: 'running' }) },
+        { path: '~/Projects/openreach-tools', lang: 'Python', size: '96 files', state: 'surveyed 3w ago', state_fg: '#f2b544', pick: () => this.setState({ stage: 'running' }) },
+        { path: '~/Projects/sparring', lang: 'JavaScript', size: '18 files', state: 'never', state_fg: '#6f7a76', pick: () => this.setState({ stage: 'running' }) },
+        { path: '~/Projects/portfolio', lang: 'TypeScript', size: '204 files', state: 'never', state_fg: '#6f7a76', pick: () => this.setState({ stage: 'running' }) },
       ],
       start: () => this.setState({ stage: 'running' }),
-      done: () => this.setState({ stage: 'pick' }),
+      done: () => this.setState({ stage: 'pick', saved: true }),
       restart: () => this.setState({ stage: 'running' }),
     };
   }
