@@ -1,0 +1,151 @@
+# Sparring as software
+
+Date: 2026-09-12. This records the design for turning sparring from an agent skill into an open-source desktop application. It builds on `2026-09-05-cards-and-lessons-design.md` and `2026-09-08-altitude-and-the-map-design.md`, and is grounded in `research/2026-09-10-learning-science.md` and `research/2026-09-12-product-landscape.md`.
+
+Status: design agreed in conversation on 2026-09-12. Two sections are marked pending because research into the desktop stack was still running when this was written.
+
+## 1. The problem and the evidence
+
+Engineers now ship code they did not write and do not fully hold. Nobody expects anyone to hold a large codebase line by line, but a working engineer is expected to hold the map, the constraints that touch every feature, and the habit of finding detail on demand. Agent-assisted work erodes exactly that, and it does so invisibly, because the code passes review and the tests go green.
+
+The measurement exists. Fifty-two engineers built the same two features with and without AI assistance and then sat a comprehension quiz. The assisted group scored 50 percent against 67 percent, effect size 0.738, with no significant time saving, and they hit one library-specific error each where the unassisted group hit three. Errors are where learning happens and the assistant removed them.
+
+The more important result is that this is fixable by prompting. About a thousand students used either a plain model or a tutor-prompted one. During practice the plain model helped more. On a later unassisted exam the plain-model group was 17 percent worse than control while the tutor-prompted group was level. Unguarded use caused the harm and a guardrail erased it.
+
+That sets the claim this project makes. Not that AI harms learning. That unguarded AI use harms learning, that the guardrail is a set of rules an agent follows, and that the rules only compound if something remembers what you have already learned and when you last recalled it.
+
+The binding constraint is not model quality. A randomised trial of an AI tutor across eighteen schools measured an effect of 0.05 standard deviations, which the authors described as resembling the same platform with no AI at all, and found the median student sent zero messages to the tutor even in sessions where they made mistakes. The product's hardest job is getting a person to do retrieval they would rather skip.
+
+## 2. What it is
+
+A free, open-source, local-first desktop application for Windows, macOS and Linux.
+
+It holds a graph of your projects and the topics inside them. It points an agent at a repository and turns what comes back into a map you can read and then dig into. It renders lessons the agent authors, with diagrams, checks partway through, and a quiz at the end. It schedules recall over days and interleaves across projects. It tells you where you stand and where the gaps are, and it asks you questions when you were not planning to answer any.
+
+It does not contain a model. The user's own coding agent does the teaching and the grading, through a connection the app provides.
+
+## 3. Decisions
+
+### 3.1 The agent teaches, the hub renders and remembers
+
+Teaching happens in the user's existing agent, which already has the repository, the tools and a subscription the user pays for. The hub owns the learner state, the schedule, the rules, the interface and the notifications. Lessons are authored by the agent and rendered by the hub, so the learner walks through them in the application rather than in a terminal.
+
+This is the difference between a skill and a product. A skill teaches one project and forgets. The hub is the only thing that can see two projects at once, notice that a topic recurred, and ask about it three weeks later.
+
+### 3.2 Grading
+
+Free-text answers are graded by the connected agent against the hidden rubric. Agreement between models and human raters on short-answer grading sits around 0.59 to 0.64 on quadratic weighted kappa, with a known bias toward fluency over content, so a grade is a judgement and not a fact. Two consequences: the learner can contest a grade and the contest is recorded, and the check mix leans on formats that grade deterministically wherever they carry the same evidence.
+
+The mix is set by the evidence rather than by preference. Short answer with immediate feedback retains best. Multiple choice is only useful when the wrong options are real misconceptions and feedback follows at once, and it beats short answer only when feedback is absent. So: short answer where the agent is connected, multiple choice with genuine lures where it is not, and typed exact recall for commands and strings, which is production and grades exactly.
+
+### 3.3 The knowledge model is a topic graph
+
+Topics are the nodes, with subtopics beneath them, so socket.io holds acknowledgements and reconnection. Topics carry a kind, so debugging and critical thinking live in the same graph as Redis. Projects link to the topics that appear in them. Cards are the evidence that a topic is held. Prerequisite edges drive what to learn next.
+
+One honest caveat belongs in the record. An expert topic model adds almost nothing to predictive accuracy: 0.01 AUC or less on seven of nine benchmark datasets, and randomly assigned components score within 0.01 to 0.03 of expert ones. The graph earns its place as navigation, explanation and the user's own sense of where they stand. It is not an accuracy mechanism and will not be sold as one.
+
+### 3.4 A desktop application
+
+A native desktop application on all three platforms, with a real window, native notifications, tray presence and the ability to sit running in the background. The framework choice is open and is listed in section 10. Editor extensions and agent plugins come later as additional surfaces, not as the product.
+
+The reason is the notification. Retrieval that arrives when you were not asking for it is the single unoccupied behaviour in this whole category, and a browser tab cannot do it.
+
+### 3.5 State is an append-only log, the transport is swappable, git is first
+
+Every attempt, card change, lesson completion and topic edit is an append-only record in a log file belonging to one device. Two machines never write the same bytes, so merging is not a problem that needs solving. SQLite is a cache rebuilt from the log and is safe to delete.
+
+Transport sits behind an interface. The first implementation is the user's own git remote, private by default, using the credential helper already on the machine so the app never handles a token. That costs the maintainer nothing, gives free versioning and a readable history, and makes a second machine a clone away. The log is plain JSON Lines and lessons are Markdown, so a user can read their own history in an editor or leave for another tool without an export feature.
+
+Known costs, accepted: push races need a pull, rebase and retry loop; an append-only log needs periodic snapshots with the old log compacted away; sync is on launch, on close and on a timer, so two machines open at once drift for minutes.
+
+### 3.6 No accounts, no server, no user database
+
+There is no server-side store of user data, and no login. The data this application holds is a record of what a named engineer does not understand about their employer's codebase, and topic names alone leak project and employer identity. A breach is career damage rather than an inconvenience.
+
+Improving the application does not require personal data. It requires answers to four questions, and each can be answered by counters with no content: whether a check type discriminates, whether the scheduler is calibrated, where in a lesson people stop, and whether lessons authored by weaker agents grade worse.
+
+## 4. Subsystems
+
+1. **Core.** The event log, the derived database, the topic graph, the scheduler and the mastery computation. Headless and tested, with no interface dependency.
+2. **Agent bridge.** The server the user's agent connects to, exposing the core as tools: fetch the due queue, fetch a rubric after commitment, record an attempt, propose cards, author a lesson, grade an answer, survey a repository. Plus the portable rules files, so every agent drives it the same way.
+3. **Lesson system.** A typed lesson document the agent emits and the application validates, with blocks for prose, diagrams, worked traces, checks, self-explanation prompts and the closing quiz. Invalid lessons are rejected before a learner sees them. The player renders, runs the checks, routes free text to the agent and writes results back.
+4. **Repo survey and map.** Section 6.
+5. **Desktop application.** The window, the graph view, the project view, the lesson player, the drill runner, the gaps view, the tray and the scheduled reminders.
+6. **Teaching rules.** The versioned behaviour layer that makes even a small model teach well: interviewer rules, lesson format, altitude, the check mix. Shipped with the application and handed to whatever agent connects.
+7. **Sync.** The transport interface and its git implementation.
+
+## 5. Data model
+
+**Event.** The only durable record. Written append-only to `log/<device>/<period>.jsonl`. Every other table is derived and rebuildable.
+
+**Project.** A repository: identifier, name, remote URL, when it was added. The local filesystem path is per-device configuration and is never written to the shared log, because it differs on every machine.
+
+**Topic.** A named concept with an optional parent, forming the subtopic hierarchy. Carries a kind, so technologies, architectural concepts and general skills share one graph. Linked to the projects it appears in, and to other topics by prerequisite edges.
+
+**Card.** The unit of assessment, carrying the concept, the answer-free ask, the hidden rubric, the altitude, its topics and its grounding.
+
+**Lesson.** An authored document belonging to a project and to topics.
+
+Two changes to the existing format:
+
+- **Grounding gains a commit hash** beside the path and line. A reference like `file:42` rots the moment the repository moves, and the current bank format has no defence against it. With a hash, the application can tell the difference between a wrong answer and a stale card, and can ask the agent to re-ground it.
+- **The free-text topic tag becomes a link** into the topic graph. This needs a one-time migration of the existing bank, which the agent performs by proposing topics and the user confirms.
+
+**Mastery is computed, never stored as a claim.** Per-card retention comes from the scheduler. Item difficulty comes from an online rating updated after every answer, which works from about five responses and needs no expert input. The per-topic number is a fixed-coefficient formula over recency, log prior successes, and recency-weighted proportion correct, because nothing more elaborate can be fitted from one person's data. Every displayed estimate carries its uncertainty and can be contested by the user, and the contest is an event like any other.
+
+Why nothing more elaborate: fitting a classical knowledge-tracing model needs on the order of a thousand learners for a single significant digit, deep models need roughly a million interactions before they beat logistic regression, and asking a language model to predict whether someone will answer correctly lands at or below chance. A single-user local application has none of the data any of those require.
+
+## 6. The repo survey and the map
+
+Point sparring at a repository and it produces the map before it produces anything else.
+
+The agent surveys the whole repository and returns a structured survey rather than prose: the parts, what each one is in a sentence, what talks to what, and the constraints that cross everything. The constraints matter most. These are the rules every feature has to satisfy, such as where the tenant boundary is enforced or what must never happen outside a transaction, and forgetting one is how a codebase gets broken by someone competent.
+
+The hub renders that as the project map: a graph with one sentence per node and the crossing constraints drawn as bands. It stays small enough to hold in working memory, roughly twelve nodes and six bands. A larger project gets a second level rather than more nodes. Every node and band is a door: click it to open the deep lesson if one exists, to generate one if it does not, or to be drilled on it.
+
+The survey also proposes the project's topics and an initial card set, which is how the graph and the bank come to exist without anyone authoring them by hand. The user confirms rather than accepts silently, because a survey is a claim.
+
+This is the entry point for the entire product. A new user installs the application, points it at a repository they built with an agent, and within one pass has a map of it, a set of topics, and a first question. The map is also the honest test of whether the survey was any good, because a wrong map is obvious to the person who built the thing.
+
+## 7. Privacy and telemetry
+
+Nothing is sent before consent. The first-run screen defaults to off with no pre-ticked box, the settings toggle stops collection the moment it flips, the install identifier can be rotated, and a deletion request works without an account.
+
+The opt-in payload carries typed events with numbers, an install identifier, the application version, the operating system and which agent was connected. It never carries topic names, project names, repository paths, file paths, code, questions, answers or any free text. That constraint lives in the schema itself so a contributor cannot casually add a leaking field, and the schema lives in the repository so anyone can audit what is claimed against what is sent. The collector is self-hosted rather than a third-party analytics vendor.
+
+Contributing a lesson back is a separate, explicit action that shows the exact payload before anything leaves the machine.
+
+## 8. Open source shape
+
+The repository needs more than a licence and a test workflow. A pull request template, issue templates covering both defects and lesson quality, a code of conduct, a security policy, a governance note naming who merges, and a repository description and topics.
+
+The contributor guide has to cover two audiences. Code contributors need the build and the test rules. Teaching-rule contributors need the evidence standard, because the rules are where someone without much programming background can do the most good and also the most quiet harm. The existing standard holds and gets stated explicitly: a behaviour rule ships with a source or it does not ship.
+
+## 9. What we are deliberately not building
+
+- A model of our own, or a chat window that calls one. The user's agent is the model.
+- Deep knowledge tracing. There is no corpus and it would not help if there were.
+- A mastery percentage presented as fact.
+- Accounts, a hosted backend or a user database.
+
+## 10. Open questions
+
+- **Desktop framework, packaging and signing.** Pending the Luna research. The decision criteria are set: native scheduled notifications, tray presence, autostart, bundled SQLite, auto-update, and a contributor bar that does not exclude the JavaScript developers most likely to help.
+- **Lesson document format and diagram renderer.** Pending the same research. The question is whether an existing interactive-lesson standard is worth adopting or whether a small typed schema of our own is better, and which diagram syntax gives an agent the best chance of emitting something correct and legible on the first attempt.
+- **Whether to depend on T3 Code** rather than write five agent integrations. It is MIT, TypeScript, at 22,500 stars, and already normalises the event streams of Codex, Claude Code, Cursor, Grok Build, OpenCode and Antigravity into one interface. Reading it is not optional. Depending on it is a real choice with a real coupling cost.
+- **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently.
+
+## 11. Sequence
+
+1. Core: event log, derived database, topic graph, scheduler, mastery computation, and migration of the existing bank.
+2. Agent bridge and the portable rules, so the existing skill keeps working against the new core.
+3. Repo survey and the map, which is the entry point and the first thing worth showing anyone.
+4. Lesson document format, validation and the player.
+5. Desktop application around all of it, designed rather than assembled.
+6. Sync.
+7. Telemetry, consent, and the open-source repository furniture.
+8. Passive observation of agent sessions, so the hub notices what you worked on without being asked. The extension points are good and are documented in the landscape research, but this carries real privacy weight and depends on everything above it, so it comes last rather than not at all.
+
+The teaching rules are revised throughout rather than at a point in the sequence.
+
+This record covers the whole system. Each subsystem gets its own specification and implementation plan before any code is written for it, because one plan at this size would be one badly followed plan.
