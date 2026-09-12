@@ -1,0 +1,16 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",         "x": 0,    "y": 0,    "w": 1440, "h": 900, "title": "Hub", "is_interactive": true },
+    { "file": "ProjectMap.dc.html",   "x": 1560, "y": 0,    "w": 1440, "h": 900, "title": "Project map", "is_interactive": true },
+    { "file": "Survey.dc.html",       "x": 3120, "y": 0,    "w": 1440, "h": 900, "title": "Repo survey", "is_interactive": true },
+    { "file": "DrillRunner.dc.html",  "x": 0,    "y": 1080, "w": 1440, "h": 900, "title": "Drill", "is_interactive": true },
+    { "file": "LessonPlayer.dc.html", "x": 1560, "y": 1080, "w": 1440, "h": 900, "title": "Lesson", "is_interactive": true },
+    { "file": "Standing.dc.html",     "x": 3120, "y": 1080, "w": 1440, "h": 900, "title": "Standing", "is_interactive": true }
+  ],
+  "annotations": [
+    { "id": "note-entry", "x": 3120, "y": -190, "w": 440, "text": "The survey is the front door. Everything else exists because this ran once.\n\nClaims the agent makes are checked against imports and calls before they reach the map. What fails the check is drawn as unverified, never dropped." },
+    { "id": "note-loop", "x": 0, "y": 2060, "w": 440, "text": "Commit before reveal. No hints, and asking for one is graded as not knowing.\n\nThe grade is a model's judgement and agrees with a human marker about two times in three, so it can be contested and both are kept." },
+    { "id": "note-honesty", "x": 3120, "y": 2060, "w": 440, "text": "Every number carries how little it is worth. The pale band is the uncertainty, and on a topic with three answers it is wider than the bar.\n\nThat is the design, not a bug." }
+  ],
+  "launch": { "view": "canvas" }
+}
