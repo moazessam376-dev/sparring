@@ -406,3 +406,74 @@ textarea::placeholder {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 4px;
 }
+
+/* The window's furniture depends on the platform. On macOS the system draws
+   the frame, the corners and the controls, so the interface draws none of
+   them and only leaves the traffic lights room; elsewhere the window is
+   frameless and the interface owns its own edge. */
+
+.window[data-chrome="overlay"] {
+  border: none;
+  border-radius: 0;
+}
+
+/* The strip the real traffic lights sit over. It is the rail's own glass and a
+   drag region, so the window moves when dragged beside its controls and zooms
+   when the strip is double-clicked. Its height lines the rail's first row up
+   with the content pane's top bar. */
+.traffic-lights {
+  flex-shrink: 0;
+  height: 46px;
+}
+
+.window[data-chrome="overlay"] .rail-shell {
+  padding-top: 0;
+}
+
+.survey-row {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.survey-row:last-child {
+  border-bottom: none;
+}
+
+.survey-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.claim-row {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.claim-row:last-child {
+  border-bottom: none;
+}
+
+/* A block meant to be pasted somewhere else: selectable, monospaced, and
+   scrolled rather than wrapped, so no line arrives at its destination broken. */
+.code {
+  margin: 11px 0 0;
+  padding: 13px 15px;
+  overflow-x: auto;
+  font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 300;
+  line-height: 1.62;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+}

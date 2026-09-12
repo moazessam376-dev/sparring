@@ -23,6 +23,7 @@ import {
   type Schedule,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
+import { TrafficLightGap } from "./Chrome";
 import { AlertIcon, BackIcon, FileIcon } from "./Icons";
 
 const QUEUE_SIZE = 12;
@@ -204,7 +205,8 @@ export function Drill({ connection, chrome, onEnd, onRecorded }: Props) {
   return (
     <>
       <div className="glass rail rail-shell">
-        <div className="rail-head" data-tauri-drag-region>
+        <TrafficLightGap />
+        <div className="rail-head" data-tauri-drag-region="deep">
           <span className="mark" />
           <span className="wordmark">sparring</span>
           <div className="grow" />
@@ -277,7 +279,7 @@ export function Drill({ connection, chrome, onEnd, onRecorded }: Props) {
       </div>
 
       <div className="glass-content content">
-        <div className="glass hair topbar" data-tauri-drag-region>
+        <div className="glass hair topbar" data-tauri-drag-region="deep">
           <button type="button" onClick={onEnd} style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <BackIcon size={12} />
             <span className="lbl">{current?.project ?? "drill"}</span>

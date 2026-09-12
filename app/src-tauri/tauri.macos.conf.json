@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Sparring",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 16 },
+        "transparent": true,
+        "resizable": true,
+        "shadow": true
+      }
+    ]
+  }
+}

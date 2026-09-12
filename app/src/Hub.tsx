@@ -40,12 +40,24 @@ type Props = {
   projects: Project[] | null;
   shellFailure: string | null;
   chrome: ReactNode;
+  /** Nothing is due, so the drill has no question to ask and says so. */
+  nothingDue: boolean;
   onStartDrill: () => void;
+  onSurvey: () => void;
 };
 
 type Loaded = { graph: TopicGraph; standing: StandingTopic[] };
 
-export function Hub({ connection, project, projects, shellFailure, chrome, onStartDrill }: Props) {
+export function Hub({
+  connection,
+  project,
+  projects,
+  shellFailure,
+  chrome,
+  nothingDue,
+  onStartDrill,
+  onSurvey,
+}: Props) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -151,7 +163,7 @@ export function Hub({ connection, project, projects, shellFailure, chrome, onSta
 
   return (
     <div className="glass-content content">
-      <div className="glass hair topbar" data-tauri-drag-region>
+      <div className="glass hair topbar" data-tauri-drag-region="deep">
         {([
           ["all", "Everything"],
           ["gaps", "Gaps only"],
@@ -212,6 +224,14 @@ export function Hub({ connection, project, projects, shellFailure, chrome, onSta
             <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
               Nothing has been surveyed into this copy of sparring. A project arrives when a repository
               is surveyed; until then there is no graph to draw.
+            </div>
+            <div>
+              <button type="button" className="pill go" style={{ padding: "8px 16px" }} onClick={onSurvey}>
+                Survey a repository
+              </button>
+              <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>
+                your own coding agent does the reading; this window checks it against the code
+              </div>
             </div>
           </div>
         </div>
@@ -346,6 +366,7 @@ export function Hub({ connection, project, projects, shellFailure, chrome, onSta
             topics={loaded?.graph.topics ?? []}
             topicsById={topicsById}
             standingById={standingById}
+            nothingDue={nothingDue}
             onSelect={setSelected}
             onStartDrill={onStartDrill}
           />
@@ -361,6 +382,7 @@ type DetailProps = {
   topics: Topic[];
   topicsById: Map<string, Topic>;
   standingById: Map<string, StandingTopic>;
+  nothingDue: boolean;
   onSelect: (key: string) => void;
   onStartDrill: () => void;
 };
@@ -371,6 +393,7 @@ function Detail({
   topics,
   topicsById,
   standingById,
+  nothingDue,
   onSelect,
   onStartDrill,
 }: DetailProps) {
@@ -502,7 +525,13 @@ function Detail({
       <div className="grow" />
       <div style={{ paddingBottom: 22 }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" className="pill go" style={{ flexGrow: 1, textAlign: "center" }} onClick={onStartDrill}>
+          <button
+            type="button"
+            className="pill go"
+            style={{ flexGrow: 1, textAlign: "center" }}
+            disabled={nothingDue}
+            onClick={onStartDrill}
+          >
             Start drill
           </button>
           <button type="button" className="pill ghost" style={{ flexGrow: 1, textAlign: "center" }} disabled>
@@ -510,7 +539,11 @@ function Detail({
           </button>
         </div>
         <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>
-          the drill draws from every project at once; the map is a later screen
+          {nothingDue
+            ? "nothing is due, so the drill has no question to ask"
+            : "the drill draws from every project at once"}
+          <br />
+          the project map is a later screen, so that button does nothing yet
         </div>
       </div>
     </div>

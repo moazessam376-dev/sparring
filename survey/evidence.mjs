@@ -374,6 +374,17 @@ export function grepFor(repo, pattern, globs = [], commit = null) {
   return hits;
 }
 
+// The root of the repository a directory belongs to, or null when it belongs to
+// none. A directory inside a repository answers with the repository itself,
+// which is what lets the interface say "that sits inside <root>" rather than
+// refusing a path the user plainly meant.
+export function repositoryRoot(repo) {
+  const result = runGit(repo, ['rev-parse', '--show-toplevel'], { allowFail: true });
+  if (result.status !== 0) return null;
+  const root = result.stdout.toString('utf8').trim();
+  return root === '' ? null : root;
+}
+
 // Tracked files, from the index.
 export function filesUnder(repo, dir = '.') {
   const args = ['ls-files', '-z'];
