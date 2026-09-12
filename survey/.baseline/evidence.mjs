@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import nodePath from 'node:path';
 import { hashText } from './claim.mjs';
-import { matchTexts, validatePattern, MAX_QUERY_BYTES } from './patterns.mjs';
 
 // Mechanical extractors. Every function here returns facts about a repository
 // and never an opinion about one.
@@ -37,14 +36,13 @@ const GIT_ENV = {
 
 const MAX_BUFFER = 256 * 1024 * 1024;
 
-function runGit(repo, args, { allowFail = false, timeout = 5000 } = {}) {
+function runGit(repo, args, { allowFail = false } = {}) {
   try {
     const stdout = execFileSync('git', [...HARDENED, ...args], {
       cwd: repo,
       env: GIT_ENV,
       encoding: 'buffer',
       maxBuffer: MAX_BUFFER,
-      timeout, killSignal: 'SIGKILL',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, stdout };
@@ -108,7 +106,7 @@ export function languageOf(path) {
 // because an empty import list from a language we cannot read is an unresolved
 // region, not a file with no dependencies.
 export function supportsImports(path) {
-  return languageOf(path) !== null && !/\.(?:jsx|tsx)$/i.test(path);
+  return languageOf(path) !== null;
 }
 
 // Blank out comments while leaving string literals and every newline in place,
@@ -140,22 +138,6 @@ function blankComments(src, lang) {
       i = j;
       continue;
     }
-    // JavaScript regex literals are non-code too. Without a parser a slash
-    // can also be division; conservatively blank through its terminator or
-    // newline. Losing ambiguous evidence is safer than promoting literal text.
-    if (lang === 'js' && c === '/') {
-      let j = i + 1, inClass = false;
-      while (j < n && src[j] !== '\n') {
-        if (src[j] === '\\') { j = Math.min(n, j + 2); continue; }
-        if (src[j] === '[') inClass = true;
-        if (src[j] === ']') inClass = false;
-        if (src[j] === '/' && !inClass) { j += 1; break; }
-        j += 1;
-      }
-      blank(i, j);
-      i = j;
-      continue;
-    }
     if (lang === 'py' && c === '#') {
       let j = i;
       while (j < n && src[j] !== '\n') j += 1;
@@ -165,12 +147,8 @@ function blankComments(src, lang) {
     }
     if (c === '"' || c === "'" || (lang === 'js' && c === '`')) {
       if (lang === 'py' && src.slice(i, i + 3) === c.repeat(3)) {
-        let j = i + 3;
-        while (j < n) {
-          if (src[j] === '\\') { j = Math.min(n, j + 2); continue; }
-          if (src.slice(j, j + 3) === c.repeat(3)) { j += 3; break; }
-          j += 1;
-        }
+        const end = src.indexOf(c.repeat(3), i + 3);
+        const j = end === -1 ? n : end + 3;
         blank(i, j);
         i = j;
         continue;
@@ -195,61 +173,6 @@ function blankComments(src, lang) {
     i += 1;
   }
   return { src: chars.join(''), strings };
-}
-
-// Use the same lexical pass for imports, symbols, and enforcement. Preserve
-// offsets and newlines; template contents are conservatively all non-code.
-export function codeOnly(text, path) {
-  const lang = languageOf(path);
-  if (!supportsImports(path)) return null;
-  const { src, strings } = blankComments(text, lang);
-  const chars = src.split('');
-  for (const [from, to] of strings) {
-    for (let i = from; i < to; i += 1) if (chars[i] !== '\n') chars[i] = ' ';
-  }
-  return chars.join('');
-}
-
-export function sourceClass(path, text = '') {
-  if (/(^|\/)(node_modules|dist|build|out|target|vendor|generated|__generated__|__pycache__|\.next)\//i.test(path)
-      || /(?:\.generated\.|\.min\.(?:js|css)$|\.pb\.go$|_pb2(?:_grpc)?\.py$|\.snap$)/i.test(path)
-      || /(?:@generated|auto-generated|automatically generated|do not edit)/i.test(text.slice(0, 1024))) return 'generated';
-  if (/(^|\/)(?:tests?|__tests__|__mocks__|fixtures?|testdata|specs?)\//i.test(path)
-      || /(?:^|\/)(?:test|spec|test_[^/]+|[^/]+(?:[._-](?:test|spec)|_test))\.[^/]+$/i.test(path)) return 'test';
-  return supportsImports(path) ? 'production' : 'unsupported';
-}
-
-// Full commit-wide search. Supplemental agent globs cannot shrink this scope.
-export function searchCode(repo, commit, pattern, { deadline = Date.now() + 5000, cache = new Map() } = {}) {
-  validatePattern(pattern);
-  const cached = cache.get(pattern);
-  if (cached) return cached;
-  const entries = treeAt(repo, commit).filter((entry) => entry.type === 'blob');
-  if (entries.length > 2000 || entries.reduce((n, entry) => n + entry.size, 0) > MAX_QUERY_BYTES) {
-    throw new Error('repository query budget exceeded');
-  }
-  const sources = entries.map(({ path }) => {
-    if (Date.now() > deadline) throw new Error('query time budget exceeded');
-    const text = fileAt(repo, path, commit);
-    if (text === null) throw new Error(`could not read ${path}`);
-    return { path, text, code: codeOnly(text, path), classification: sourceClass(path, text) };
-  });
-  const raw = matchTexts(pattern, sources.map((source) => source.text));
-  const code = matchTexts(pattern, sources.map((source) => source.code ?? ''));
-  const hits = [], weak = [];
-  for (let i = 0; i < sources.length; i += 1) {
-    const source = sources[i];
-    const strongIndices = new Set(code[i].map((match) => match.index));
-    for (const match of raw[i]) {
-      const strong = source.classification === 'production' && strongIndices.has(match.index);
-      const hit = { path: source.path, line: lineAt(source.text, match.index),
-        text: match.values[0], classification: strong ? 'production' : source.classification === 'production' ? 'non-code' : source.classification };
-      (strong ? hits : weak).push(hit);
-    }
-  }
-  const result = { hits, weak };
-  cache.set(pattern, result);
-  return result;
 }
 
 function insideString(index, strings) {
@@ -288,7 +211,7 @@ export function importsOf(repo, path, commit = 'HEAD') {
   const text = fileAt(repo, path, commit);
   if (text === null) return null;
   const lang = languageOf(path);
-  if (!supportsImports(path)) return [];
+  if (lang === null) return [];
   const { src, strings } = blankComments(text, lang);
   const found = [];
   const seen = new Set();
@@ -306,35 +229,29 @@ export function importsOf(repo, path, commit = 'HEAD') {
   };
   if (lang === 'js') {
     for (const { kind, re } of JS_PATTERNS) {
-      for (const match of matchTexts(re.source, [src], re.flags)[0]) add(match.values[1], match.index, kind);
+      re.lastIndex = 0;
+      let match = re.exec(src);
+      while (match !== null) {
+        add(match[1], match.index, kind);
+        match = re.exec(src);
+      }
     }
   } else {
-    for (const match of matchTexts(PY_FROM.source, [src], PY_FROM.flags)[0]) add(match.values[1], match.index, 'from-import');
-    for (const match of matchTexts(PY_IMPORT.source, [src], PY_IMPORT.flags)[0]) {
-      for (const part of match.values[1].split(',')) add(part, match.index, 'import');
+    PY_FROM.lastIndex = 0;
+    let match = PY_FROM.exec(src);
+    while (match !== null) {
+      add(match[1], match.index, 'from-import');
+      match = PY_FROM.exec(src);
+    }
+    PY_IMPORT.lastIndex = 0;
+    match = PY_IMPORT.exec(src);
+    while (match !== null) {
+      for (const part of match[1].split(',')) add(part, match.index, 'import');
+      match = PY_IMPORT.exec(src);
     }
   }
   found.sort((a, b) => a.line - b.line || a.spec.localeCompare(b.spec));
   return found;
-}
-
-// Computed module loading is an explicit unknown, not an absent edge. Match
-// call counts per line so a static import beside a computed one cannot hide it.
-export function unresolvedImportsOf(repo, path, commit, imports) {
-  const raw = fileAt(repo, path, commit);
-  const code = raw === null ? null : codeOnly(raw, path);
-  if (code === null) return [];
-  const known = new Map();
-  for (const item of imports) {
-    if (item.kind === 'dynamic' || item.kind === 'require') known.set(item.line, (known.get(item.line) ?? 0) + 1);
-  }
-  const unresolved = [];
-  for (const match of matchTexts(String.raw`\b(?:import|require|import_module|__import__)\s*\(`, [code])[0]) {
-    const line = lineAt(code, match.index);
-    if (known.get(line)) known.set(line, known.get(line) - 1);
-    else unresolved.push({ kind: 'import', path, line, reason: 'computed or unsupported module loading' });
-  }
-  return unresolved;
 }
 
 // Matching path and line pairs. git grep is used rather than a filesystem walk
@@ -345,7 +262,6 @@ export function unresolvedImportsOf(repo, path, commit, imports) {
 // starting with a dash cannot become an option.
 export function grepFor(repo, pattern, globs = [], commit = null) {
   if (typeof pattern !== 'string' || pattern.length === 0) return [];
-  validatePattern(pattern);
   const args = ['grep', '--no-color', '-n', '-I', '-E', '-e', pattern];
   if (commit) args.push(commit);
   else args.push('--cached');
