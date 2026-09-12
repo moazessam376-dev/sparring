@@ -17,7 +17,7 @@ test('apply is idempotent', () => {
 
 test('rebuild materialises projects, topics, cards and attempts', () => {
   const db = open(':memory:');
-  const applied = rebuild(db, [
+  const { applied } = rebuild(db, [
     ev(1, 'project.added', { project: 'raptor', name: 'Raptor' }),
     ev(2, 'topic.added', { topic: 'socketio', name: 'socket.io', parent: null, kind: 'technology' }),
     ev(3, 'topic.added', { topic: 'acks', name: 'acknowledgements', parent: 'socketio', kind: 'technology' }),
@@ -66,7 +66,7 @@ test('an event that arrives before what it refers to is retried, not lost', () =
   const db = open(':memory:');
   // The contest is timestamped before the attempt it contests, which is what
   // clock skew between two machines produces. Replay order is by timestamp.
-  const applied = rebuild(db, [
+  const { applied } = rebuild(db, [
     ev(1, 'project.added', { project: 'raptor', name: 'Raptor' }),
     ev(2, 'card.added', { card: 'c001', project: 'raptor', concept: 'c', ask: 'a', rubric: ['r'], altitude: 'mechanism', topics: [], grounding: [], contexts: ['raptor'], source: { type: 'lesson', ref: '1' } }),
     { id: 'bbbbbbbb:1', device: 'bbbbbbbb', seq: 1, at: '2026-01-03T00:00:00.000Z', type: 'grade.contested', v: 1, data: { attempt: 'aaaaaaaa:4', userGrade: 'correct' } },
@@ -82,10 +82,31 @@ test('an event that arrives before what it refers to is retried, not lost', () =
 test('a handler that throws leaves nothing behind, not a half-applied event', () => {
   const db = open(':memory:');
   rebuild(db, [ev(1, 'project.added', { project: 'raptor', name: 'Raptor' })]);
-  // A card whose altitude violates the CHECK makes the handler throw.
-  assert.throws(() => rebuild(db, [
+  // A card whose altitude violates the CHECK makes the handler throw. The event
+  // is quarantined rather than fatal, because it may already be in a log that
+  // has to keep replaying, but nothing of it may be left behind.
+  const { applied, quarantined } = rebuild(db, [
     ev(2, 'card.added', { card: 'c001', project: 'raptor', concept: 'c', ask: 'a', rubric: ['r'], altitude: 'nonsense', topics: [], grounding: [], contexts: ['raptor'], source: { type: 'lesson', ref: '1' } }),
-  ]));
+  ]);
+  assert.equal(applied, 0);
+  assert.equal(quarantined.length, 1);
+  assert.equal(quarantined[0].id, 'aaaaaaaa:2');
+  assert.match(quarantined[0].reason, /altitude/);
   assert.equal(db.prepare('select count(*) as n from events').get().n, 1, 'the failed event must not be recorded as applied');
   assert.equal(db.prepare('select count(*) as n from cards').get().n, 0);
+});
+
+test('a poisoned event does not stop the events around it from replaying', () => {
+  const db = open(':memory:');
+  const { applied, quarantined } = rebuild(db, [
+    ev(1, 'project.added', { project: 'raptor', name: 'Raptor' }),
+    ev(2, 'card.added', { card: 'c001', project: 'raptor', concept: 'c', ask: 'a', rubric: ['r'], altitude: 'mechanism', topics: [], grounding: [], contexts: ['raptor'], source: { type: 'lesson', ref: '1' } }),
+    ev(3, 'attempt.recorded', { card: 'c001', grade: 'excellent', mode: 'drill' }),
+    ev(4, 'attempt.recorded', { card: 'c001', grade: 'correct', mode: 'drill' }),
+  ]);
+  assert.equal(applied, 3);
+  assert.equal(quarantined.length, 1);
+  assert.equal(quarantined[0].seq, 3);
+  assert.equal(db.prepare('select count(*) as n from cards').get().n, 1);
+  assert.equal(db.prepare('select grade from attempts').get().grade, 'correct', 'the event after the bad one must still apply');
 });
