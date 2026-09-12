@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -19,6 +19,10 @@ const HEALTH_TIMEOUT: Duration = Duration::from_secs(10);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(200);
 const SIDECAR_POLL_INTERVAL: Duration = Duration::from_millis(250);
 const MAX_RESTARTS: u8 = 5;
+// How long the sidecar gets to close its database after a polite terminate
+// before it is killed outright. It normally closes in milliseconds.
+const TERM_GRACE: Duration = Duration::from_millis(2000);
+const TERM_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SidecarStatus {
@@ -100,9 +104,9 @@ impl SidecarManager {
         }
 
         let Some(script) = find_server_script(app) else {
-            self.set_error(format!(
-                "The Sparring server was not found. Expected server/index.mjs in the application resources."
-            ));
+            self.set_error(
+                "The Sparring server was not found. Expected server/index.mjs in the application resources.",
+            );
             return;
         };
 
@@ -229,6 +233,10 @@ impl SidecarManager {
         command
             .arg(script)
             .env("SPARRING_HOME", self.state_dir())
+            // The sidecar watches this pid and shuts itself down when it goes.
+            // The handlers below cover every exit this process can observe; the
+            // watchdog covers the ones it cannot, a crash or a SIGKILL.
+            .env("SPARRING_PARENT_PID", std::process::id().to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::from(log_copy))
             .stderr(Stdio::from(log));
@@ -291,10 +299,7 @@ impl SidecarManager {
 
     fn take_exited_child(&self) -> Option<ExitStatus> {
         let mut child = self.inner.child.lock().expect("child mutex poisoned");
-        let exited = match child.as_mut() {
-            Some(child) => child.try_wait().ok().flatten(),
-            None => return None,
-        };
+        let exited = child.as_mut()?.try_wait().ok().flatten();
         if exited.is_some() {
             child.take();
         }
@@ -440,13 +445,13 @@ fn find_server_script<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<Pa
         .find(|candidate| candidate.is_file())
 }
 
-fn read_token(state_dir: &PathBuf) -> Result<String, String> {
+fn read_token(state_dir: &Path) -> Result<String, String> {
     fs::read_to_string(state_dir.join("token"))
         .map(|token| token.trim().to_string())
         .map_err(|error| format!("Could not read sidecar token: {error}"))
 }
 
-fn read_port(state_dir: &PathBuf) -> Option<u16> {
+fn read_port(state_dir: &Path) -> Option<u16> {
     fs::read_to_string(state_dir.join("port"))
         .ok()
         .and_then(|port| port.trim().parse::<u16>().ok())
@@ -515,7 +520,81 @@ fn configure_process_group(command: &mut Command) {
 fn configure_process_group(_command: &mut Command) {}
 
 #[cfg(unix)]
+mod unix_signals {
+    use std::os::raw::c_int;
+    use std::sync::atomic::{AtomicI32, Ordering};
+
+    pub const SIGINT: c_int = 2;
+    pub const SIGKILL: c_int = 9;
+    pub const SIGTERM: c_int = 15;
+
+    extern "C" {
+        fn signal(signum: c_int, handler: extern "C" fn(c_int)) -> usize;
+        fn kill(pid: c_int, signum: c_int) -> c_int;
+    }
+
+    static CAUGHT: AtomicI32 = AtomicI32::new(0);
+
+    // Async-signal-safe on purpose: a lock-free store and nothing else. Taking
+    // the child mutex or joining a thread inside a signal handler can deadlock,
+    // so the waiting thread below does the actual cleanup.
+    extern "C" fn catch_signal(signum: c_int) {
+        CAUGHT.store(signum, Ordering::SeqCst);
+    }
+
+    /// Catch SIGTERM and SIGINT so a terminating signal runs the same cleanup a
+    /// menu quit does. Without this the default action kills the application
+    /// outright and the sidecar is orphaned.
+    pub fn install() {
+        // Safety: `catch_signal` only stores to a lock-free atomic.
+        unsafe {
+            signal(SIGTERM, catch_signal);
+            signal(SIGINT, catch_signal);
+        }
+    }
+
+    pub fn caught() -> Option<c_int> {
+        match CAUGHT.load(Ordering::SeqCst) {
+            0 => None,
+            signum => Some(signum),
+        }
+    }
+
+    /// Signal a whole process group. The sidecar leads its own group, so a
+    /// negative pid reaches it and anything it went on to spawn.
+    pub fn signal_group(pid: i32, signum: c_int) {
+        // A pid of zero would mean our own process group, so refuse it.
+        if pid <= 0 {
+            return;
+        }
+        // Safety: a plain libc call; a missing process only returns ESRCH.
+        unsafe {
+            kill(-pid, signum);
+            kill(pid, signum);
+        }
+    }
+}
+
+#[cfg(unix)]
 fn kill_process_tree(child: &mut Child) {
+    // Terminate before killing: the sidecar closes its database on SIGTERM, and
+    // a half-closed database is how the derived cache gets corrupted. SIGKILL
+    // is the fallback for a sidecar that will not go.
+    let Ok(pid) = i32::try_from(child.id()) else {
+        let _ = child.kill();
+        return;
+    };
+    unix_signals::signal_group(pid, unix_signals::SIGTERM);
+
+    let deadline = Instant::now() + TERM_GRACE;
+    while Instant::now() < deadline {
+        if matches!(child.try_wait(), Ok(Some(_))) {
+            return;
+        }
+        thread::sleep(TERM_POLL_INTERVAL);
+    }
+
+    unix_signals::signal_group(pid, unix_signals::SIGKILL);
     let _ = child.kill();
 }
 
@@ -589,6 +668,7 @@ pub fn run() {
         }
     };
     let manager = SidecarManager::new(resolved_state_dir);
+    watch_for_signals(&manager);
 
     let app = tauri::Builder::default()
         .manage(manager.clone())
@@ -614,9 +694,47 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Sparring");
 
-    app.run(move |app_handle, event| {
-        if matches!(event, RunEvent::Exit) {
+    // Every exit this process can observe stops the sidecar. ExitRequested and
+    // window destruction come before Exit on the paths where the event loop is
+    // unwound early, and shutdown() is idempotent, so naming all three costs
+    // nothing and closes the gaps between them.
+    app.run(move |app_handle, event| match event {
+        RunEvent::Exit | RunEvent::ExitRequested { .. } => {
             app_handle.state::<SidecarManager>().shutdown();
         }
+        RunEvent::WindowEvent {
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } => {
+            app_handle.state::<SidecarManager>().shutdown();
+        }
+        _ => {}
     });
 }
+
+/// A terminating signal must run the same cleanup a menu quit does. The handler
+/// itself only records the signal; this thread does the killing, where it is
+/// allowed to take locks and join the supervisor.
+#[cfg(unix)]
+fn watch_for_signals(manager: &SidecarManager) {
+    unix_signals::install();
+
+    // A weak handle, so watching for a signal is not itself a reason to keep
+    // the manager alive and skip its Drop.
+    let weak = Arc::downgrade(&manager.inner);
+    thread::Builder::new()
+        .name("sparring-signal-watch".to_string())
+        .spawn(move || loop {
+            if let Some(signum) = unix_signals::caught() {
+                if let Some(inner) = weak.upgrade() {
+                    SidecarManager { inner }.shutdown();
+                }
+                std::process::exit(128 + signum);
+            }
+            thread::sleep(TERM_POLL_INTERVAL);
+        })
+        .expect("could not start signal watch thread");
+}
+
+#[cfg(not(unix))]
+fn watch_for_signals(_manager: &SidecarManager) {}
