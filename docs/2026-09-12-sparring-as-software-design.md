@@ -2,7 +2,7 @@
 
 Date: 2026-09-12. This records the design for turning sparring from an agent skill into an open-source desktop application. It builds on `2026-09-05-cards-and-lessons-design.md` and `2026-09-08-altitude-and-the-map-design.md`, and is grounded in `research/2026-09-10-learning-science.md` and `research/2026-09-12-product-landscape.md`.
 
-Status: design agreed in conversation on 2026-09-12. Two sections are marked pending because research into the desktop stack was still running when this was written.
+Status: design agreed in conversation on 2026-09-12. The stack questions were resolved the same day by `research/2026-09-12-desktop-stack.md`. Two cost decisions remain open and are listed in section 10.
 
 ## 1. The problem and the evidence
 
@@ -46,9 +46,20 @@ One honest caveat belongs in the record. An expert topic model adds almost nothi
 
 ### 3.4 A desktop application
 
-A native desktop application on all three platforms, with a real window, native notifications, tray presence and the ability to sit running in the background. The framework choice is open and is listed in section 10. Editor extensions and agent plugins come later as additional surfaces, not as the product.
+Tauri, on all three platforms, with a real window, native notifications, tray presence and the ability to sit running in the background. Editor extensions and agent plugins come later as additional surfaces, not as the product.
 
-The reason is the notification. Retrieval that arrives when you were not asking for it is the single unoccupied behaviour in this whole category, and a browser tab cannot do it.
+The reason is the notification. Retrieval that arrives when you were not asking for it is the single unoccupied behaviour in this whole category, and a browser tab cannot do it. Tauri covers notifications, tray, autostart, bundled SQLite, updater and deep links with official plugins, and keeps the contributor bar at JavaScript for everything above the shell.
+
+Two costs come with it. The webview differs on each platform, and the Linux one is the weak link, so the project needs a stated Linux support matrix rather than a claim that it works everywhere. And the notification plugin fires immediately rather than on a schedule, so recurring reminders need either the resident process to own the timer or the operating system's own scheduler.
+
+### 3.7 The rest of the stack
+
+Settled by the desktop research, with the versions that were current on 2026-09-12.
+
+- **The agent connection** is a Model Context Protocol server over streamable HTTP, bound to loopback only, with a random bearer token held in the operating system credential store and the request origin validated. The older server-sent-events transport is deprecated and will not be implemented. A stdio adapter stays available for agents whose configuration can only spawn a process. The application generates the configuration snippet for each agent rather than assuming they share a format.
+- **The lesson document** is a versioned typed schema of our own, holding Markdown prose and a closed set of interactive block types, borrowing response semantics from the assessment standards and event vocabulary from the learning-record standards without adopting either wholesale. The application has to validate, migrate and render these offline, which is exactly what owning the schema buys.
+- **Diagrams** are Mermaid by default, D2 where an architecture layout needs it, and Graphviz compiled to WebAssembly as the deterministic fallback for dense graphs. Every diagram is parsed and repaired before it reaches the learner, because the agent will get some of them wrong. No controlled benchmark exists comparing how often a model emits a correct diagram in each syntax, so this is an engineering judgement rather than a measured result, and it is worth revisiting with our own data once lessons exist.
+- **The local database** is SQLite, using recursive common table expressions for the graph queries with explicit cycle bounds. It stays a derived cache.
 
 ### 3.5 State is an append-only log, the transport is swappable, git is first
 
@@ -115,6 +126,10 @@ The opt-in payload carries typed events with numbers, an install identifier, the
 
 Contributing a lesson back is a separate, explicit action that shows the exact payload before anything leaves the machine.
 
+Every self-hostable collector worth using is a server the maintainer has to run and pay for, which conflicts with the constraint that this project costs nothing to keep alive. That conflict is unresolved and is listed in section 10.
+
+On the legal side, consent must be demonstrable, specific, informed and as easy to withdraw as to give, and the notice has to state purpose, basis, recipients, retention and rights. Separately, storing or reading anything on the user's machine that is not necessary for a service they asked for raises the terminal-equipment rule, which is not limited to websites or to cookies, so an installation identifier written to disk for analytics counts. The conservative implementation is the one described above, and it should be reviewed against the law of the user's own member state rather than treated as settled by this record.
+
 ## 8. Open source shape
 
 The repository needs more than a licence and a test workflow. A pull request template, issue templates covering both defects and lesson quality, a code of conduct, a security policy, a governance note naming who merges, and a repository description and topics.
@@ -130,10 +145,11 @@ The contributor guide has to cover two audiences. Code contributors need the bui
 
 ## 10. Open questions
 
-- **Desktop framework, packaging and signing.** Pending the Luna research. The decision criteria are set: native scheduled notifications, tray presence, autostart, bundled SQLite, auto-update, and a contributor bar that does not exclude the JavaScript developers most likely to help.
-- **Lesson document format and diagram renderer.** Pending the same research. The question is whether an existing interactive-lesson standard is worth adopting or whether a small typed schema of our own is better, and which diagram syntax gives an agent the best chance of emitting something correct and legible on the first attempt.
+- **Whether to pay for macOS signing.** Notarised distribution needs the Apple Developer Program at 99 US dollars a year, and there is no free route to it. Unsigned is free and gives every macOS user a security warning and a right-click ritual on first launch. Windows is solved: code signing is free for qualifying open-source projects through the SignPath Foundation, although a brand-new application still triggers the reputation warning until it has been installed cleanly a few hundred times. Linux has no equivalent gate. This is a decision about the project's budget, not about engineering.
+- **Whether to collect any telemetry at all.** Every mature self-hostable collector is a server with a bill attached, which the project cannot carry. The alternatives are to collect nothing and compute the same analyses locally so the user sees their own calibration, or to make contribution an explicit export that the user attaches to a public issue, which costs nothing and is fully auditable but yields sparse and biased data. Collecting nothing is the cheapest and the most private, and it is also the option that leaves the application unable to tell whether it teaches well.
 - **Whether to depend on T3 Code** rather than write five agent integrations. It is MIT, TypeScript, at 22,500 stars, and already normalises the event streams of Codex, Claude Code, Cursor, Grok Build, OpenCode and Antigravity into one interface. Reading it is not optional. Depending on it is a real choice with a real coupling cost.
 - **How the survey handles a repository too large to read.** Sampling strategy, and how the map degrades honestly rather than confidently.
+- **Event log limits.** No safe event-log size, snapshot interval or merge policy has been established for this design. Those numbers need a prototype tested against offline use and divergent history, not a literature answer.
 
 ## 11. Sequence
 
