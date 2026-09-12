@@ -61,3 +61,31 @@ test('card.retired sets the flag and keeps the attempts', () => {
   assert.equal(db.prepare('select retired from cards where id=?').get('c001').retired, 1);
   assert.equal(db.prepare('select count(*) as n from attempts').get().n, 1);
 });
+
+test('an event that arrives before what it refers to is retried, not lost', () => {
+  const db = open(':memory:');
+  // The contest is timestamped before the attempt it contests, which is what
+  // clock skew between two machines produces. Replay order is by timestamp.
+  const applied = rebuild(db, [
+    ev(1, 'project.added', { project: 'raptor', name: 'Raptor' }),
+    ev(2, 'card.added', { card: 'c001', project: 'raptor', concept: 'c', ask: 'a', rubric: ['r'], altitude: 'mechanism', topics: [], grounding: [], contexts: ['raptor'], source: { type: 'lesson', ref: '1' } }),
+    { id: 'bbbbbbbb:1', device: 'bbbbbbbb', seq: 1, at: '2026-01-03T00:00:00.000Z', type: 'grade.contested', v: 1, data: { attempt: 'aaaaaaaa:4', userGrade: 'correct' } },
+    ev(4, 'attempt.recorded', { card: 'c001', grade: 'wrong', mode: 'drill' }),
+  ]);
+  assert.equal(applied, 4, 'the contest must survive arriving early');
+  const row = db.prepare('select grade, agent_grade, contested from attempts').get();
+  assert.equal(row.grade, 'correct');
+  assert.equal(row.agent_grade, 'wrong');
+  assert.equal(row.contested, 1);
+});
+
+test('a handler that throws leaves nothing behind, not a half-applied event', () => {
+  const db = open(':memory:');
+  rebuild(db, [ev(1, 'project.added', { project: 'raptor', name: 'Raptor' })]);
+  // A card whose altitude violates the CHECK makes the handler throw.
+  assert.throws(() => rebuild(db, [
+    ev(2, 'card.added', { card: 'c001', project: 'raptor', concept: 'c', ask: 'a', rubric: ['r'], altitude: 'nonsense', topics: [], grounding: [], contexts: ['raptor'], source: { type: 'lesson', ref: '1' } }),
+  ]));
+  assert.equal(db.prepare('select count(*) as n from events').get().n, 1, 'the failed event must not be recorded as applied');
+  assert.equal(db.prepare('select count(*) as n from cards').get().n, 0);
+});

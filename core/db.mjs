@@ -7,7 +7,8 @@ create table if not exists events (
   device text not null,
   seq integer not null,
   at text not null,
-  type text not null,
+  type text not null check (type in ('project.added', 'topic.added', 'topic.linked', 'topic.prereq',
+    'card.added', 'card.updated', 'card.retired', 'attempt.recorded', 'grade.contested', 'lesson.completed')),
   v integer not null,
   data text not null check (json_valid(data)),
   primary key (device, seq)
@@ -39,7 +40,7 @@ create table if not exists card_topics (
   card text not null, topic text not null, primary key (card, topic)
 );
 create table if not exists card_grounding (
-  card text not null, path text not null, line integer, commit_sha text,
+  card text not null, path text not null, line integer not null default -1, commit_sha text,
   primary key (card, path, line)
 );
 create table if not exists lessons (
@@ -65,7 +66,7 @@ create table if not exists attempts (
 create table if not exists card_sched (
   card text primary key, stability real, fsrs_difficulty real, due text,
   reps integer not null default 0, lapses integer not null default 0,
-  last_at text, last_grade text
+  last_at text, last_grade text check (last_grade is null or last_grade in ('correct', 'partial', 'wrong'))
 );
 create table if not exists card_elo (
   card text primary key, rating real not null default 0, n integer not null default 0

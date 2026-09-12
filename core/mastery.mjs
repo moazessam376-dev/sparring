@@ -2,7 +2,11 @@ import { daysBetween } from './clock.mjs';
 import { descendants } from './graph.mjs';
 
 const CREDIT = { correct: 1, partial: 0.5, wrong: 0 };
-const DECAY = 0.9; // Weight on each step further into the past.
+// Weight on each step further into the past. This has to be below about 0.62,
+// because at three attempts the two older ones carry DECAY^2 + DECAY between
+// them and a single recent answer carries 1. At 0.9 the past wins and the
+// feature stops being recency-weighted at all. Unfitted, like the coefficients.
+const DECAY = 0.5;
 
 // Initial coefficients, not fitted. The feature set is the one that survives
 // automated search in the literature: recency, log prior successes, and a
