@@ -5,7 +5,7 @@ import { open, SCHEMA_VERSION } from './db.mjs';
 test('open creates every table and records the schema version', () => {
   const db = open(':memory:');
   const names = db.prepare("select name from sqlite_master where type='table' order by name").all().map((r) => r.name);
-  for (const expected of ['attempts', 'card_elo', 'card_grounding', 'card_sched', 'card_topics', 'cards', 'events', 'lesson_runs', 'lesson_topics', 'lessons', 'meta', 'projects', 'topic_elo', 'topic_prereqs', 'topic_projects', 'topics']) {
+  for (const expected of ['attempts', 'card_elo', 'card_grounding', 'card_sched', 'card_topics', 'cards', 'events', 'lesson_answers', 'lesson_runs', 'lesson_topics', 'lessons', 'meta', 'projects', 'topic_elo', 'topic_prereqs', 'topic_projects', 'topics']) {
     assert.ok(names.includes(expected), `missing table ${expected}`);
   }
   assert.equal(db.prepare("select value from meta where key='schema_version'").get().value, String(SCHEMA_VERSION));

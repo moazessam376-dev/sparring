@@ -43,6 +43,7 @@ type Props = {
   /** Nothing is due, so the drill has no question to ask and says so. */
   nothingDue: boolean;
   onStartDrill: () => void;
+  onOpenLessons: (topic: string | null) => void;
   onSurvey: () => void;
   onImport: () => void;
 };
@@ -57,6 +58,7 @@ export function Hub({
   chrome,
   nothingDue,
   onStartDrill,
+  onOpenLessons,
   onSurvey,
   onImport,
 }: Props) {
@@ -400,6 +402,7 @@ export function Hub({
             nothingDue={nothingDue}
             onSelect={setSelected}
             onStartDrill={onStartDrill}
+            onOpenLessons={onOpenLessons}
           />
         </div>
       )}
@@ -416,6 +419,7 @@ type DetailProps = {
   nothingDue: boolean;
   onSelect: (key: string) => void;
   onStartDrill: () => void;
+  onOpenLessons: (topic: string | null) => void;
 };
 
 function Detail({
@@ -427,6 +431,7 @@ function Detail({
   nothingDue,
   onSelect,
   onStartDrill,
+  onOpenLessons,
 }: DetailProps) {
   if (node === null) return null;
   const topic = node.kind === "project" ? undefined : topicsById.get(node.id);
@@ -582,8 +587,8 @@ function Detail({
           >
             Start drill
           </button>
-          <button type="button" className="pill ghost" style={{ flexGrow: 1, textAlign: "center" }} disabled>
-            Open map
+          <button type="button" className="pill ghost" style={{ flexGrow: 1, textAlign: "center" }} onClick={() => onOpenLessons(node.kind === "project" ? null : node.id)}>
+            Open lessons
           </button>
         </div>
         <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>
@@ -591,7 +596,7 @@ function Detail({
             ? "nothing is due, so the drill has no question to ask"
             : "the drill draws from every project at once"}
           <br />
-          the project map is a later screen, so that button does nothing yet
+          lessons are filtered to this topic when one is selected
         </div>
       </div>
     </div>

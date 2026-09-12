@@ -6,6 +6,8 @@ import {
   card,
   contest,
   due,
+  gradeLessonAnswer,
+  pendingLessonAnswers,
   projects,
   record,
   topics,
@@ -387,6 +389,29 @@ const TOOLS = [
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
 
+// These agent-facing helpers are safe to publish: they only return full lesson
+// content after the learner has committed the matching answer, and they keep
+// short-answer/code grading in the connected agent rather than faking it in
+// the desktop app.
+const LESSON_AGENT_TOOLS = [
+  {
+    name: 'sparring_lesson_pending',
+    title: 'Read pending lesson answers',
+    description: 'Read answers the learner has already committed in a lesson, with the full component content for grading. The commitment happened before this tool can return the hidden rubric or review target.',
+    inputSchema: { type: 'object', properties: { lesson: { type: 'string' } }, additionalProperties: false },
+    call: (state, args) => pendingLessonAnswers(state, typeof args.lesson === 'string' && args.lesson ? args.lesson : null),
+  },
+  {
+    name: 'sparring_lesson_grade',
+    title: 'Grade a pending lesson answer',
+    description: 'Grade one committed short-answer or code response. The grade is recorded against its card in lesson mode when the block names one.',
+    inputSchema: { type: 'object', properties: { answerId: { type: 'string' }, grade: { type: 'string', enum: ['wrong', 'partial', 'correct'] }, feedback: { type: ['string', 'null'] }, gap: { type: ['string', 'null'] } }, required: ['answerId', 'grade'], additionalProperties: false },
+    call: (state, args) => gradeLessonAnswer(state, { answerId: requireString(args, 'answerId'), grade: requireString(args, 'grade'), feedback: args.feedback ?? null, gap: args.gap ?? null }),
+  },
+];
+
+for (const tool of LESSON_AGENT_TOOLS) BY_NAME.set(tool.name, tool);
+
 function typeMatches(value, type) {
   if (Array.isArray(type)) return type.some((one) => typeMatches(value, one));
   if (type === 'null') return value === null;
@@ -427,7 +452,7 @@ function checkArguments(schema, args) {
 }
 
 export function toolDefinitions(protocolVersion = PROTOCOL_VERSION) {
-  return TOOLS.map(({ name, title, description, inputSchema }) => {
+  return TOOLS.concat(LESSON_AGENT_TOOLS).map(({ name, title, description, inputSchema }) => {
     const definition = { name, description, inputSchema };
     if (supportsField(protocolVersion, '2025-06-18')) definition.title = title;
     return definition;

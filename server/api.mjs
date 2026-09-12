@@ -2,15 +2,24 @@ import {
   addCards,
   addProject,
   addTopics,
+  abandonLesson,
+  answerLesson,
   card,
+  completeLesson,
   contest,
   due,
   discoverBanks,
   dryRunImport,
   importBank,
+  getLesson,
+  gradeLessonAnswer,
   gaps,
+  lessonRun,
+  listLessons,
   projects,
   record,
+  revealLessonBlock,
+  startLesson,
   standing,
   topics,
   vouch,
@@ -109,6 +118,10 @@ export async function handle(state, req, res) {
       send(res, 200, presence());
       return;
     }
+    if (req.method === 'GET' && (url.pathname === '/api/lessons' || url.pathname === '/api/lesson')) {
+      send(res, 200, listLessons(state));
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/surveys') {
       send(res, 200, listSurveys(state.home));
       return;
@@ -128,6 +141,39 @@ export async function handle(state, req, res) {
     }
 
     const segments = pathSegments(url);
+    if (req.method === 'GET' && segments.length === 3 && segments[0] === 'api' && (segments[1] === 'lessons' || segments[1] === 'lesson')) {
+      send(res, 200, getLesson(state, decodeURIComponent(segments[2])));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'start') {
+      send(res, 200, startLesson(state, { lesson: decodeURIComponent(segments[2]), ...(await readBody(req) ?? {}) }));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'abandon') {
+      send(res, 200, abandonLesson(state, { lesson: decodeURIComponent(segments[2]), ...(await readBody(req) ?? {}) }));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'complete') {
+      send(res, 200, completeLesson(state, { lesson: decodeURIComponent(segments[2]), ...(await readBody(req) ?? {}) }));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'answer') {
+      send(res, 200, answerLesson(state, { lesson: decodeURIComponent(segments[2]), ...(await readBody(req) ?? {}) }));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 4 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'reveal') {
+      const body = await readBody(req);
+      send(res, 200, revealLessonBlock(state, decodeURIComponent(segments[2]), body?.block, body?.run));
+      return;
+    }
+    if (req.method === 'POST' && segments.length === 3 && segments[0] === 'api' && segments[1] === 'lesson' && segments[2] === 'grade') {
+      send(res, 200, gradeLessonAnswer(state, await readBody(req)));
+      return;
+    }
+    if (req.method === 'GET' && segments.length === 5 && segments[0] === 'api' && segments[1] === 'lessons' && segments[3] === 'runs') {
+      send(res, 200, lessonRun(state, decodeURIComponent(segments[2]), decodeURIComponent(segments[4])));
+      return;
+    }
     if (req.method === 'POST' && (url.pathname === '/api/import/dry-run' || url.pathname === '/api/imports/dry-run')) {
       const body = await readBody(req);
       send(res, 200, dryRunImport(state, body?.project));
@@ -188,6 +234,10 @@ export async function handle(state, req, res) {
       return;
     }
     if (error.message?.startsWith('card not found:')) {
+      send(res, 404, { error: error.message });
+      return;
+    }
+    if (error.message?.startsWith('lesson not found:') || error.message?.startsWith('lesson run not found:')) {
       send(res, 404, { error: error.message });
       return;
     }

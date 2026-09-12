@@ -121,6 +121,8 @@ test('MCP negotiates every Streamable HTTP revision and lists every promised too
     'sparring_author_lesson',
     'sparring_contest',
     'sparring_due',
+    'sparring_lesson_grade',
+    'sparring_lesson_pending',
     'sparring_projects',
     'sparring_record',
     'sparring_rubric',

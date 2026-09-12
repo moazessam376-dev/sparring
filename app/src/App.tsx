@@ -16,28 +16,32 @@ import {
   connect,
   developmentStatus,
   due as fetchDue,
+  lessons as fetchLessons,
   projects as fetchProjects,
   readStateDirectory,
   readStatus,
   readWindowChrome,
   type Connection,
+  type LessonSummary,
   type Project,
   type QueueCard,
   type SidecarStatus,
   type WindowChrome,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
-import { AlertIcon, FolderIcon, PlugIcon, PlusIcon } from "./Icons";
+import { AlertIcon, FileIcon, FolderIcon, PlugIcon, PlusIcon } from "./Icons";
 import { ChromeContext, NO_CHROME, TrafficLightGap, WindowButtons } from "./Chrome";
 import { Hub } from "./Hub";
 import { Drill } from "./Drill";
 import { Connect } from "./Connect";
 import { Survey } from "./Survey";
 import { ImportScreen } from "./ImportScreen";
+import { LessonList } from "./lesson/LessonList";
+import { LessonPlayer } from "./lesson/LessonPlayer";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-type Screen = "hub" | "drill" | "connect" | "survey" | "import";
+type Screen = "hub" | "drill" | "lessons" | "lesson" | "connect" | "survey" | "import";
 
 type Shell =
   | { name: "starting" }
@@ -64,9 +68,12 @@ export function App() {
   const [chrome, setChrome] = useState<WindowChrome>(NO_CHROME);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [queue, setQueue] = useState<QueueCard[] | null>(null);
+  const [lessons, setLessons] = useState<LessonSummary[] | null>(null);
   const [dataFailure, setDataFailure] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("hub");
+  const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
+  const [lessonTopic, setLessonTopic] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
 
   // The sidecar is polled until it answers, then watched more slowly. A failure
@@ -140,13 +147,15 @@ export function App() {
     let dropped = false;
     void (async () => {
       try {
-        const [list, cards] = await Promise.all([
+        const [list, cards, lessonList] = await Promise.all([
           fetchProjects(connection),
           fetchDue(connection, 12),
+          fetchLessons(connection),
         ]);
         if (dropped) return;
         setProjects(list);
         setQueue(cards);
+        setLessons(lessonList);
         setDataFailure(null);
         setSelectedProject((current) =>
           current !== null && list.some((item) => item.id === current)
@@ -191,6 +200,13 @@ export function App() {
               }}
               onRecorded={refresh}
             />
+          ) : shell.name === "ready" && screen === "lesson" && selectedLesson !== null ? (
+            <LessonPlayer
+              connection={shell.connection}
+              lessonId={selectedLesson}
+              chrome={<WindowButtons />}
+              onEnd={() => setScreen("lessons")}
+            />
           ) : shell.name === "ready" && screen === "survey" ? (
             <Survey
               connection={shell.connection}
@@ -232,6 +248,16 @@ export function App() {
                     <div className="lbl" style={{ padding: "0 16px 7px" }}>
                       Projects
                     </div>
+                    <button
+                      type="button"
+                      className="rail-row"
+                      onClick={() => { setLessonTopic(null); setScreen("lessons"); }}
+                      style={{ color: screen === "lessons" ? "var(--text)" : "var(--muted)", background: screen === "lessons" ? "rgba(255,255,255,0.055)" : "transparent", fontSize: 12.5, gap: 8 }}
+                    >
+                      <FileIcon size={12} stroke="currentColor" />
+                      Lessons
+                      <span className="m" style={{ marginLeft: "auto", fontSize: 10, color: "var(--faint)" }}>{lessons?.length ?? 0}</span>
+                    </button>
                     <div className="scroll" style={{ maxHeight: 210 }}>
                       {(projects ?? []).length === 0 ? (
                         <div className="m" style={{ padding: "0 16px", fontSize: 10.5, color: "var(--dim)" }}>
@@ -382,6 +408,12 @@ export function App() {
                   stateDirectory={stateDirectory}
                   chrome={<WindowButtons />}
                 />
+              ) : shell.name === "ready" && screen === "lessons" ? (
+                lessons === null ? (
+                  <div className="glass-content content"><div className="glass hair topbar"><span className="lbl">Lessons</span><div className="grow" />{<WindowButtons />}</div><div className="centre"><span className="m" style={{ color: "var(--faint)" }}>reading lessons</span></div></div>
+                ) : (
+                  <LessonList lessons={lessons} topic={lessonTopic} chrome={<WindowButtons />} onOpen={(id) => { setSelectedLesson(id); setScreen("lesson"); }} />
+                )
               ) : shell.name === "ready" ? (
                 <Hub
                   connection={shell.connection}
@@ -391,6 +423,7 @@ export function App() {
                   chrome={<WindowButtons />}
                   nothingDue={nothingDue}
                   onStartDrill={() => setScreen("drill")}
+                  onOpenLessons={(topic) => { setLessonTopic(topic); setScreen("lessons"); }}
                   onSurvey={() => setScreen("survey")}
                   onImport={() => setScreen("import")}
                 />

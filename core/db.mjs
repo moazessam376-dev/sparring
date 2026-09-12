@@ -60,6 +60,13 @@ create table if not exists lesson_runs (
   completed integer not null default 0 check (completed in (0, 1)),
   stopped_at_block integer
 );
+create table if not exists lesson_answers (
+  id text primary key, run text not null, lesson text not null,
+  block integer not null, card text, answer text not null,
+  status text not null check (status in ('awaiting', 'stored', 'graded')),
+  grade text check (grade is null or grade in ('correct', 'partial', 'wrong')),
+  feedback text, at text not null, updated_at text not null
+);
 create table if not exists attempts (
   id text primary key, card text not null, at text not null,
   grade text not null check (grade in ('correct', 'partial', 'wrong')),

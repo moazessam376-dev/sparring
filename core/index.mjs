@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { addDays, today } from './clock.mjs';
 import { open as openDatabase } from './db.mjs';
 import { append as appendEvent, readAll } from './log.mjs';
@@ -9,6 +10,8 @@ import { update } from './elo.mjs';
 import { topicsForProject } from './graph.mjs';
 import { topicMastery } from './mastery.mjs';
 import { canVouchClaim, CLAIM_STATUSES, validateClaim } from '../survey/claim.mjs';
+import { COMPONENTS } from '../lesson/schema.mjs';
+import { validate as validateLessonDocument } from '../lesson/validate.mjs';
 import { discover, discoverBanks, dryRun, dryRunImport, importBank, importProject } from './migrate.mjs';
 
 const CREDIT = { wrong: 0, partial: 0.5, correct: 1 };
@@ -193,6 +196,335 @@ export function refresh(state) {
 
 function cardExists(state, id) {
   return state.db.prepare('select 1 as ok from cards where id = ?').get(id) !== undefined;
+}
+
+const LESSON_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+function lessonDirectory(state) {
+  return path.join(state.home, 'lessons');
+}
+
+function lessonFile(state, id) {
+  requireText(id, 'lesson');
+  if (!LESSON_ID.test(id)) throw new Error('lesson id is invalid');
+  return path.join(lessonDirectory(state), `${id}.json`);
+}
+
+function readLessonFile(state, id) {
+  const file = lessonFile(state, id);
+  if (!fs.existsSync(file)) throw new Error(`lesson not found: ${id}`);
+  let document;
+  try {
+    document = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw new Error(`lesson ${id} is not valid JSON: ${error.message}`);
+  }
+  const result = validateLessonDocument(document);
+  if (!result.ok) throw new Error(`lesson ${id} is invalid: ${result.errors.map((item) => `${item.field} ${item.message}`).join('; ')}`);
+  return document;
+}
+
+function readLessonFiles(state) {
+  const dir = lessonDirectory(state);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -5))
+    .filter((id) => LESSON_ID.test(id))
+    .sort()
+    .map((id) => readLessonFile(state, id));
+}
+
+function gradableCount(document) {
+  return document.blocks.filter((block) => COMPONENTS[block.type]?.gradable === true).length;
+}
+
+function syncLessonProjection(state, documents) {
+  state.db.exec('begin');
+  try {
+    const lesson = state.db.prepare(`insert or replace into lessons
+      (id, project, title, created, blocks) values (?, ?, ?, ?, ?)`);
+    const topic = state.db.prepare('insert or ignore into lesson_topics (lesson, topic) values (?, ?)');
+    for (const document of documents) {
+      lesson.run(document.id, document.project, document.title, document.created, document.blocks.length);
+      state.db.prepare('delete from lesson_topics where lesson = ?').run(document.id);
+      for (const item of document.topics) topic.run(document.id, item);
+    }
+    state.db.exec('commit');
+  } catch (error) {
+    try { state.db.exec('rollback'); } catch { /* already rolled back */ }
+    throw error;
+  }
+}
+
+function lessonSummary(document) {
+  const blocks = document.blocks.length;
+  const gradable = gradableCount(document);
+  return {
+    id: document.id,
+    project: document.project,
+    title: document.title,
+    topics: [...document.topics],
+    blocks,
+    gradable,
+    blockCount: blocks,
+    gradableCount: gradable,
+    created: document.created,
+  };
+}
+
+function redactedBlock(block) {
+  const copy = JSON.parse(JSON.stringify(block));
+  if (copy.type === 'short') {
+    delete copy.rubric;
+    delete copy.grounding;
+  } else if (copy.type === 'code') {
+    delete copy.reviewAgainst;
+  } else if (copy.type === 'recall') {
+    delete copy.answer;
+    delete copy.accept;
+  } else if (copy.type === 'lure') {
+    copy.options = copy.options.map((option) => {
+      const safe = { text: option.text };
+      return safe;
+    });
+  } else if (copy.type === 'order') {
+    delete copy.order;
+  } else if (copy.type === 'blank') {
+    copy.blanks = copy.blanks.map((blank) => ({ distractors: blank.distractors, at: blank.at }));
+    delete copy.file;
+  } else if (copy.type === 'place') {
+    copy.place = copy.place.map((item) => ({ label: item.label }));
+  }
+  return copy;
+}
+
+export function listLessons(state) {
+  const documents = readLessonFiles(state);
+  syncLessonProjection(state, documents);
+  return documents.map(lessonSummary);
+}
+
+export const lessons = listLessons;
+
+export function getLesson(state, id) {
+  const document = readLessonFile(state, id);
+  syncLessonProjection(state, [document]);
+  return {
+    ...lessonSummary(document),
+    blocks: document.blocks.map(redactedBlock),
+  };
+}
+
+export function revealLessonBlock(state, id, blockIndex, run) {
+  const document = readLessonFile(state, id);
+  if (!Number.isInteger(blockIndex) || blockIndex < 0 || blockIndex >= document.blocks.length) {
+    throw new Error('block must be an integer within the lesson');
+  }
+  const runIdValue = requireText(run, 'run');
+  refresh(state);
+  const answer = state.db.prepare('select id, run, lesson, block from lesson_answers where id = ?').get(`${runIdValue}:${blockIndex}`);
+  if (!answer || answer.run !== runIdValue || answer.lesson !== id || answer.block !== blockIndex) {
+    throw new Error('lesson block must be committed before reveal');
+  }
+  return { lesson: id, block: blockIndex, data: document.blocks[blockIndex] };
+}
+
+function runId(value) {
+  return value === undefined || value === null ? crypto.randomUUID() : requireText(value, 'run');
+}
+
+function runRow(state, id) {
+  const row = state.db.prepare(`select id, lesson, at, completed, stopped_at_block
+    from lesson_runs where id = ?`).get(id);
+  if (!row) throw new Error(`lesson run not found: ${id}`);
+  return {
+    id: row.id,
+    lesson: row.lesson,
+    at: row.at,
+    completed: row.completed === 1,
+    stoppedAtBlock: row.stopped_at_block,
+  };
+}
+
+function ensureRun(state, lessonId, id) {
+  const document = readLessonFile(state, lessonId);
+  refresh(state);
+  const row = state.db.prepare('select id, lesson from lesson_runs where id = ?').get(id);
+  if (!row) throw new Error(`lesson run not found: ${id}`);
+  if (row.lesson !== lessonId) throw new Error('lesson run belongs to another lesson');
+  return document;
+}
+
+export function startLesson(state, { lesson, run } = {}) {
+  const document = readLessonFile(state, lesson);
+  const id = runId(run);
+  state.append({ type: 'lesson.completed', data: { status: 'started', run: id, lesson: document.id } });
+  refresh(state);
+  return runRow(state, id);
+}
+
+export function abandonLesson(state, { lesson, run, stoppedAtBlock } = {}) {
+  const document = ensureRun(state, lesson, requireText(run, 'run'));
+  if (!Number.isInteger(stoppedAtBlock) || stoppedAtBlock < 0 || stoppedAtBlock >= document.blocks.length) {
+    throw new Error('stoppedAtBlock must be an integer within the lesson');
+  }
+  state.append({ type: 'lesson.completed', data: {
+    status: 'abandoned', run, lesson: document.id, stoppedAtBlock,
+  } });
+  refresh(state);
+  return runRow(state, run);
+}
+
+export function completeLesson(state, { lesson, run } = {}) {
+  const document = ensureRun(state, lesson, requireText(run, 'run'));
+  state.append({ type: 'lesson.completed', data: { status: 'completed', run, lesson: document.id } });
+  refresh(state);
+  return runRow(state, run);
+}
+
+function blockQuestion(block) {
+  if (typeof block.ask === 'string') return block.ask;
+  if (typeof block.situation === 'string') return block.situation;
+  if (typeof block.prompt === 'string') return block.prompt;
+  return null;
+}
+
+function validateLessonAnswerInput(state, input) {
+  const lessonId = requireText(input.lesson, 'lesson');
+  const run = requireText(input.run, 'run');
+  const document = ensureRun(state, lessonId, run);
+  if (!Number.isInteger(input.block) || input.block < 0 || input.block >= document.blocks.length) {
+    throw new Error('block must be an integer within the lesson');
+  }
+  if (typeof input.answer !== 'string') throw new Error('answer must be a string');
+  const cardId = input.card === undefined || input.card === null ? null : requireText(input.card, 'card');
+  if (cardId !== null && !cardExists(state, cardId)) throw new Error(`card not found: ${cardId}`);
+  return { lessonId, run, document, cardId };
+}
+
+export function answerLesson(state, input = {}) {
+  const { lessonId, run, document, cardId } = validateLessonAnswerInput(state, input);
+  const feedback = optionalText(input.feedback, 'feedback');
+  const gap = optionalText(input.gap, 'gap');
+  const status = input.grade === undefined || input.grade === null ? (input.stored === true ? 'stored' : 'awaiting') : 'graded';
+  if (status === 'graded') requireOneOf(input.grade, GRADES, 'grade');
+  const answerId = `${run}:${input.block}`;
+  state.append({ type: 'lesson.completed', data: {
+    status: status === 'graded' ? 'awaiting' : status,
+    answerId,
+    run,
+    lesson: lessonId,
+    block: input.block,
+    card: cardId,
+    answer: input.answer,
+  } });
+  if (status === 'graded') {
+    state.append({ type: 'lesson.completed', data: {
+      status: 'graded', answerId, run, lesson: lessonId, block: input.block,
+      grade: input.grade, feedback,
+    } });
+    if (cardId !== null) {
+      state.append({ type: 'attempt.recorded', data: {
+        card: cardId,
+        grade: input.grade,
+        question: blockQuestion(document.blocks[input.block]),
+        context: lessonId,
+        answer: input.answer,
+        gap,
+        mode: 'lesson',
+      } });
+    }
+  }
+  refresh(state);
+  return lessonAnswerRow(state, answerId);
+}
+
+function lessonAnswerRow(state, id) {
+  const row = state.db.prepare(`select id, run, lesson, block, card, answer, status, grade, feedback, at, updated_at
+    from lesson_answers where id = ?`).get(id);
+  if (!row) throw new Error(`lesson answer not found: ${id}`);
+  return {
+    id: row.id,
+    run: row.run,
+    lesson: row.lesson,
+    block: row.block,
+    card: row.card,
+    answer: row.answer,
+    status: row.status,
+    grade: row.grade,
+    feedback: row.feedback,
+    at: row.at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function gradeLessonAnswer(state, { answerId, grade, feedback = null, gap = null } = {}) {
+  requireText(answerId, 'answerId');
+  requireOneOf(grade, GRADES, 'grade');
+  optionalText(feedback, 'feedback');
+  optionalText(gap, 'gap');
+  refresh(state);
+  const row = state.db.prepare('select * from lesson_answers where id = ?').get(answerId);
+  if (!row) throw new Error(`lesson answer not found: ${answerId}`);
+  state.append({ type: 'lesson.completed', data: {
+    status: 'graded', answerId, run: row.run, lesson: row.lesson, block: row.block,
+    grade, feedback,
+  } });
+  if (row.card !== null) {
+    const document = readLessonFile(state, row.lesson);
+    state.append({ type: 'attempt.recorded', data: {
+      card: row.card,
+      grade,
+      question: blockQuestion(document.blocks[row.block]),
+      context: row.lesson,
+      answer: row.answer,
+      gap: gap ?? null,
+      mode: 'lesson',
+    } });
+  }
+  refresh(state);
+  return lessonAnswerRow(state, answerId);
+}
+
+export function lessonRun(state, lessonId, id) {
+  ensureRun(state, lessonId, id);
+  const run = runRow(state, id);
+  const answers = state.db.prepare(`select id, run, lesson, block, card, answer, status, grade, feedback, at, updated_at
+    from lesson_answers where run = ? order by block`).all(id).map((row) => ({
+    id: row.id,
+    run: row.run,
+    lesson: row.lesson,
+    block: row.block,
+    card: row.card,
+    answer: row.answer,
+    status: row.status,
+    grade: row.grade,
+    feedback: row.feedback,
+    at: row.at,
+    updatedAt: row.updated_at,
+  }));
+  return { ...run, answers };
+}
+
+export function pendingLessonAnswers(state, lessonId = null) {
+  refresh(state);
+  const rows = lessonId === null
+    ? state.db.prepare("select * from lesson_answers where status = 'awaiting' order by at, id").all()
+    : state.db.prepare("select * from lesson_answers where status = 'awaiting' and lesson = ? order by at, id").all(lessonId);
+  return rows.map((row) => {
+    const document = readLessonFile(state, row.lesson);
+    return {
+      id: row.id,
+      run: row.run,
+      lesson: row.lesson,
+      block: row.block,
+      card: row.card,
+      answer: row.answer,
+      component: document.blocks[row.block],
+      at: row.at,
+    };
+  });
 }
 
 export function record(state, {
