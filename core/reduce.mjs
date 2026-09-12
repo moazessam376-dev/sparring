@@ -105,19 +105,47 @@ export function apply(db, event) {
   }
 }
 
+// readAll already skips a log line it cannot parse, on the principle that one
+// bad line must not destroy the history around it. An event whose handler
+// throws gets the same courtesy here. Quarantining it costs one event; letting
+// it throw costs the whole log, because the database is a disposable cache and
+// an event that is always fatal means the cache can never be rebuilt again.
+// The quarantined events are returned rather than swallowed: a silent skip is
+// its own kind of lie, and the caller has to be able to say what was dropped.
 export function rebuild(db, events) {
   let applied = 0;
   const deferred = [];
+  const quarantined = [];
+  const attempt = (event) => {
+    try {
+      return apply(db, event);
+    } catch (error) {
+      // apply has already rolled back to its own savepoint, so nothing of this
+      // event is left behind and the enclosing transaction is still usable.
+      quarantined.push({
+        id: event.id ?? `${event.device}:${event.seq}`,
+        device: event.device,
+        seq: event.seq,
+        type: event.type,
+        at: event.at,
+        reason: error?.message || String(error),
+      });
+      return 'quarantined';
+    }
+  };
   db.exec('begin');
   try {
     for (const event of events) {
-      const result = apply(db, event);
+      const result = attempt(event);
       if (result === true) applied += 1;
       else if (result === 'deferred') deferred.push(event);
     }
     // One retry pass. An event still deferred after it refers to something that
     // is genuinely absent from the log rather than merely out of order.
-    for (const event of deferred) if (apply(db, event) === true) applied += 1;
+    for (const event of deferred) if (attempt(event) === true) applied += 1;
+    // Outside the per-event guard on purpose. A broken database rather than a
+    // bad event leaves the transaction unusable and this commit still throws,
+    // so an infrastructure failure is never reported as a quiet empty rebuild.
     db.exec('commit');
   } catch (error) {
     // Guarded: SQLite may already have rolled back, and an unguarded rollback
@@ -125,5 +153,5 @@ export function rebuild(db, events) {
     try { db.exec('rollback'); } catch { /* already rolled back */ }
     throw error;
   }
-  return applied;
+  return { applied, quarantined };
 }
