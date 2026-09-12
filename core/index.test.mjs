@@ -72,6 +72,41 @@ test('the due queue never exposes a rubric', () => {
   delete process.env.SPARRING_NOW;
 });
 
+test('the due queue never exposes a grounding reference', () => {
+  process.env.SPARRING_NOW = '2026-03-01T09:00:00Z';
+  const state = openState(home());
+  state.append({ type: 'project.added', data: { project: 'delta', name: 'delta' } });
+  state.append({ type: 'topic.added', data: { topic: 'delta-t', name: 'delta', parent: null, kind: 'technology' } });
+  state.append({ type: 'card.added', data: {
+    card: 'delta-1', project: 'delta', concept: 'c', ask: 'a', rubric: ['THE ANSWER ITSELF'],
+    altitude: 'mechanism', topics: ['delta-t'],
+    // A path nothing else in this file could produce, so a substring match on
+    // the serialised queue is proof and not a coincidence.
+    grounding: [{ path: 'src/WHERE-THE-ANSWER-LIVES.mjs', line: 42, commit: 'abc1234' }],
+    contexts: ['delta'], source: { type: 'seed', ref: 'THE-SOURCE-REF' },
+  } });
+  refresh(state);
+
+  const queue = due(state, { n: 9 });
+  assert.equal(queue.length, 1);
+  const [card] = queue;
+  assert.equal(card.grounding, undefined, 'the queue leaked a grounding reference');
+  assert.equal(card.rubric, undefined, 'the queue leaked a rubric');
+  const serialised = JSON.stringify(queue);
+  assert.equal(serialised.includes('WHERE-THE-ANSWER-LIVES'), false, 'the queue leaked the file the answer lives in');
+  assert.equal(serialised.includes('THE ANSWER ITSELF'), false);
+  assert.equal(serialised.includes('THE-SOURCE-REF'), false, 'the queue leaked the source a card was cut from');
+
+  // The queue is a named list of columns, so a column added to the cards table
+  // later is private until someone puts it on that list. This is the test that
+  // fails if anyone goes back to select *.
+  state.db.exec("alter table cards add column secret_hint text not null default 'THE FUTURE LEAK'");
+  const after = due(state, { n: 9 });
+  assert.equal(after[0].secret_hint, undefined, 'a new cards column reached the queue by default');
+  assert.equal(JSON.stringify(after).includes('THE FUTURE LEAK'), false);
+  delete process.env.SPARRING_NOW;
+});
+
 test('standing reports mastery per topic with its confidence', () => {
   process.env.SPARRING_NOW = '2026-03-01T09:00:00Z';
   const state = openState(home());
