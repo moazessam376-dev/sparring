@@ -27,16 +27,17 @@ import {
   type WindowChrome,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
-import { AlertIcon, PlugIcon, PlusIcon } from "./Icons";
+import { AlertIcon, FolderIcon, PlugIcon, PlusIcon } from "./Icons";
 import { ChromeContext, NO_CHROME, TrafficLightGap, WindowButtons } from "./Chrome";
 import { Hub } from "./Hub";
 import { Drill } from "./Drill";
 import { Connect } from "./Connect";
 import { Survey } from "./Survey";
+import { ImportScreen } from "./ImportScreen";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-type Screen = "hub" | "drill" | "connect" | "survey";
+type Screen = "hub" | "drill" | "connect" | "survey" | "import";
 
 type Shell =
   | { name: "starting" }
@@ -200,6 +201,17 @@ export function App() {
                 setScreen("hub");
               }}
             />
+          ) : shell.name === "ready" && screen === "import" ? (
+            <ImportScreen
+              connection={shell.connection}
+              chrome={<WindowButtons />}
+              onCancel={() => setScreen("hub")}
+              onDone={(projectId) => {
+                refresh();
+                if (projectId !== null) setSelectedProject(projectId);
+                setScreen("hub");
+              }}
+            />
           ) : (
             <>
               <div className="glass rail rail-shell">
@@ -262,6 +274,15 @@ export function App() {
                         })
                       )}
                     </div>
+                    <button
+                      type="button"
+                      className="rail-row"
+                      onClick={() => setScreen("import")}
+                      style={{ color: screen === "import" ? "var(--text)" : "var(--muted)", fontSize: 12.5, gap: 8 }}
+                    >
+                      <FolderIcon size={12} stroke="currentColor" />
+                      Bring in existing banks
+                    </button>
                     <button
                       type="button"
                       className="rail-row"
@@ -371,6 +392,7 @@ export function App() {
                   nothingDue={nothingDue}
                   onStartDrill={() => setScreen("drill")}
                   onSurvey={() => setScreen("survey")}
+                  onImport={() => setScreen("import")}
                 />
               ) : (
                 <div className="glass-content content">

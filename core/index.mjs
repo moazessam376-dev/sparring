@@ -9,6 +9,7 @@ import { update } from './elo.mjs';
 import { topicsForProject } from './graph.mjs';
 import { topicMastery } from './mastery.mjs';
 import { canVouchClaim, CLAIM_STATUSES, validateClaim } from '../survey/claim.mjs';
+import { discover, discoverBanks, dryRun, dryRunImport, importBank, importProject } from './migrate.mjs';
 
 const CREDIT = { wrong: 0, partial: 0.5, correct: 1 };
 
@@ -60,12 +61,16 @@ function validateVouch({ claim, judgement } = {}) {
 export function openState(home) {
   fs.mkdirSync(home, { recursive: true });
   const db = openDatabase(path.join(home, 'cache.db'));
-  return {
+  const state = {
     db,
     home,
     append: (body) => appendEvent(home, body),
+    refresh: () => refresh(state),
   };
+  return state;
 }
+
+export { discover, discoverBanks, dryRun, dryRunImport, importBank, importProject };
 
 function replaySchedules(db) {
   const cards = db.prepare('select id from cards order by id').all();

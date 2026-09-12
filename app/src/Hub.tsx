@@ -28,7 +28,7 @@ import {
   tone,
 } from "./Estimate";
 import { GRAPH_HEIGHT, GRAPH_WIDTH, buildGraph, descendantsOf, type GraphNode } from "./layout";
-import { AlertIcon } from "./Icons";
+import { AlertIcon, FolderIcon } from "./Icons";
 
 type Filter = "all" | "gaps" | "unverified";
 
@@ -44,6 +44,7 @@ type Props = {
   nothingDue: boolean;
   onStartDrill: () => void;
   onSurvey: () => void;
+  onImport: () => void;
 };
 
 type Loaded = { graph: TopicGraph; standing: StandingTopic[] };
@@ -57,6 +58,7 @@ export function Hub({
   nothingDue,
   onStartDrill,
   onSurvey,
+  onImport,
 }: Props) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -222,16 +224,20 @@ export function Hub({
           <div className="notice panel">
             <div style={{ fontSize: 15, fontWeight: 600 }}>No project yet</div>
             <div style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-              Nothing has been surveyed into this copy of sparring. A project arrives when a repository
-              is surveyed; until then there is no graph to draw.
+              Nothing has arrived in this copy of sparring yet. Survey a repository, or bring in a bank
+              from the command-line skill if you already have years of answers there.
             </div>
-            <div>
+            <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
               <button type="button" className="pill go" style={{ padding: "8px 16px" }} onClick={onSurvey}>
                 Survey a repository
               </button>
-              <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>
-                your own coding agent does the reading; this window checks it against the code
-              </div>
+              <button type="button" className="pill ghost" style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 7 }} onClick={onImport}>
+                <FolderIcon size={12} stroke="currentColor" />
+                Bring in existing banks
+              </button>
+            </div>
+            <div className="m" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>
+              imports are previewed first and never write back to the source folders
             </div>
           </div>
         </div>
