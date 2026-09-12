@@ -9,6 +9,8 @@
 <helmet>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
     body { margin: 0; background: #0a0f0e; color: #ece9e1;
       font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
     a { color: #f2b544; } a:hover { color: #ece9e1; }
@@ -37,7 +39,7 @@
         <button onClick="{{s.pick}}" class="step" style="display: flex; gap: 12px; align-items: flex-start; padding: 9px 22px; text-align: left; width: 100%; background: {{s.bg}}; border-left: 2px solid {{s.edge}};">
           <span class="mono" style="font-size: 11px; color: {{s.num_fg}}; width: 14px; flex-shrink: 0; padding-top: 2px;">{{s.num}}</span>
           <span style="flex-grow: 1; font-size: 13px; line-height: 1.45; color: {{s.fg}};">{{s.label}}</span>
-          <span style="color: {{s.tick_fg}}; font-size: 12px; padding-top: 1px;">{{s.tick}}</span>
+          <span class="mono" style="color: {{s.tick_fg}}; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 4px;">{{s.tick}}</span>
         </button>
       </sc-for>
     </div>
@@ -84,7 +86,7 @@
 
         <sc-if value="{{check.open}}" hint-placeholder-val="{{true}}">
           <div style="display: flex; gap: 10px;">
-            <input placeholder="Type the exact command"/>
+            <input placeholder="{{check.hint}}"/>
             <button onClick="{{submit}}" style="padding: 0 20px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; white-space: nowrap;">Check</button>
           </div>
         </sc-if>
@@ -93,10 +95,10 @@
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <span style="width: 8px; height: 8px; border-radius: 50%; background: #58d68d;"></span>
-              <span style="color: #58d68d; font-weight: 500;">Right, and it is the ordering that matters</span>
+              <span style="color: #58d68d; font-weight: 500;">{{check.right}}</span>
             </div>
-            <div class="mono" style="font-size: 13px; padding: 12px 14px; border-radius: 6px; background: #0a0f0e; border: 1px solid #1d2a26; color: #ece9e1;">SET lock:session:42 &lt;token&gt; NX EX 30</div>
-            <div style="color: #a9b0ac; line-height: 1.6; font-size: 13px;">Setting the value and the expiry in two commands leaves a window where the process can die holding a lock that never expires. One command removes the window.</div>
+            <div class="mono" style="font-size: 13px; padding: 12px 14px; border-radius: 6px; background: #0a0f0e; border: 1px solid #1d2a26; color: #ece9e1;">{{check.reveal}}</div>
+            <div style="color: #a9b0ac; line-height: 1.6; font-size: 13px;">{{check.why}}</div>
           </div>
         </sc-if>
       </div>
@@ -105,7 +107,7 @@
         <button onClick="{{prev}}" style="padding: 10px 18px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">Back</button>
         <button onClick="{{next}}" style="padding: 10px 22px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">{{nextLabel}}</button>
         <div style="flex-grow: 1;"></div>
-        <span style="font-size: 12px; color: #6f7a76;">Every part ends with one question. Skipping it is the part that does not work.</span>
+        <span class="aside" style="font-size: 12px;">Every part ends with one question. Skipping it is the part that does not work.</span>
       </div>
     </div>
   </div>
@@ -120,12 +122,24 @@ class Component extends DCLogic {
   }
   parts() {
     return [
-      { title: 'The two browsers never speak to each other', body: 'Every message a coach sends goes to the server first. There is no direct path between one browser and another, which is why a message can be lost in a place neither person can see.' },
-      { title: 'A room is a label, not a place', body: 'Joining a room adds a string to a set held on one server process. Nothing is allocated and nothing is moved. This is why a room stops working the moment there are two server processes.' },
-      { title: 'Redis is what makes two servers behave like one', body: 'When a coach on server A sends to a room, server A publishes the message on a Redis channel. Server B is subscribed, receives it, and delivers to its own sockets in that room. The adapter is the only reason a second process does not silently drop half your traffic.' },
-      { title: 'An acknowledgement is a callback with no timer', body: 'The sender passes a function. The server invokes it. If the server never does, nothing fires and nothing errors. The timeout is yours to write.' },
-      { title: 'A lock is how two servers avoid doing the same work twice', body: 'The set-if-absent-with-expiry command is one operation for a reason: two operations leave a gap where a crash strands a lock forever.' },
-      { title: 'What breaks first when you scale', body: 'Sticky sessions, the adapter, and any state you kept in a module-level variable. In that order, and usually on the day you add the second process.' },
+      { title: 'The two browsers never speak to each other', body: 'Every message a coach sends goes to the server first. There is no direct path between one browser and another, which is why a message can be lost in a place neither person can see.',
+        ask: 'A coach and an athlete are both online and the message never arrives. Name the two places it could have died.', hint: 'Two answers, not one.',
+        right: 'Right. Either it never left the client, or it reached the server and was never delivered onward.', reveal: 'the client socket, or the server delivery', why: 'Knowing there are exactly two places is what makes this debuggable. Everything else is narrowing down which one.' },
+      { title: 'A room is a label, not a place', body: 'Joining a room adds a string to a set held on one server process. Nothing is allocated and nothing is moved. This is why a room stops working the moment there are two server processes.',
+        ask: 'You start a second server process and half the messages stop arriving. Why, in one sentence?', hint: 'Think about where the set lives.',
+        right: 'Right, and the halving is the giveaway.', reveal: 'each process holds its own room set', why: 'Membership is in memory on one process, so the other process has no idea the room exists. Half your sockets are on the wrong side of that.' },
+      { title: 'Redis is what makes two servers behave like one', body: 'When a coach on server A sends to a room, server A publishes the message on a Redis channel. Server B is subscribed, receives it, and delivers to its own sockets in that room. The adapter is the only reason a second process does not silently drop half your traffic.',
+        ask: 'Redis goes down but both server processes stay up. What does a coach see?', hint: 'Be specific about who still receives.',
+        right: 'Right. It degrades to single-process behaviour with no error surfaced.', reveal: 'only people on the same process still receive', why: 'This is the failure mode worth remembering, because nothing breaks loudly. It just quietly becomes two separate rooms.' },
+      { title: 'An acknowledgement is a callback with no timer', body: 'The sender passes a function. The server invokes it. If the server never does, nothing fires and nothing errors. The timeout is yours to write.',
+        ask: 'The server never calls the acknowledgement. How long does the client wait?', hint: 'The answer is not a number.',
+        right: 'Right. Forever, unless you wrote the timer.', reveal: 'forever, there is no built-in timeout', why: 'People expect a network call to fail eventually. This one does not, which is why a hung session looks like a frozen interface rather than an error.' },
+      { title: 'A lock is how two servers avoid doing the same work twice', body: 'The set-if-absent-with-expiry command is one operation for a reason: two operations leave a gap where a crash strands a lock forever.',
+        ask: 'Write the command that takes a lock only if nobody holds it, and gives it up after thirty seconds even if you crash.', hint: 'One command, four parts.',
+        right: 'Right, and it is the ordering that matters.', reveal: 'SET lock:session:42 <token> NX EX 30', why: 'Setting the value and the expiry in two commands leaves a window where the process can die holding a lock that never expires. One command removes the window.' },
+      { title: 'What breaks first when you scale', body: 'Sticky sessions, the adapter, and any state you kept in a module-level variable. In that order, and usually on the day you add the second process.',
+        ask: 'Name the one of those three that fails silently rather than loudly.', hint: 'Which one has no error path?',
+        right: 'Right. Module state just goes quietly out of sync.', reveal: 'module-level state', why: 'The other two produce visible failures. State in a module simply diverges between processes and nothing ever tells you.' },
     ];
   }
   renderVals() {
@@ -145,7 +159,7 @@ class Component extends DCLogic {
         edge: on ? accent : 'transparent',
         fg: on ? '#ece9e1' : (done ? '#a9b0ac' : '#6f7a76'),
         num_fg: on ? accent : '#3c4644',
-        tick: done ? '✓' : '',
+        tick: done ? 'done' : '',
         tick_fg: '#58d68d',
       };
     });
@@ -180,7 +194,7 @@ class Component extends DCLogic {
         eyebrow_fg: answered ? '#58d68d' : accent,
         border: answered ? '#1d2a26' : accent,
         bg: answered ? '#0d1513' : 'rgba(242,181,68,0.06)',
-        question: 'Write the command that takes a lock only if nobody holds it, and gives it up after thirty seconds even if you crash.',
+        question: part.ask, hint: part.hint, right: part.right, reveal: part.reveal, why: part.why,
       },
       nextLabel: i === parts.length - 1 ? 'Finish and take the quiz' : 'Next part',
       submit: () => this.setState({ answered: true }),

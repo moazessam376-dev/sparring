@@ -9,6 +9,8 @@
 <helmet>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
     body { margin: 0; background: #0a0f0e; color: #ece9e1;
       font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
     a { color: #f2b544; } a:hover { color: #ece9e1; }
@@ -33,7 +35,7 @@
       <span style="width: 18px; height: 3px; border-radius: 2px; background: {{p.bg}};"></span>
     </sc-for>
     <span class="mono" style="font-size: 12px; color: #6f7a76; margin-left: 8px;">{{progress}}</span>
-    <button style="margin-left: 12px; padding: 5px 12px; border: 1px solid #1d2a26; border-radius: 6px; color: #a9b0ac;">End session</button>
+    <button onClick="{{end}}" style="margin-left: 12px; padding: 5px 12px; border: 1px solid #1d2a26; border-radius: 6px; color: #a9b0ac;">End session</button>
   </div>
 
   <div style="flex-grow: 1; display: flex; justify-content: center; overflow: hidden;">
@@ -55,7 +57,7 @@
             <button onClick="{{commit}}" style="padding: 10px 22px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; font-weight: 500;">Commit answer</button>
             <button onClick="{{dontknow}}" style="padding: 10px 16px; border-radius: 6px; border: 1px solid #1d2a26; color: #a9b0ac;">I do not know</button>
             <div style="flex-grow: 1;"></div>
-            <span style="font-size: 12px; color: #6f7a76;">Nothing is revealed until you commit.</span>
+            <span class="aside" style="font-size: 12px;">Nothing is revealed until you commit.</span>
           </div>
         </div>
       </sc-if>
@@ -78,7 +80,7 @@
             <div class="eyebrow" style="margin-bottom: 2px;">What the answer had to contain</div>
             <sc-for list="{{rubric}}" as="r" hint-placeholder-count="3">
               <div style="display: flex; gap: 11px; align-items: flex-start;">
-                <span style="color: {{r.fg}}; font-size: 13px; line-height: 1.6;">{{r.mark}}</span>
+                <span style="flex-shrink: 0; margin-top: 7px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid {{r.fg}}; background: {{r.bg}};"></span>
                 <span style="color: {{r.text_fg}}; line-height: 1.6;">{{r.text}}</span>
               </div>
             </sc-for>
@@ -105,7 +107,7 @@
         <div style="border: 1px solid #f2b544; border-radius: 8px; padding: 20px; background: rgba(242,181,68,0.06); display: flex; flex-direction: column; gap: 16px;">
           <div>
             <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">What should this have been graded?</div>
-            <div style="color: #6f7a76; line-height: 1.55; font-size: 13px;">The grader is a language model and agrees with a human marker roughly two times in three. Your correction is kept beside its grade, not instead of it, so both are visible later.</div>
+            <div class="aside" style="line-height: 1.55; font-size: 13px;">The grader is a language model and agrees with a human marker roughly two times in three. Your correction is kept beside its grade, not instead of it, so both are visible later.</div>
           </div>
           <div style="display: flex; gap: 8px;">
             <sc-for list="{{grades}}" as="g" hint-placeholder-count="3">
@@ -126,7 +128,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { phase: null, grade: 'partial' };
+    this.state = { phase: null, grade: 'partial', i: 3 };
   }
   phase() {
     return this.state.phase ?? this.props.phase ?? 'asking';
@@ -148,7 +150,7 @@ class Component extends DCLogic {
       'A reconnect does not replay the ack, so the message is lost silently',
     ].map((text, i) => ({
       text,
-      mark: hit[i] ? '●' : '○',
+      bg: hit[i] ? '#58d68d' : 'transparent',
       fg: hit[i] ? '#58d68d' : '#3c4644',
       text_fg: hit[i] ? '#a9b0ac' : '#ece9e1',
     }));
@@ -162,8 +164,8 @@ class Component extends DCLogic {
 
     return {
       phase: { asking: phase === 'asking', graded: phase === 'graded', contesting: phase === 'contesting' },
-      pips: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ bg: i < 3 ? accent : '#1d2a26' })),
-      progress: '4 of 18',
+      pips: [0, 1, 2, 3, 4, 5, 6, 7].map((n) => ({ bg: n < this.state.i ? accent : '#1d2a26' })),
+      progress: `${this.state.i + 1} of 18`,
       card: {
         project: 'raptor', topic: 'socket.io / acknowledgements',
         altitude: 'mechanism', alt_border: '#1d2a26', alt_fg: '#6f7a76',
@@ -179,7 +181,8 @@ class Component extends DCLogic {
       dontknow: () => this.setState({ phase: 'graded', grade: 'wrong' }),
       contest: () => this.setState({ phase: 'contesting' }),
       cancel: () => this.setState({ phase: 'graded' }),
-      next: () => this.setState({ phase: 'asking' }),
+      next: () => this.setState({ phase: 'asking', i: Math.min(7, this.state.i + 1) }),
+      end: () => this.setState({ phase: 'asking', i: 0 }),
     };
   }
 }

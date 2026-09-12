@@ -9,6 +9,8 @@
 <helmet>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Inter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
+    .aside { font-family: "Inter", Georgia, serif; font-style: italic; color: #6f7a76; }
     body { margin: 0; background: #0a0f0e; color: #ece9e1;
       font-family: "Geist", ui-sans-serif, system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
     a { color: #f2b544; } a:hover { color: #ece9e1; }
@@ -67,7 +69,7 @@
             </button>
           </sc-for>
         </div>
-        <div style="margin-top: 12px; font-size: 12px; color: #6f7a76; line-height: 1.55; max-width: 640px;">
+        <div class="aside" style="margin-top: 12px; font-size: 12px; line-height: 1.55; max-width: 640px;">
           The pale band behind each bar is how wrong the estimate could be. A topic with three answers behind it has a band wider than the bar, which is the honest picture and not a rendering fault.
         </div>
       </div>
@@ -102,15 +104,16 @@
               <span style="display: block; height: 4px; width: {{c.bar}}; border-radius: 2px; background: {{c.fg}};"></span>
             </span>
             <span class="mono" style="width: 34px; text-align: right; font-size: 11px; color: #6f7a76;">{{c.value}}</span>
+            <span class="mono" style="width: 58px; text-align: right; font-size: 10px; color: #3c4644;">{{c.n}}</span>
           </div>
         </sc-for>
         <div style="margin-top: 12px; font-size: 12px; color: #6f7a76; line-height: 1.55;">
-          Typing the answer separates what you know from what you recognise. Multiple choice barely does, which is why there is little of it.
+          Typing the answer separates what you know from what you recognise. Multiple choice barely does, which is why there is little of it. The last two lines rest on eleven and seven answers, so treat them as a hint rather than a result.
         </div>
       </div>
 
       <div style="flex-grow: 1;"></div>
-      <button style="margin-bottom: 24px; padding: 11px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; text-align: center; font-weight: 500;">Drill the seven weakest</button>
+      <button onClick="{{focusGaps}}" style="margin-bottom: 24px; padding: 11px; border-radius: 6px; border: 1px solid #f2b544; background: rgba(242,181,68,0.12); color: #f2b544; text-align: center; font-weight: 500;">Drill the seven weakest</button>
     </div>
   </div>
 </div>
@@ -150,11 +153,11 @@ class Component extends DCLogic {
       const width = Math.max(6, Math.round(60 / Math.sqrt(n + 1)));
       const lo = Math.max(0, pct - Math.round(width / 2));
       const dot = score < 0.6 ? '#ef5a5a' : (score > 0.75 ? '#58d68d' : accent);
-      return { name, project, score: `${pct}%`, last: `${last} ago`, dot, bg: 'transparent', fg: '#ece9e1',
+      return { name, project, score: `${pct}%`, last: `${last} ago`, dot, bg: '#0d1513', fg: '#ece9e1',
         bar: `${pct}%`, lo: `${lo}%`, span: `${Math.min(width, 100 - lo)}%`,
         conf: n < 4 ? `${n} answers` : `${n} answers`,
         conf_fg: n < 4 ? '#ef5a5a' : '#6f7a76',
-        pick: () => {} };
+        pick: () => this.setState({ tab: 'all' }) };
     });
 
     const chip = (id, label) => {
@@ -166,10 +169,11 @@ class Component extends DCLogic {
     const titles = {
       gaps: ['Where you are weakest', 'Sorted by how little you hold, not by how long ago you were asked.'],
       decaying: ['Going stale', 'You held these once. The schedule says they are slipping.'],
-      all: ['Every topic', 'Across all four projects, weakest first.'],
+      all: ['Every topic', 'Across both surveyed projects, weakest first.'],
     };
 
     return {
+      focusGaps: () => this.setState({ tab: 'gaps' }),
       tabs: [chip('gaps', 'Gaps'), chip('decaying', 'Decaying'), chip('all', 'Everything')],
       listTitle: titles[tab][0], listNote: titles[tab][1],
       rows,
@@ -185,10 +189,10 @@ class Component extends DCLogic {
         stroke: Math.abs(p - a) > 0.06 ? '#ef5a5a' : accent,
       })),
       checks: [
-        { name: 'Typed short answer', value: '.71', bar: '71%', fg: '#58d68d' },
-        { name: 'Exact command', value: '.68', bar: '68%', fg: '#58d68d' },
-        { name: 'Order the steps', value: '.54', bar: '54%', fg: accent },
-        { name: 'Multiple choice', value: '.31', bar: '31%', fg: '#ef5a5a' },
+        { name: 'Typed short answer', value: '.71', bar: '71%', fg: '#58d68d', n: '61 asked' },
+        { name: 'Exact command', value: '.68', bar: '68%', fg: '#58d68d', n: '24 asked' },
+        { name: 'Order the steps', value: '.54', bar: '54%', fg: accent, n: '11 asked' },
+        { name: 'Multiple choice', value: '.31', bar: '31%', fg: '#ef5a5a', n: '7 asked' },
       ],
     };
   }
