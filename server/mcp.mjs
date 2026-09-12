@@ -118,7 +118,7 @@ const TOOLS = [
   {
     name: 'sparring_due',
     title: 'Draw the review queue',
-    description: 'Draw the cards due for review today, interleaved so that consecutive cards come from different projects and topics. Each card carries its id, concept, the question to ask, its altitude, its grounding in the repository and its schedule. It deliberately does NOT carry the rubric. Ask the question as written, make the candidate commit to an answer, and only then call sparring_rubric. Showing a rubric before the answer destroys the measurement the whole system is built on.',
+    description: 'Draw the cards due for review today, interleaved so that consecutive cards come from different projects and topics. Each card carries its id, concept, the question to ask, its altitude and its schedule. It deliberately does NOT carry the rubric, and it does NOT carry the grounding either: the grounding is the file and line the answer lives on, and handing it over before the question is asked gives the answer away as surely as the rubric does. Both arrive together from sparring_rubric, after the answer. Ask the question as written, make the candidate commit to an answer, and only then call sparring_rubric. Showing a rubric before the answer destroys the measurement the whole system is built on.',
     inputSchema: {
       type: 'object',
       properties: {
