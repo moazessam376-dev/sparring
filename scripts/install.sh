@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository="moazessam376-dev/sparring"
-release_api="https://api.github.com/repos/${repository}/releases/latest"
+latest_page="https://github.com/${repository}/releases/latest"
 checksum_name="SHA256SUMS.txt"
 
 die() {
@@ -40,35 +40,20 @@ home_dir=${HOME:-}
 
 temporary_dir=$(mktemp -d "${TMPDIR:-/tmp}/sparring-install.XXXXXX")
 trap 'rm -rf "$temporary_dir"' EXIT
-release_json="$temporary_dir/release.json"
-
 printf '%s\n' "Sparring installer" "Platform: ${platform}" "Architecture: $(uname -m)"
 printf '%s\n' 'Reading the latest GitHub release.'
-curl --fail --silent --show-error --location --retry 3 \
-  --header 'Accept: application/vnd.github+json' \
+# The releases/latest page redirects to .../releases/tag/<tag>; following it avoids parsing API JSON.
+latest_url=$(curl --fail --silent --show-error --location --retry 3 \
   --header 'User-Agent: sparring-installer' \
-  "$release_api" > "$release_json" || die 'could not read the latest GitHub release'
-
-release_tag=$(sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' "$release_json" | head -n 1)
-[ -n "$release_tag" ] || die 'the latest GitHub release did not contain a tag'
-
-asset_url() {
-  local wanted=$1
-  awk -v wanted="$wanted" '
-    /"name"[[:space:]]*:/ {
-      name = $0
-      sub(/.*"name"[[:space:]]*:[[:space:]]*"/, "", name)
-      sub(/".*/, "", name)
-    }
-    /"browser_download_url"[[:space:]]*:/ && name == wanted {
-      url = $0
-      sub(/.*"browser_download_url"[[:space:]]*:[[:space:]]*"/, "", url)
-      sub(/".*/, "", url)
-      print url
-      exit
-    }
-  ' "$release_json"
-}
+  --output /dev/null --write-out '%{url_effective}' \
+  "$latest_page") || die 'could not read the latest GitHub release'
+case "$latest_url" in
+  "https://github.com/${repository}/releases/tag/"*) release_tag=${latest_url##*/} ;;
+  *) die 'the latest GitHub release did not contain a tag' ;;
+esac
+case "$release_tag" in
+  ''|*[!A-Za-z0-9._-]*) die 'the latest GitHub release returned an unexpected tag' ;;
+esac
 
 case "$artifact" in
   *.app.tar.gz) install_kind=macOS ;;
@@ -76,19 +61,8 @@ case "$artifact" in
   *) die "unsupported release artifact $artifact" ;;
 esac
 
-download_url=$(asset_url "$artifact")
-checksum_url=$(asset_url "$checksum_name")
-[ -n "$download_url" ] || die "release $release_tag does not contain $artifact"
-[ -n "$checksum_url" ] || die "release $release_tag does not contain $checksum_name"
-
-case "$download_url" in
-  "https://github.com/${repository}/releases/download/"*) ;;
-  *) die "the release returned an unexpected download URL" ;;
-esac
-case "$checksum_url" in
-  "https://github.com/${repository}/releases/download/"*) ;;
-  *) die "the checksum returned an unexpected download URL" ;;
-esac
+download_url="https://github.com/${repository}/releases/download/${release_tag}/${artifact}"
+checksum_url="https://github.com/${repository}/releases/download/${release_tag}/${checksum_name}"
 
 artifact_path="$temporary_dir/$artifact"
 checksum_path="$temporary_dir/$checksum_name"
