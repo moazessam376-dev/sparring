@@ -237,7 +237,8 @@ impl SidecarManager {
             // The handlers below cover every exit this process can observe; the
             // watchdog covers the ones it cannot, a crash or a SIGKILL.
             .env("SPARRING_PARENT_PID", std::process::id().to_string())
-            .stdin(Stdio::null())
+            .env("SPARRING_STDIN_SHUTDOWN", "1")
+            .stdin(Stdio::piped())
             .stdout(Stdio::from(log_copy))
             .stderr(Stdio::from(log));
 
@@ -317,6 +318,20 @@ impl SidecarManager {
             return;
         };
 
+        // EOF on the pipe is the graceful shutdown signal. Node can observe
+        // that on Windows, where SIGTERM is not delivered to a handler.
+        drop(child.stdin.take());
+        let deadline = Instant::now() + TERM_GRACE;
+        while Instant::now() < deadline {
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                let _ = fs::remove_file(self.state_dir().join("port"));
+                return;
+            }
+            thread::sleep(TERM_POLL_INTERVAL);
+        }
+
+        // A crashed or wedged sidecar may not consume EOF. Keep the existing
+        // process-tree kill as the bounded fallback after the grace period.
         kill_process_tree(&mut child);
         let _ = child.wait();
         let _ = fs::remove_file(self.state_dir().join("port"));

@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { makeClaim } from './claim.mjs';
 import { verify } from './verify.mjs';
+import { canonicalRepositoryPath } from './evidence.mjs';
 import {
   claimName,
   inspectRepository,
@@ -56,7 +57,7 @@ test('a directory inside a repository answers with the repository root', () => {
   const repo = repository();
   const inspected = inspectRepository(path.join(repo, 'db'));
   assert.equal(inspected.git, true);
-  assert.equal(inspected.root, repo);
+  assert.equal(inspected.root, canonicalRepositoryPath(repo));
   assert.equal(inspected.name, path.basename(repo));
   assert.equal(inspected.files, 2);
   assert.equal(inspected.language, 'js');
@@ -79,10 +80,10 @@ test('a stored survey is found again by repository, newest first', () => {
 
   const listed = listSurveys(home);
   assert.equal(listed.length, 1);
-  assert.equal(listed[0].repo, repo);
+  assert.equal(listed[0].repo, canonicalRepositoryPath(repo));
 
   const state = surveyState(home, repo);
-  assert.equal(state.repo, repo);
+  assert.equal(state.repo, canonicalRepositoryPath(repo));
   assert.equal(state.repository.git, true);
   assert.notEqual(state.survey, null);
   assert.equal(state.survey.claims.length, 1);

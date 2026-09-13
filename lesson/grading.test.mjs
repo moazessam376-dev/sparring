@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gradeDeterministic } from '../app/src/lesson/grading.ts';
+import { gradeDeterministic } from './grading.mjs';
 
 test('deterministic lesson graders accept the right answer and reject a wrong one', () => {
   const cases = [

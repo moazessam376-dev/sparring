@@ -13,6 +13,7 @@ import {
   topics,
 } from '../core/index.mjs';
 import { validate } from '../lesson/validate.mjs';
+import { canonicalRepositoryPath } from '../survey/evidence.mjs';
 import { storeSurvey } from '../survey/store.mjs';
 import { verify } from '../survey/verify.mjs';
 import { noteAgent } from './presence.mjs';
@@ -362,7 +363,7 @@ const TOOLS = [
       additionalProperties: false,
     },
     call: (state, args) => {
-      const repo = requireString(args, 'repo');
+      const repo = canonicalRepositoryPath(requireString(args, 'repo'));
       const claims = requireArray(args, 'claims');
       const commit = typeof args.commit === 'string' && args.commit ? args.commit : null;
       const exclude = Array.isArray(args.exclude) ? args.exclude : [];

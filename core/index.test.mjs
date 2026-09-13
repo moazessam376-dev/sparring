@@ -43,7 +43,8 @@ test('rebuilding from the log reproduces the same state', () => {
   seedTwoProjects(first);
   record(first, { card: 'alpha-1', grade: 'correct', mode: 'drill' });
   const before = first.db.prepare('select card, due from card_sched order by card').all();
-  fs.rmSync(path.join(dir, 'cache.db'), { force: true });
+  first.db.close();
+  for (const suffix of ['', '-wal', '-shm']) fs.rmSync(path.join(dir, `cache.db${suffix}`), { force: true });
   const second = openState(dir);
   refresh(second);
   assert.deepEqual(second.db.prepare('select card, due from card_sched order by card').all(), before);

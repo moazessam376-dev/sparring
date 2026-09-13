@@ -3,6 +3,7 @@ import { matchTexts, validatePattern, MAX_QUERY_BYTES } from './patterns.mjs';
 import { CONSTRAINT_QUERIES, QUERY_VERSION } from './queries.mjs';
 import { CLAIM_STATUSES, COVERAGE_LABELS, validateClaim, worst } from './claim.mjs';
 import {
+  canonicalRepositoryPath,
   codeOnly,
   importResolution,
   sourceClass,
@@ -604,20 +605,21 @@ export const MAX_RUN_MS = 30000;
 
 export function verify(repo, commit, claims, options = {}) {
   if (!Array.isArray(claims ?? []) || (claims?.length ?? 0) > MAX_CLAIMS) throw new Error(`verification accepts at most ${MAX_CLAIMS} claims`);
+  const canonicalRepo = canonicalRepositoryPath(repo);
   const context = { deadline: Date.now() + MAX_RUN_MS, cache: new Map(), sources: new Map(), imports: new Map() };
-  const resolved = resolveCommit(repo, commit);
-  const tracked = new Set(resolved === null ? filesUnder(repo, '.') : filesAt(repo, resolved, '.'));
-  const inventory = resolved === null ? [] : treeAt(repo, resolved);
+  const resolved = resolveCommit(canonicalRepo, commit);
+  const tracked = new Set(resolved === null ? filesUnder(canonicalRepo, '.') : filesAt(canonicalRepo, resolved, '.'));
+  const inventory = resolved === null ? [] : treeAt(canonicalRepo, resolved);
   if (inventory.length > 2000 || inventory.reduce((n, entry) => n + (entry.size ?? 0), 0) > MAX_QUERY_BYTES) throw new Error('repository verification budget exceeded');
-  const checked = (claims ?? []).map((claim) => checkClaim(repo, resolved, claim, tracked, context));
-  const coverage = classifyCoverage(repo, resolved, checked, options);
+  const checked = (claims ?? []).map((claim) => checkClaim(canonicalRepo, resolved, claim, tracked, context));
+  const coverage = classifyCoverage(canonicalRepo, resolved, checked, options);
 
   const byStatus = Object.fromEntries(CLAIM_STATUSES.map((status) => [status, 0]));
   for (const claim of checked) byStatus[claim.status] += 1;
   const downgraded = checked.filter((claim) => claim.declaredStatus === 'verified' && claim.status !== 'verified').length;
 
   const summary = {
-    repo,
+    repo: canonicalRepo,
     commit: resolved,
     requestedCommit: commit,
     commitResolved: resolved !== null,
