@@ -29,7 +29,7 @@ import {
   type WindowChrome,
 } from "./api";
 import { ACCENT, DANGER, WARNING } from "./Estimate";
-import { AlertIcon, FileIcon, FolderIcon, PlugIcon, PlusIcon } from "./Icons";
+import { AlertIcon, ChartIcon, FileIcon, FolderIcon, MapIcon, PlugIcon, PlusIcon } from "./Icons";
 import { ChromeContext, NO_CHROME, TrafficLightGap, WindowButtons } from "./Chrome";
 import { Hub } from "./Hub";
 import { Drill } from "./Drill";
@@ -38,10 +38,12 @@ import { Survey } from "./Survey";
 import { ImportScreen } from "./ImportScreen";
 import { LessonList } from "./lesson/LessonList";
 import { LessonPlayer } from "./lesson/LessonPlayer";
+import { ProjectMap } from "./ProjectMap";
+import { Standing } from "./Standing";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-type Screen = "hub" | "drill" | "lessons" | "lesson" | "connect" | "survey" | "import";
+type Screen = "hub" | "map" | "standing" | "drill" | "lessons" | "lesson" | "connect" | "survey" | "import";
 
 type Shell =
   | { name: "starting" }
@@ -251,6 +253,25 @@ export function App() {
                     <button
                       type="button"
                       className="rail-row"
+                      onClick={() => setScreen("map")}
+                      disabled={selectedProject === null}
+                      style={{ color: screen === "map" ? "var(--text)" : "var(--muted)", background: screen === "map" ? "rgba(255,255,255,0.055)" : "transparent", fontSize: 12.5, gap: 8 }}
+                    >
+                      <MapIcon size={12} stroke="currentColor" />
+                      Project map
+                    </button>
+                    <button
+                      type="button"
+                      className="rail-row"
+                      onClick={() => setScreen("standing")}
+                      style={{ color: screen === "standing" ? "var(--text)" : "var(--muted)", background: screen === "standing" ? "rgba(255,255,255,0.055)" : "transparent", fontSize: 12.5, gap: 8 }}
+                    >
+                      <ChartIcon size={12} stroke="currentColor" />
+                      Standing
+                    </button>
+                    <button
+                      type="button"
+                      className="rail-row"
                       onClick={() => { setLessonTopic(null); setScreen("lessons"); }}
                       style={{ color: screen === "lessons" ? "var(--text)" : "var(--muted)", background: screen === "lessons" ? "rgba(255,255,255,0.055)" : "transparent", fontSize: 12.5, gap: 8 }}
                     >
@@ -414,6 +435,22 @@ export function App() {
                 ) : (
                   <LessonList lessons={lessons} topic={lessonTopic} chrome={<WindowButtons />} onOpen={(id) => { setSelectedLesson(id); setScreen("lesson"); }} />
                 )
+              ) : shell.name === "ready" && screen === "map" ? (
+                <ProjectMap
+                  connection={shell.connection}
+                  project={project}
+                  chrome={<WindowButtons />}
+                  onSurvey={() => setScreen("survey")}
+                  onStartDrill={() => setScreen("drill")}
+                  onOpenLessons={(topic) => { setLessonTopic(topic); setScreen("lessons"); }}
+                />
+              ) : shell.name === "ready" && screen === "standing" ? (
+                <Standing
+                  connection={shell.connection}
+                  chrome={<WindowButtons />}
+                  nothingDue={nothingDue}
+                  onStartDrill={() => setScreen("drill")}
+                />
               ) : shell.name === "ready" ? (
                 <Hub
                   connection={shell.connection}
@@ -424,6 +461,7 @@ export function App() {
                   nothingDue={nothingDue}
                   onStartDrill={() => setScreen("drill")}
                   onOpenLessons={(topic) => { setLessonTopic(topic); setScreen("lessons"); }}
+                  onOpenMap={() => setScreen("map")}
                   onSurvey={() => setScreen("survey")}
                   onImport={() => setScreen("import")}
                 />

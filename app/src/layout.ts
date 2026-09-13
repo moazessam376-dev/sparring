@@ -41,6 +41,77 @@ export type GraphLink = { from: string; to: string };
 
 export type Graph = { nodes: GraphNode[]; links: GraphLink[] };
 
+export const MAP_WIDTH = 860;
+export const MAP_HEIGHT = 860;
+
+export type MapPartPosition = { id: string; x: number; y: number; w: number; h: number };
+export type MapBandPosition = { id: string; y: number; h: number };
+export type MapEdgePosition = { id: string; x1: number; y1: number; x2: number; y2: number };
+export type ProjectMapLayout = {
+  parts: MapPartPosition[];
+  bands: MapBandPosition[];
+  edges: MapEdgePosition[];
+};
+
+/**
+ * Stable positions for the project map. The map is a picture of claims, so
+ * scores, statuses and evidence text are deliberately absent from this
+ * function's inputs. Adding an answer therefore changes only the detail and
+ * the uncertainty band, never the learner's mental map.
+ */
+export function buildProjectMapLayout(
+  partIds: string[],
+  constraintIds: string[],
+  edges: Array<{ id: string; from: string | null; to: string | null }>,
+): ProjectMapLayout {
+  const orderedParts = [...partIds].sort();
+  const columns = [150, 430, 710];
+  const rows = [82, 258, 434, 610, 786];
+  const parts = orderedParts.map((id, index) => {
+    const column = index % columns.length;
+    const row = Math.floor(index / columns.length) % rows.length;
+    const wobbleX = Math.round(wobble(id, "map-x") * 18);
+    const wobbleY = Math.round(wobble(id, "map-y") * 12);
+    const centerX = columns[column] ?? columns[0] ?? 150;
+    const centerY = rows[row] ?? rows[0] ?? 82;
+    return {
+      id,
+      x: Math.max(28, Math.min(MAP_WIDTH - 188, centerX - 80 + wobbleX)),
+      y: Math.max(20, Math.min(MAP_HEIGHT - 66, centerY - 23 + wobbleY)),
+      w: 160,
+      h: 46,
+    };
+  });
+  const byId = new Map(parts.map((part) => [part.id, part]));
+  const bands = [...constraintIds].sort().map((id, index) => ({
+    id,
+    y: 145 + (index % 4) * 194,
+    h: 76,
+  }));
+  const fallback = (id: string, side: "from" | "to") => ({
+    x: side === "from" ? 24 : MAP_WIDTH - 24,
+    y: 76 + (hash(`map-edge:${side}:${id}`) % 700),
+  });
+  const anchor = (id: string | null, side: "from" | "to", edgeId: string) => {
+    const part = id === null ? undefined : byId.get(id);
+    if (part !== undefined) {
+      return { x: part.x + part.w / 2, y: side === "from" ? part.y + part.h : part.y };
+    }
+    return fallback(`${edgeId}:${id ?? "missing"}`, side);
+  };
+  return {
+    parts,
+    bands,
+    edges: edges
+      .map((edge) => {
+        const from = anchor(edge.from, "from", edge.id);
+        const to = anchor(edge.to, "to", edge.id);
+        return { id: edge.id, x1: from.x, y1: from.y, x2: to.x, y2: to.y };
+      })
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
+}
+
 /** FNV-1a. Any stable hash will do; this one is short and has no dependency. */
 function hash(text: string): number {
   let value = 0x811c9dc5;

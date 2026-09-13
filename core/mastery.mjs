@@ -65,5 +65,11 @@ export function topicMastery(db, topicId, todayString) {
   // Confidence is deliberately crude and deliberately visible. The estimate is
   // weak and the interface must say so rather than round it into a claim.
   const confidence = Math.min(1, attempts.length / 12);
-  return { score, confidence, cards, attempts: attempts.length };
+  return {
+    score,
+    confidence,
+    cards,
+    attempts: attempts.length,
+    daysSinceCorrect: f.daysSinceCorrect,
+  };
 }

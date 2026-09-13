@@ -714,27 +714,262 @@ export async function withdrawClaimVouch(connection: Connection, claim: string):
 
 export type StandingTopic = {
   topic: string;
+  name: string;
+  kind: TopicKind;
+  projects: Array<{ id: string; name: string }>;
+  gateStatus: string | null;
+  vouched: boolean;
   score: number;
   confidence: number;
   cards: number;
   attempts: number;
+  daysSinceCorrect: number | null;
 };
 
-export async function standing(connection: Connection, project: string): Promise<StandingTopic[]> {
-  const raw = asRecord(
-    await request(connection, `/api/standing?project=${encodeURIComponent(project)}`),
-    "standing",
-  );
-  return asList(raw.topics, "standing topics").map((item, index) => {
-    const topic = asRecord(item, `standing topic ${index}`);
+export type CalibrationPoint = { predicted: number; actual: number; actualLow: number; actualHigh: number; count: number };
+
+export type Calibration = {
+  ready: boolean;
+  attempts: number;
+  minimumAttempts: number;
+  reason: string | null;
+  points: CalibrationPoint[];
+};
+
+export type CheckTypeCounts = {
+  mode: string;
+  correct: number;
+  partial: number;
+  wrong: number;
+  total: number;
+};
+
+export type StandingReport = {
+  project: string | null;
+  topics: StandingTopic[];
+  totalTopics: number;
+  verifiedTopics: number;
+  vouchedTopics: number;
+  calibration: Calibration;
+  checkTypes: CheckTypeCounts[];
+};
+
+function asCalibration(value: unknown): Calibration {
+  const raw = asRecord(value, "calibration");
+  const points = asList(raw.points, "calibration points").map((item, index) => {
+    const point = asRecord(item, `calibration point ${index}`);
     return {
-      topic: asText(topic.topic, "standing topic id"),
-      score: asNumber(topic.score, "standing score"),
-      confidence: asNumber(topic.confidence, "standing confidence"),
-      cards: asNumber(topic.cards, "standing cards"),
-      attempts: asNumber(topic.attempts, "standing attempts"),
+      predicted: asNumber(point.predicted, `calibration point ${index} predicted`),
+      actual: asNumber(point.actual, `calibration point ${index} actual`),
+      actualLow: asNumber(point.actualLow, `calibration point ${index} actual low`),
+      actualHigh: asNumber(point.actualHigh, `calibration point ${index} actual high`),
+      count: asNumber(point.count, `calibration point ${index} count`),
     };
   });
+  return {
+    ready: asBoolean(raw.ready, "calibration ready"),
+    attempts: asNumber(raw.attempts, "calibration attempts"),
+    minimumAttempts: asNumber(raw.minimumAttempts, "calibration minimum attempts"),
+    reason: asOptionalText(raw.reason, "calibration reason"),
+    points,
+  };
+}
+
+function asCheckTypes(value: unknown): CheckTypeCounts[] {
+  return asList(value, "check types").map((item, index) => {
+    const raw = asRecord(item, `check type ${index}`);
+    return {
+      mode: asText(raw.mode, `check type ${index} mode`),
+      correct: asNumber(raw.correct, `check type ${index} correct`),
+      partial: asNumber(raw.partial, `check type ${index} partial`),
+      wrong: asNumber(raw.wrong, `check type ${index} wrong`),
+      total: asNumber(raw.total, `check type ${index} total`),
+    };
+  });
+}
+
+export async function standing(connection: Connection, project: string | null = null): Promise<StandingReport> {
+  const query = project === null ? "" : `?project=${encodeURIComponent(project)}`;
+  const raw = asRecord(
+    await request(connection, `/api/standing${query}`),
+    "standing",
+  );
+  return {
+    project: asOptionalText(raw.project, "standing project"),
+    topics: asList(raw.topics, "standing topics").map((item, index) => {
+      const topic = asRecord(item, `standing topic ${index}`);
+      const projects = asList(topic.projects, `standing topic ${index} projects`).map((item, projectIndex) => {
+        const linked = asRecord(item, `standing topic ${index} project ${projectIndex}`);
+        return { id: asText(linked.id, "standing project id"), name: asText(linked.name, "standing project name") };
+      });
+      return {
+        topic: asText(topic.topic, "standing topic id"),
+        name: asText(topic.name, "standing topic name"),
+        kind: asKind(topic.kind),
+        projects,
+        gateStatus: asOptionalText(topic.gateStatus, "standing topic gate status"),
+        vouched: topic.vouched === true,
+        score: asNumber(topic.score, "standing score"),
+        confidence: asNumber(topic.confidence, "standing confidence"),
+        cards: asNumber(topic.cards, "standing cards"),
+        attempts: asNumber(topic.attempts, "standing attempts"),
+        daysSinceCorrect: asOptionalNumber(topic.daysSinceCorrect, "standing days since correct"),
+      };
+    }),
+    totalTopics: asNumber(raw.totalTopics, "standing total topics"),
+    verifiedTopics: asNumber(raw.verifiedTopics, "standing verified topics"),
+    vouchedTopics: asNumber(raw.vouchedTopics, "standing vouched topics"),
+    calibration: asCalibration(raw.calibration),
+    checkTypes: asCheckTypes(raw.checkTypes),
+  };
+}
+
+export type MapEvidence = { path: string | null; fromLine: number | null; toLine: number | null; commit: string | null };
+
+export type MapClaim = {
+  id: string;
+  name: string;
+  sentence: string;
+  status: ClaimStatus;
+  gateStatus: Exclude<ClaimStatus, "vouched"> | null;
+  vouched: boolean;
+  judgement: string | null;
+  evidence: MapEvidence;
+  reason: string;
+  reasons: ClaimReason[];
+};
+
+export type MapEdge = MapClaim & {
+  from: string | null;
+  to: string | null;
+  fromLabel: string;
+  toLabel: string;
+  fromPath: string | null;
+  toPath: string | null;
+};
+
+export type MapCoverage = {
+  counts: Coverage;
+  total: number;
+  segments: Array<{ id: string; label: string; count: number }>;
+};
+
+export type ProjectMapView = {
+  project: string;
+  repo: string | null;
+  survey: {
+    at: string | null;
+    commit: string | null;
+    summary: SurveySummary;
+    coverage: MapCoverage | null;
+  } | null;
+  parts: MapClaim[];
+  constraints: MapClaim[];
+  edges: MapEdge[];
+  verifiedParts: number;
+  verifiedConstraints: number;
+  vouchedClaims: number;
+};
+
+function asMapClaim(value: unknown, what: string): MapClaim {
+  const raw = asRecord(value, what);
+  const evidence = asRecord(raw.evidence, `${what} evidence`);
+  return {
+    id: asText(raw.id, `${what} id`),
+    name: asText(raw.name, `${what} name`),
+    sentence: asText(raw.sentence, `${what} sentence`),
+    status: asClaimStatus(raw.status),
+    gateStatus: raw.gateStatus === null || raw.gateStatus === undefined ? null : asGateClaimStatus(raw.gateStatus),
+    vouched: raw.vouched === true,
+    judgement: asOptionalText(raw.judgement, `${what} judgement`),
+    evidence: {
+      path: asOptionalText(evidence.path, `${what} evidence path`),
+      fromLine: asOptionalNumber(evidence.fromLine, `${what} evidence fromLine`),
+      toLine: asOptionalNumber(evidence.toLine, `${what} evidence toLine`),
+      commit: asOptionalText(evidence.commit, `${what} evidence commit`),
+    },
+    reason: asText(raw.reason, `${what} reason`),
+    reasons: asList(raw.reasons, `${what} reasons`).map((item, index) => {
+      const reason = asRecord(item, `${what} reason ${index}`);
+      return {
+        check: asText(reason.check, `${what} reason ${index} check`),
+        status: asText(reason.status, `${what} reason ${index} status`),
+        detail: asText(reason.detail, `${what} reason ${index} detail`),
+      };
+    }),
+  };
+}
+
+function asMapCoverage(value: unknown): MapCoverage | null {
+  if (value === null || value === undefined) return null;
+  const raw = asRecord(value, "map coverage");
+  const counts = asCoverage(raw.counts);
+  if (counts === null) throw new ApiError("map coverage counts were missing");
+  return {
+    counts,
+    total: asNumber(raw.total, "map coverage total"),
+    segments: asList(raw.segments, "map coverage segments").map((item, index) => {
+      const segment = asRecord(item, `map coverage segment ${index}`);
+      return {
+        id: asText(segment.id, `map coverage segment ${index} id`),
+        label: asText(segment.label, `map coverage segment ${index} label`),
+        count: asNumber(segment.count, `map coverage segment ${index} count`),
+      };
+    }),
+  };
+}
+
+export async function projectMap(connection: Connection, project: string): Promise<ProjectMapView> {
+  const raw = asRecord(
+    await request(connection, `/api/project-map?project=${encodeURIComponent(project)}`),
+    "project map",
+  );
+  const surveyValue = raw.survey;
+  const survey = surveyValue === null || surveyValue === undefined
+    ? null
+    : (() => {
+        const found = asRecord(surveyValue, "project map survey");
+        return {
+          at: asOptionalText(found.at, "project map survey at"),
+          commit: asOptionalText(found.commit, "project map survey commit"),
+          summary: (() => {
+            const summary = asRecord(found.summary, "project map summary");
+            return {
+              commit: asOptionalText(summary.commit, "project map summary commit"),
+              claims: asOptionalNumber(summary.claims, "project map summary claims") ?? 0,
+              shownAsFact: asOptionalNumber(summary.shownAsFact, "project map summary shownAsFact") ?? 0,
+              shownQualified: asOptionalNumber(summary.shownQualified, "project map summary shownQualified") ?? 0,
+              dropped: asOptionalNumber(summary.dropped, "project map summary dropped") ?? 0,
+              trackedFiles: asOptionalNumber(summary.trackedFiles, "project map summary trackedFiles") ?? 0,
+            };
+          })(),
+          coverage: asMapCoverage(found.coverage),
+        };
+      })();
+  const edges = asList(raw.edges, "project map edges").map((item, index) => {
+    const edge = asMapClaim(item, `project map edge ${index}`);
+    const record = asRecord(item, `project map edge ${index}`);
+    return {
+      ...edge,
+      from: asOptionalText(record.from, `project map edge ${index} from`),
+      to: asOptionalText(record.to, `project map edge ${index} to`),
+      fromLabel: asText(record.fromLabel, `project map edge ${index} fromLabel`),
+      toLabel: asText(record.toLabel, `project map edge ${index} toLabel`),
+      fromPath: asOptionalText(record.fromPath, `project map edge ${index} fromPath`),
+      toPath: asOptionalText(record.toPath, `project map edge ${index} toPath`),
+    };
+  });
+  return {
+    project: asText(raw.project, "project map project"),
+    repo: asOptionalText(raw.repo, "project map repo"),
+    survey,
+    parts: asList(raw.parts, "project map parts").map((item, index) => asMapClaim(item, `project map part ${index}`)),
+    constraints: asList(raw.constraints, "project map constraints").map((item, index) => asMapClaim(item, `project map constraint ${index}`)),
+    edges,
+    verifiedParts: asNumber(raw.verifiedParts, "project map verified parts"),
+    verifiedConstraints: asNumber(raw.verifiedConstraints, "project map verified constraints"),
+    vouchedClaims: asNumber(raw.vouchedClaims, "project map vouched claims"),
+  };
 }
 
 export type GapAttempt = { id: string; card: string; at: string; grade: Grade };

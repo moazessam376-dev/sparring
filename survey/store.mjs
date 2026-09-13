@@ -382,3 +382,130 @@ export function surveyState(home, path) {
     seed: seedFrom({ ...stored, claims: seedClaims }, { project: slug(repository.name) }),
   };
 }
+
+function coverageView(coverage) {
+  if (coverage === null || coverage === undefined) return null;
+  const counts = {
+    inspected: Number(coverage.inspected ?? 0),
+    excluded: Number(coverage.excluded ?? 0),
+    generated: Number(coverage.generated ?? 0),
+    binary: Number(coverage.binary ?? 0),
+    unresolved: Number(coverage.unresolved ?? 0),
+    pending: Number(coverage.pending ?? 0),
+  };
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  return {
+    counts,
+    total,
+    segments: [
+      { id: 'inspected', label: 'inspected', count: counts.inspected },
+      { id: 'generated', label: 'generated', count: counts.generated },
+      { id: 'excluded-binary', label: 'excluded / binary', count: counts.excluded + counts.binary },
+      { id: 'not-inspected', label: 'not inspected', count: counts.unresolved + counts.pending },
+    ],
+  };
+}
+
+function evidenceFor(claim) {
+  return {
+    path: claim.path,
+    fromLine: claim.fromLine,
+    toLine: claim.toLine,
+    commit: claim.claim?.commit ?? null,
+  };
+}
+
+function reasonFor(claim) {
+  if (claim.status === 'vouched') {
+    return claim.judgement ? `Confirmed by you: ${claim.judgement}` : 'Confirmed by you; the gate did not prove this claim from code.';
+  }
+  const sameStatus = claim.reasons.find((reason) => reason.status === claim.status);
+  if (sameStatus?.detail) return sameStatus.detail;
+  const useful = claim.reasons.find((reason) => reason.status !== 'note' && reason.detail.trim() !== '');
+  return useful?.detail ?? 'The survey recorded no additional reason.';
+}
+
+function mapClaim(claim) {
+  return {
+    id: claim.id,
+    name: claim.name,
+    sentence: claim.sentence,
+    status: claim.status,
+    gateStatus: claim.gateStatus,
+    vouched: claim.vouched,
+    judgement: claim.judgement,
+    evidence: evidenceFor(claim),
+    reason: reasonFor(claim),
+    reasons: claim.reasons,
+    boundary: claim.claim?.boundary ?? null,
+  };
+}
+
+function endpointPart(parts, endpoint) {
+  if (!endpoint || typeof endpoint.path !== 'string') return null;
+  const ranked = parts
+    .map((part) => {
+      const dir = typeof part.boundary?.dir === 'string' ? part.boundary.dir : null;
+      const exact = part.evidence.path === endpoint.path ? 3 : 0;
+      const under = dir !== null && (endpoint.path === dir || endpoint.path.startsWith(`${dir}/`)) ? 2 : 0;
+      const cited = part.evidence.path !== null && endpoint.path.startsWith(`${part.evidence.path}/`) ? 1 : 0;
+      return { part, rank: exact + under + cited };
+    })
+    .filter((item) => item.rank > 0)
+    .sort((left, right) => right.rank - left.rank || left.part.id.localeCompare(right.part.id));
+  return ranked[0]?.part.id ?? null;
+}
+
+/**
+ * Read-side projection for the project map. It intentionally reads the
+ * disposable survey cache, not the seeded topics: the map must still show
+ * claims that were not good enough to seed a card or topic.
+ */
+export function projectMapState(home, projectId) {
+  if (typeof projectId !== 'string' || projectId.trim() === '') throw new Error('project must be a non-empty string');
+  const candidate = listSurveys(home).find((survey) => slug(nodePath.basename(survey.repo)) === projectId);
+  if (candidate === undefined) return {
+    project: projectId, repo: null, survey: null, parts: [], constraints: [], edges: [],
+    verifiedParts: 0, verifiedConstraints: 0, vouchedClaims: 0,
+  };
+  const view = surveyState(home, candidate.repo);
+  if (view.survey === null) return {
+    project: projectId, repo: null, survey: null, parts: [], constraints: [], edges: [],
+    verifiedParts: 0, verifiedConstraints: 0, vouchedClaims: 0,
+  };
+
+  const claims = view.survey.claims;
+  const parts = claims.filter((claim) => claim.type === 'part').map(mapClaim);
+  const constraints = claims.filter((claim) => claim.type === 'constraint').map(mapClaim);
+  const interactions = claims.filter((claim) => claim.type === 'interaction').map((claim) => {
+    const mapped = mapClaim(claim);
+    const fromEndpoint = claim.claim?.ends?.from ?? null;
+    const toEndpoint = claim.claim?.ends?.to ?? null;
+    return {
+      ...mapped,
+      from: endpointPart(parts, fromEndpoint),
+      to: endpointPart(parts, toEndpoint),
+      fromLabel: fromEndpoint?.symbol ?? 'unresolved',
+      toLabel: toEndpoint?.symbol ?? 'unresolved',
+      fromPath: fromEndpoint?.path ?? null,
+      toPath: toEndpoint?.path ?? null,
+    };
+  });
+  const coverage = coverageView(view.survey.coverage);
+  return {
+    project: projectId,
+    repo: view.repo,
+    survey: {
+      at: view.survey.at,
+      commit: view.survey.summary.commit,
+      summary: view.survey.summary,
+      coverage,
+    },
+    parts,
+    constraints,
+    edges: interactions,
+    verifiedParts: parts.filter((claim) => claim.status === 'verified').length,
+    verifiedConstraints: constraints.filter((claim) => claim.status === 'verified').length,
+    vouchedClaims: [...parts, ...constraints, ...interactions].filter((claim) => claim.status === 'vouched').length,
+  };
+}

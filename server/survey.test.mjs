@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openState } from '../core/index.mjs';
-import { storeSurvey } from '../survey/store.mjs';
+import { slug, storeSurvey } from '../survey/store.mjs';
 import { makeClaim } from '../survey/claim.mjs';
 import { verify } from '../survey/verify.mjs';
 import { handle } from './api.mjs';
@@ -80,6 +80,12 @@ test('the survey route hands back the stored survey and what confirming it would
   const inspected = await request(state, `/api/repository?path=${encodeURIComponent(repo)}`);
   assert.equal(inspected.body.git, true);
   assert.equal(inspected.body.files, 1);
+
+  const map = await request(state, `/api/project-map?project=${encodeURIComponent(slug(path.basename(repo)))}`);
+  assert.equal(map.status, 200);
+  assert.equal(map.body.parts.length, 1);
+  assert.equal(map.body.verifiedParts, 0, 'the gate did not verify this boundary claim');
+  assert.equal(map.body.survey.coverage.segments.find((segment) => segment.id === 'not-inspected').count, 1);
 });
 
 test('presence is an observation with a window, not a claim that outlives the process', () => {
