@@ -20,7 +20,7 @@ skill/     the portable rules handed to whichever agent connects.
 
 Rejected: porting the core to Rust, which discards a verified FSRS implementation and raises the contributor bar; and splitting reads into Rust while writes stay in Node, which duplicates the read path in two languages and guarantees they drift.
 
-Accepted cost: the user needs Node 22.5 or newer. This audience runs Claude Code or Codex, both of which are npm packages, so they already have it. The first run checks for it and says so plainly rather than failing obscurely.
+Accepted cost: the user needs Node 22.13 or newer, the first release where `node:sqlite` works without an experimental flag. This audience runs Claude Code or Codex, both of which are npm packages, so they already have it. The first run checks for it and says so plainly rather than failing obscurely.
 
 ## Interfaces between rounds
 

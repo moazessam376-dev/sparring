@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import nodePath from 'node:path';
 import { hashText } from './claim.mjs';
 import { matchTexts, validatePattern, MAX_QUERY_BYTES } from './patterns.mjs';
@@ -36,6 +37,20 @@ const GIT_ENV = {
 };
 
 const MAX_BUFFER = 256 * 1024 * 1024;
+
+// A repository can arrive through a folder picker, Git, or an MCP client.
+// Windows gives those callers different spellings for the same directory
+// (notably slash direction and 8.3 names), so repository identity must never
+// depend on the spelling that happened to cross one boundary.
+export function canonicalRepositoryPath(value) {
+  if (typeof value !== 'string' || value.trim() === '') throw new Error('repository path must be a non-empty string');
+  const resolved = nodePath.resolve(value);
+  try {
+    return nodePath.normalize(fs.realpathSync.native(resolved));
+  } catch {
+    return nodePath.normalize(resolved);
+  }
+}
 
 function runGit(repo, args, { allowFail = false, timeout = 5000, input = undefined } = {}) {
   try {
@@ -712,7 +727,7 @@ export function repositoryRoot(repo) {
   const result = runGit(repo, ['rev-parse', '--show-toplevel'], { allowFail: true });
   if (result.status !== 0) return null;
   const root = result.stdout.toString('utf8').trim();
-  return root === '' ? null : root;
+  return root === '' ? null : canonicalRepositoryPath(root);
 }
 
 // Tracked files, from the index.

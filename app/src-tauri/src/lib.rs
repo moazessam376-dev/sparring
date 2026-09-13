@@ -14,7 +14,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, RunEvent, State};
 
 const NODE_MIN_MAJOR: u32 = 22;
-const NODE_MIN_MINOR: u32 = 5;
+const NODE_MIN_MINOR: u32 = 13;
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(10);
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(200);
 const SIDECAR_POLL_INTERVAL: Duration = Duration::from_millis(250);
@@ -237,7 +237,8 @@ impl SidecarManager {
             // The handlers below cover every exit this process can observe; the
             // watchdog covers the ones it cannot, a crash or a SIGKILL.
             .env("SPARRING_PARENT_PID", std::process::id().to_string())
-            .stdin(Stdio::null())
+            .env("SPARRING_STDIN_SHUTDOWN", "1")
+            .stdin(Stdio::piped())
             .stdout(Stdio::from(log_copy))
             .stderr(Stdio::from(log));
 
@@ -317,6 +318,20 @@ impl SidecarManager {
             return;
         };
 
+        // EOF on the pipe is the graceful shutdown signal. Node can observe
+        // that on Windows, where SIGTERM is not delivered to a handler.
+        drop(child.stdin.take());
+        let deadline = Instant::now() + TERM_GRACE;
+        while Instant::now() < deadline {
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                let _ = fs::remove_file(self.state_dir().join("port"));
+                return;
+            }
+            thread::sleep(TERM_POLL_INTERVAL);
+        }
+
+        // A crashed or wedged sidecar may not consume EOF. Keep the existing
+        // process-tree kill as the bounded fallback after the grace period.
         kill_process_tree(&mut child);
         let _ = child.wait();
         let _ = fs::remove_file(self.state_dir().join("port"));
@@ -451,12 +466,12 @@ fn check_node_version() -> Result<(), String> {
         .arg("--version")
         .output()
         .map_err(|_| {
-            "Node.js 22.5 or newer is required, but node was not found on PATH. Install Node.js 22.5 or newer from https://nodejs.org/en/download/.".to_string()
+            "Node.js 22.13 or newer is required, but node was not found on PATH. Install Node.js 22.13 or newer from https://nodejs.org/en/download/.".to_string()
         })?;
 
     if !output.status.success() {
         return Err(
-            "Node.js 22.5 or newer is required, but node --version failed. Install Node.js 22.5 or newer from https://nodejs.org/en/download/."
+            "Node.js 22.13 or newer is required, but node --version failed. Install Node.js 22.13 or newer from https://nodejs.org/en/download/."
                 .to_string(),
         );
     }
@@ -468,10 +483,13 @@ fn check_node_version() -> Result<(), String> {
 
     match (major, minor) {
         (Some(major), Some(minor))
-            if major > NODE_MIN_MAJOR
+            // node:sqlite runs without --experimental-sqlite from 22.13 on the 22
+            // line and from 23.4 on the 23 line, so 23.0 to 23.3 must be refused.
+            if major > 23
+                || (major == 23 && minor >= 4)
                 || (major == NODE_MIN_MAJOR && minor >= NODE_MIN_MINOR) => Ok(()),
         _ => Err(format!(
-            "Node.js 22.5 or newer is required, but {version} was found on PATH. Install Node.js 22.5 or newer from https://nodejs.org/en/download/."
+            "Node.js 22.13 or newer is required, but {version} was found on PATH. Install Node.js 22.13 or newer from https://nodejs.org/en/download/."
         )),
     }
 }

@@ -228,6 +228,12 @@ export async function main() {
   };
   process.on('SIGINT', () => stop(130));
   process.on('SIGTERM', () => stop(0));
+  // The desktop shell owns this stdin pipe. Closing it is the portable
+  // graceful-stop signal: unlike SIGTERM, it is delivered to Node on Windows.
+  if (process.env.SPARRING_STDIN_SHUTDOWN === '1') {
+    process.stdin.once('end', () => stop(0));
+    process.stdin.resume();
+  }
   // The parent-gone path takes the same exit as a signal, closing the database
   // rather than calling process.exit directly.
   watch = watchParent(parentPid(), () => {

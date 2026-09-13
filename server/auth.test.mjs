@@ -15,7 +15,10 @@ test('ensureToken creates a stable private token', () => {
   const first = ensureToken(dir);
   assert.match(first, /^[0-9a-f]{64}$/);
   assert.equal(ensureToken(dir), first);
-  assert.equal(fs.statSync(path.join(dir, 'token')).mode & 0o777, 0o600);
+  // Windows has no POSIX permission bits; the file lives under the user profile instead.
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(path.join(dir, 'token')).mode & 0o777, 0o600);
+  }
 });
 
 test('guard accepts a matching bearer token without an Origin', () => {

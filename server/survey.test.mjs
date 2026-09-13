@@ -10,6 +10,7 @@ import { makeClaim } from '../survey/claim.mjs';
 import { verify } from '../survey/verify.mjs';
 import { handle } from './api.mjs';
 import { dispatch } from './mcp.mjs';
+import { canonicalRepositoryPath } from '../survey/evidence.mjs';
 import { PRESENCE_WINDOW_MS, forgetAgent, noteAgent, presence } from './presence.mjs';
 
 function home() {
@@ -75,7 +76,7 @@ test('the survey route hands back the stored survey and what confirming it would
 
   const listed = await request(state, '/api/surveys');
   assert.equal(listed.body.length, 1);
-  assert.equal(listed.body[0].repo, repo);
+  assert.equal(listed.body[0].repo, canonicalRepositoryPath(repo));
 
   const inspected = await request(state, `/api/repository?path=${encodeURIComponent(repo)}`);
   assert.equal(inspected.body.git, true);

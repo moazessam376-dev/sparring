@@ -52,11 +52,11 @@ function health(port) {
   });
 }
 
-async function startSidecar(env) {
+async function startSidecar(env, { stdin = 'ignore' } = {}) {
   const state = home();
   const child = spawn(process.execPath, [SERVER], {
     env: { ...process.env, SPARRING_HOME: state, ...env },
-    stdio: 'ignore',
+    stdio: [stdin, 'ignore', 'ignore'],
     detached: true,
   });
   const portFile = path.join(state, 'port');
@@ -158,7 +158,11 @@ test('the sidecar closes its database rather than falling over', async () => {
 
 test('a sidecar started without a parent id keeps running', async () => {
   // The tests and anyone running the server by hand depend on this.
-  const sidecar = await startSidecar({ SPARRING_PARENT_PID: '' });
+  const windows = process.platform === 'win32';
+  const sidecar = await startSidecar(
+    { SPARRING_PARENT_PID: '', ...(windows ? { SPARRING_STDIN_SHUTDOWN: '1' } : {}) },
+    { stdin: windows ? 'pipe' : 'ignore' },
+  );
 
   try {
     await sleep(3000);
@@ -168,7 +172,8 @@ test('a sidecar started without a parent id keeps running', async () => {
     const exit = new Promise((resolve) => {
       sidecar.child.once('exit', (code, signal) => resolve({ code, signal }));
     });
-    sidecar.child.kill('SIGTERM');
+    if (windows) sidecar.child.stdin.end();
+    else sidecar.child.kill('SIGTERM');
     assert.deepEqual(await exit, { code: 0, signal: null });
   } finally {
     reap(sidecar.child);

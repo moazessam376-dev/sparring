@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import nodePath from 'node:path';
 import { readAll } from '../core/log.mjs';
 import { canVouchClaim, validateClaim } from './claim.mjs';
-import { filesUnder, languageOf, repositoryRoot, resolveCommit } from './evidence.mjs';
+import { canonicalRepositoryPath, filesUnder, languageOf, repositoryRoot, resolveCommit } from './evidence.mjs';
 
 // Where a survey goes after the gate has finished with it, and what the
 // interface is allowed to know about one.
@@ -18,9 +18,10 @@ const MAX_CLAIM_NAME = 64;
 
 /** A survey is filed under the repository and the commit it read. */
 export function surveyKey(repo, commit) {
+  const canonicalRepo = canonicalRepositoryPath(repo);
   return crypto
     .createHash('sha256')
-    .update(`${repo}\u0000${commit ?? ''}`, 'utf8')
+    .update(`${canonicalRepo}\u0000${commit ?? ''}`, 'utf8')
     .digest('hex')
     .slice(0, 16);
 }
@@ -31,9 +32,14 @@ function surveysDir(home) {
 
 export function storeSurvey(home, repo, result) {
   const dir = surveysDir(home);
+  const canonicalRepo = canonicalRepositoryPath(repo);
   fs.mkdirSync(dir, { recursive: true });
-  const file = nodePath.join(dir, `${surveyKey(repo, result.summary?.commit ?? null)}.json`);
-  const document = { at: new Date().toISOString(), ...result };
+  const file = nodePath.join(dir, `${surveyKey(canonicalRepo, result.summary?.commit ?? null)}.json`);
+  const document = {
+    at: new Date().toISOString(),
+    ...result,
+    summary: { ...result.summary, repo: canonicalRepo },
+  };
   fs.writeFileSync(file, `${JSON.stringify(document, null, 2)}\n`);
   return file;
 }
@@ -43,7 +49,7 @@ function readStored(file) {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     if (!parsed.summary || typeof parsed.summary.repo !== 'string') return null;
-    return parsed;
+    return { ...parsed, summary: { ...parsed.summary, repo: canonicalRepositoryPath(parsed.summary.repo) } };
   } catch {
     // A half-written or hand-edited survey file is skipped rather than crashing
     // the route that lists them. It is a cache of an agent's submission, not a
@@ -89,6 +95,7 @@ export function listSurveys(home) {
 
 function newestFor(home, repo) {
   const dir = surveysDir(home);
+  const canonicalRepo = canonicalRepositoryPath(repo);
   let names;
   try {
     names = fs.readdirSync(dir);
@@ -100,7 +107,7 @@ function newestFor(home, repo) {
   for (const name of names) {
     if (!name.endsWith('.json')) continue;
     const stored = readStored(nodePath.join(dir, name));
-    if (stored === null || stored.summary.repo !== repo) continue;
+    if (stored === null || stored.summary.repo !== canonicalRepo) continue;
     const at = typeof stored.at === 'string' ? stored.at : '';
     if (best === null || at >= bestAt) {
       best = stored;
@@ -139,7 +146,7 @@ export function storedClaimForVouch(home, repo, claimId) {
  */
 export function inspectRepository(path) {
   if (typeof path !== 'string' || path.trim() === '') throw new Error('path is required');
-  const chosen = nodePath.resolve(path);
+  const chosen = canonicalRepositoryPath(path);
   let exists = false;
   try {
     exists = fs.statSync(chosen).isDirectory();

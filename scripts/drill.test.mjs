@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { addDays, applySchedule, initialSchedule, isRetiredFromDaily, replaySchedule, scheduleState } from './drill.mjs';
 
-const script = path.resolve(new URL('./drill.mjs', import.meta.url).pathname);
+const script = fileURLToPath(new URL('./drill.mjs', import.meta.url));
 const NOW = '2026-09-05T12:00:00Z';
 
 function home() {

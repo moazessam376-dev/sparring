@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalRepositoryPath } from '../survey/evidence.mjs';
 
 const HOME = process.env.SPARRING_HOME || path.join(os.homedir(), '.sparring');
 const GRADES = ['correct', 'partial', 'wrong'];
@@ -478,9 +479,10 @@ function commandInit(positionals, options) {
     json({ project, initialized: true, version: 1, warning: 'bank is v1; run migrate' });
     return;
   }
-  const repo = options.repo || existingBank?.repo;
-  if (!repo) fail('init requires --repo for a new project');
-  if (!path.isAbsolute(repo)) fail('--repo must be an absolute path');
+  const requestedRepo = options.repo || existingBank?.repo;
+  if (!requestedRepo) fail('init requires --repo for a new project');
+  if (!path.isAbsolute(requestedRepo)) fail('--repo must be an absolute path');
+  const repo = canonicalRepositoryPath(requestedRepo);
   const bank = existingBank || { version: 2, project, repo, generated: sessionDate(), cards: [] };
   bank.version = 2;
   bank.project = project;
