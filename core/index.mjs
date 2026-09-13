@@ -9,6 +9,7 @@ import { schedule } from './scheduler.mjs';
 import { update } from './elo.mjs';
 import { topicsForProject } from './graph.mjs';
 import { topicMastery } from './mastery.mjs';
+import { calibration, checkTypes } from './standing.mjs';
 import { canVouchClaim, CLAIM_STATUSES, validateClaim } from '../survey/claim.mjs';
 import { COMPONENTS } from '../lesson/schema.mjs';
 import { validate as validateLessonDocument } from '../lesson/validate.mjs';
@@ -930,22 +931,59 @@ export function due(state, { n = 12, includeMature = false } = {}) {
   return interleave(rows, limit, keys);
 }
 
-export function standing(state, projectId) {
-  const ids = new Set(topicsForProject(state.db, projectId));
-  const cardTopics = state.db.prepare(`
-    select distinct ct.topic
-    from card_topics ct
-    join cards c on c.id = ct.card
-    where c.project = ?
-    order by ct.topic
-  `).all(projectId);
+export function standing(state, projectId = null) {
+  const ids = projectId === null || projectId === undefined
+    ? new Set(state.db.prepare('select id from topics order by id').all().map((row) => row.id))
+    : new Set(topicsForProject(state.db, projectId));
+  const cardTopics = projectId === null || projectId === undefined
+    ? state.db.prepare('select distinct ct.topic from card_topics ct join cards c on c.id = ct.card order by ct.topic').all()
+    : state.db.prepare(`
+        select distinct ct.topic
+        from card_topics ct
+        join cards c on c.id = ct.card
+        where c.project = ?
+        order by ct.topic
+      `).all(projectId);
   for (const row of cardTopics) ids.add(row.topic);
   const date = today();
+  const topicRows = ids.size === 0
+    ? []
+    : state.db.prepare(`select id, name, kind from topics where id in (${[...ids].map(() => '?').join(',')}) order by id`).all(...ids);
+  const vouchRows = state.db.prepare('select claim from vouches').all();
+  const vouched = new Set(vouchRows.map((row) => row.claim));
+  const gateStatus = (topic) => state.db.prepare('select gate_status from topic_claims where topic = ?').get(topic)?.gate_status ?? null;
+  const linkedProjects = state.db.prepare(`
+    select tp.topic, p.id, p.name
+    from topic_projects tp
+    join projects p on p.id = tp.project
+    order by tp.topic, p.id
+  `).all();
+  const projectsByTopic = new Map();
+  for (const row of linkedProjects) {
+    const list = projectsByTopic.get(row.topic) ?? [];
+    list.push({ id: row.id, name: row.name });
+    projectsByTopic.set(row.topic, list);
+  }
+  const result = topicRows.map((row) => {
+    const status = gateStatus(row.id);
+    const mastery = topicMastery(state.db, row.id, date);
+    return {
+      topic: row.id,
+      name: row.name,
+      kind: row.kind,
+      projects: projectsByTopic.get(row.id) ?? [],
+      gateStatus: status,
+      vouched: status !== null && status !== 'verified' && vouched.has(row.id),
+      ...mastery,
+    };
+  });
   return {
     project: projectId,
-    topics: [...ids].sort().map((topic) => ({
-      topic,
-      ...topicMastery(state.db, topic, date),
-    })),
+    topics: result,
+    totalTopics: result.length,
+    verifiedTopics: result.filter((topic) => topic.gateStatus === 'verified').length,
+    vouchedTopics: result.filter((topic) => topic.vouched).length,
+    calibration: calibration(state, projectId),
+    checkTypes: checkTypes(state, projectId),
   };
 }

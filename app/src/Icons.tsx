@@ -98,6 +98,24 @@ export function FolderIcon(props: IconProps) {
   );
 }
 
+export function MapIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 5.5 9 3l6 3 5-2.5v15L15 21l-6-3-5 2.5z" />
+      <path d="M9 3v15M15 6v15" />
+    </Icon>
+  );
+}
+
+export function ChartIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 19V5M4 19h16" />
+      <path d="m7 15 3-4 3 2 4-6" />
+    </Icon>
+  );
+}
+
 export function CheckIcon(props: IconProps) {
   return (
     <Icon {...props}>

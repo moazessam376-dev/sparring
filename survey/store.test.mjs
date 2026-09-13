@@ -10,11 +10,14 @@ import {
   claimName,
   inspectRepository,
   listSurveys,
+  projectMapState,
   seedFrom,
+  slug,
   storeSurvey,
   surveyKey,
   surveyState,
 } from './store.mjs';
+import { openState, vouch } from '../core/index.mjs';
 
 function temp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -94,6 +97,15 @@ test('no survey for a repository is null rather than an empty survey', () => {
   assert.equal(state.seed, null);
 });
 
+test('the project map reports no stored survey instead of inventing an empty map', () => {
+  const home = temp('sparring-home-');
+  const map = projectMapState(home, 'raptor');
+  assert.equal(map.survey, null);
+  assert.deepEqual(map.parts, []);
+  assert.deepEqual(map.constraints, []);
+  assert.deepEqual(map.edges, []);
+});
+
 test('the key is stable for a repository and commit', () => {
   assert.equal(surveyKey('/a', 'abc'), surveyKey('/a', 'abc'));
   assert.notEqual(surveyKey('/a', 'abc'), surveyKey('/a', 'abd'));
@@ -136,4 +148,32 @@ test('a claim is named from its evidence rather than from its sentence when it c
   );
   assert.equal(claimName({ type: 'constraint', sentence: 'x', path: 'db/policies/sessions.sql' }), 'sessions');
   assert.equal(claimName({ type: 'topic', sentence: 'One two three four five six', path: null }), 'One two three four five');
+});
+
+test('the project map keeps every claim status and excludes a vouch from verified counts', () => {
+  const home = temp('sparring-home-');
+  const repo = repository();
+  const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  const claims = [
+    makeClaim({ id: 'part-verified', type: 'part', status: 'verified', sentence: 'The verified part owns the boundary.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', boundary: { dir: '.', neighbours: [] } }),
+    makeClaim({ id: 'part-vouched', type: 'part', status: 'inferred', sentence: 'The user confirms this part.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', boundary: { dir: '.', neighbours: [] } }),
+    makeClaim({ id: 'part-stale', type: 'part', status: 'stale', sentence: 'The stale part remains visible.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', boundary: { dir: '.', neighbours: [] } }),
+    makeClaim({ id: 'part-unchecked', type: 'part', status: 'unchecked', sentence: 'The unchecked part remains visible.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', boundary: { dir: '.', neighbours: [] } }),
+    makeClaim({ id: 'part-contradicted', type: 'part', status: 'contradicted', sentence: 'The contradicted part remains visible.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', boundary: { dir: '.', neighbours: [] } }),
+    makeClaim({ id: 'constraint-inferred', type: 'constraint', status: 'inferred', sentence: 'A constraint remains visible.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test' }),
+    makeClaim({ id: 'interaction-verified', type: 'interaction', status: 'verified', sentence: 'One part calls another.', path: 'index.mjs', fromLine: 1, toLine: 1, commit, extractor: 'test', ends: { from: { path: 'index.mjs', symbol: 'one' }, to: { path: 'index.mjs', symbol: 'two' } } }),
+  ];
+  storeSurvey(home, repo, {
+    summary: { repo, commit, claims: claims.length, shownAsFact: 2, shownQualified: 5, dropped: 0, trackedFiles: 2 },
+    coverage: { counts: { inspected: 1, excluded: 0, generated: 0, binary: 0, unresolved: 0, pending: 1 } },
+    claims,
+  });
+  const state = openState(home);
+  vouch(state, { claim: claims[1], judgement: 'I built this part.' });
+  const map = projectMapState(home, slug(path.basename(repo)));
+  assert.deepEqual(new Set(map.parts.map((part) => part.status)), new Set(['verified', 'vouched', 'stale', 'unchecked', 'contradicted']));
+  assert.deepEqual(map.edges.map((edge) => edge.status), ['verified']);
+  assert.equal(map.verifiedParts, 1);
+  assert.equal(map.vouchedClaims, 1);
+  assert.equal(map.survey.coverage.segments.find((segment) => segment.id === 'not-inspected').count, 1);
 });

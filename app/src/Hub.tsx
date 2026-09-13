@@ -44,6 +44,7 @@ type Props = {
   nothingDue: boolean;
   onStartDrill: () => void;
   onOpenLessons: (topic: string | null) => void;
+  onOpenMap: () => void;
   onSurvey: () => void;
   onImport: () => void;
 };
@@ -59,6 +60,7 @@ export function Hub({
   nothingDue,
   onStartDrill,
   onOpenLessons,
+  onOpenMap,
   onSurvey,
   onImport,
 }: Props) {
@@ -76,11 +78,11 @@ export function Hub({
     setFailure(null);
     void (async () => {
       try {
-        const [graph, rows] = await Promise.all([
+        const [graph, standingReport] = await Promise.all([
           fetchTopics(connection, projectId),
           fetchStanding(connection, projectId),
         ]);
-        if (!dropped) setLoaded({ graph, standing: rows });
+        if (!dropped) setLoaded({ graph, standing: standingReport.topics });
       } catch (error) {
         if (!dropped) setFailure(error instanceof ApiError ? error.message : String(error));
       }
@@ -403,6 +405,7 @@ export function Hub({
             onSelect={setSelected}
             onStartDrill={onStartDrill}
             onOpenLessons={onOpenLessons}
+            onOpenMap={onOpenMap}
           />
         </div>
       )}
@@ -420,6 +423,7 @@ type DetailProps = {
   onSelect: (key: string) => void;
   onStartDrill: () => void;
   onOpenLessons: (topic: string | null) => void;
+  onOpenMap: () => void;
 };
 
 function Detail({
@@ -432,6 +436,7 @@ function Detail({
   onSelect,
   onStartDrill,
   onOpenLessons,
+  onOpenMap,
 }: DetailProps) {
   if (node === null) return null;
   const topic = node.kind === "project" ? undefined : topicsById.get(node.id);
@@ -589,6 +594,9 @@ function Detail({
           </button>
           <button type="button" className="pill ghost" style={{ flexGrow: 1, textAlign: "center" }} onClick={() => onOpenLessons(node.kind === "project" ? null : node.id)}>
             Open lessons
+          </button>
+          <button type="button" className="pill ghost" style={{ flexGrow: 1, textAlign: "center" }} onClick={onOpenMap}>
+            Open map
           </button>
         </div>
         <div className="m" style={{ marginTop: 9, fontSize: 10.5, color: "var(--dim)", lineHeight: 1.5 }}>

@@ -25,7 +25,7 @@ import {
   vouch,
   withdrawVouch,
 } from '../core/index.mjs';
-import { inspectRepository, listSurveys, storedClaimForVouch, surveyState } from '../survey/store.mjs';
+import { inspectRepository, listSurveys, projectMapState, storedClaimForVouch, surveyState } from '../survey/store.mjs';
 import { presence } from './presence.mjs';
 
 const MAX_BODY = 2 * 1024 * 1024;
@@ -106,6 +106,10 @@ export async function handle(state, req, res) {
     }
     if (req.method === 'GET' && url.pathname === '/api/standing') {
       send(res, 200, standing(state, url.searchParams.get('project') || null));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/project-map') {
+      send(res, 200, projectMapState(state.home, url.searchParams.get('project') || ''));
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/gaps') {
