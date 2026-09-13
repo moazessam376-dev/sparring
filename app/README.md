@@ -4,7 +4,7 @@ This directory contains the Tauri 2 desktop shell for Sparring. Rust owns the na
 
 ## Requirements
 
-- Node.js 22.5 or newer
+- Node.js 22.13 or newer
 - Rust 1.77.2 or newer
 - The repository's `server/index.mjs` implementation
 

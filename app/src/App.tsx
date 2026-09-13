@@ -524,7 +524,7 @@ function ShellNotice({ shell, stateDirectory }: { shell: Waiting; stateDirectory
       <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>{shell.message}</div>
       {shell.name === "node-missing" && (
         <div style={{ color: "var(--muted)", lineHeight: 1.65 }}>
-          Sparring runs its server on Node.js on this machine. Install Node.js 22.5 or newer, then
+          Sparring runs its server on Node.js on this machine. Install Node.js 22.13 or newer, then
           reopen this window.
         </div>
       )}

@@ -11,7 +11,7 @@ Engineers who build with agents must still defend every decision. Nobody holds a
 
 Sparring has a desktop application and a portable skill. Install the application if you want the local window, server, tray and lessons. The skill installation is independent and remains useful on its own.
 
-The application requires Node.js 22.5 or newer because its local server runs on Node. On first launch, if Node is absent or too old, the window says `Node.js is missing` and tells you to install Node.js 22.5 or newer before reopening Sparring.
+The application requires Node.js 22.13 or newer because its local server runs on Node. On first launch, if Node is absent or too old, the window says `Node.js is missing` and tells you to install Node.js 22.13 or newer before reopening Sparring.
 
 ### macOS application
 
