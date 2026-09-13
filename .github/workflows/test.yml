@@ -71,4 +71,5 @@ jobs:
 
       - name: Build the Tauri application
         working-directory: app
+        shell: bash
         run: npm run tauri build -- --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}"

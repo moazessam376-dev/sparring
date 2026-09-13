@@ -75,6 +75,7 @@ jobs:
 
       - name: Build release bundles
         working-directory: app
+        shell: bash
         run: npm run tauri build -- --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}"
 
       - name: Normalize release artifact names
