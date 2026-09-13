@@ -9,6 +9,44 @@ Engineers who build with agents must still defend every decision. Nobody holds a
 
 ## Install
 
+Sparring has a desktop application and a portable skill. Install the application if you want the local window, server, tray and lessons. The skill installation is independent and remains useful on its own.
+
+The application requires Node.js 22.5 or newer because its local server runs on Node. On first launch, if Node is absent or too old, the window says `Node.js is missing` and tells you to install Node.js 22.5 or newer before reopening Sparring.
+
+### macOS application
+
+Run this in Terminal as your normal user. It downloads the installer to a temporary local file, then runs that file; it does not pipe a remote script into the shell:
+
+```sh
+tmp="$(mktemp)" && trap 'rm -f "$tmp"' EXIT && curl -fsSL https://raw.githubusercontent.com/moazessam376-dev/sparring/main/scripts/install.sh -o "$tmp" && bash "$tmp"
+```
+
+The installer detects Apple silicon or Intel, verifies the release checksum, and puts `Sparring.app` in `/Applications`. It refuses to run as root and never uses `sudo`. The app is ad-hoc signed, not notarised. This terminal route avoids the browser quarantine flag, so it should open from `/Applications` without a Gatekeeper settings trip.
+
+The release also includes a disk image for people who prefer drag-and-drop. Open the matching `Sparring-macos-arm64.dmg` or `Sparring-macos-x86_64.dmg`, drag Sparring to `/Applications`, then open System Settings → Privacy & Security and choose Open Anyway when macOS reports that the unsigned, not-notarised app was blocked.
+
+### Linux application
+
+Run this in a terminal as your normal user:
+
+```sh
+tmp="$(mktemp)" && trap 'rm -f "$tmp"' EXIT && curl -fsSL https://raw.githubusercontent.com/moazessam376-dev/sparring/main/scripts/install.sh -o "$tmp" && bash "$tmp"
+```
+
+The installer detects x86_64 Linux, verifies the release checksum, installs the executable AppImage at `~/.local/bin/sparring`, and writes `~/.local/share/applications/sparring.desktop`. Sparring then appears in your applications menu. The release also includes `Sparring-linux-x86_64.deb` for Debian-based systems; verify its `SHA256SUMS.txt` entry before installing it with your package manager. Linux has no single platform-wide signing gate for this release, so the checksum is the trust check.
+
+### Windows application
+
+Run this in PowerShell as your normal user. It downloads the installer to a temporary local file, verifies it, and then starts it; it does not pipe a remote script into PowerShell:
+
+```powershell
+$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sparring-install.ps1'; try { Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/moazessam376-dev/sparring/main/scripts/install.ps1 -OutFile $p; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Remove-Item $p -Force -ErrorAction SilentlyContinue }
+```
+
+The installer detects Windows x86_64, verifies `Sparring-windows-x86_64.exe`, and opens the Tauri installer. This build is unsigned. If Windows SmartScreen says Windows protected your PC, choose More info, then Run anyway, if you trust the release and its checksum.
+
+## Skill installation
+
 ### Claude Code
 
 ```sh
@@ -114,4 +152,3 @@ MIT.
 ## How it teaches
 
 Lessons are Markdown files built for retention, not reading: a knowledge ladder of yes-or-no questions in chat first, a pretest, parts that each explain one idea with a story and a Mermaid diagram, one check per part asked and graded in chat, a self-explanation prompt, and at most five recall strings. Drills are spaced over days and interleaved across projects. The evidence behind each rule is in `docs/research/2026-09-10-learning-science.md`.
-
